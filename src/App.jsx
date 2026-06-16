@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StoreProvider, useStore, getActiveChild } from './store.jsx';
 import { ToastProvider } from './utils.jsx';
 import { ModalStackProvider, useAndroidBack, Modal } from './Modal.jsx';
@@ -17,19 +17,6 @@ const TABS = [
   { key: 'outils', label: 'Outils', icon: '🛠️' },
   { key: 'reglages', label: 'Réglages', icon: '⚙️' },
 ];
-
-// ----------------------------------------------------------------------
-// Placeholder tabs (built in later steps)
-// ----------------------------------------------------------------------
-function PlaceholderTab({ icon, title, desc }) {
-  return (
-    <div className="empty-state">
-      <div className="emoji">{icon}</div>
-      <div className="title">{title}</div>
-      <div className="desc">{desc}</div>
-    </div>
-  );
-}
 
 // ----------------------------------------------------------------------
 // Child switcher modal
@@ -147,6 +134,18 @@ function AppShell() {
     <div className="app-shell">
       <div className="app-topbar">
         <div className="app-topbar-left">
+          {/* Icône app à côté du titre */}
+          <img
+            src="./icon.png"
+            alt="OmniBaby"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              objectFit: 'cover',
+              flexShrink: 0,
+            }}
+          />
           <div>
             <div className="app-topbar-title">OmniBaby</div>
             <div className="app-topbar-sub">Suivi bébé hors-ligne</div>
