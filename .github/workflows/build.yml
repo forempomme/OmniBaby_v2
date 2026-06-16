@@ -9,6 +9,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        shell: bash
+
     steps:
       # ----------------------------------------------------------------
       # 1. Checkout
@@ -24,31 +28,35 @@ jobs:
       - name: Read version
         id: version
         run: |
-          source version.properties
-          echo "major=$VERSION_MAJOR" >> $GITHUB_OUTPUT
-          echo "minor=$VERSION_MINOR" >> $GITHUB_OUTPUT
-          echo "patch=$VERSION_PATCH" >> $GITHUB_OUTPUT
-          echo "version=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH" >> $GITHUB_OUTPUT
+          while IFS='=' read -r key value; do
+            [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
+            key=$(echo "$key" | tr -d '[:space:]')
+            value=$(echo "$value" | tr -d '[:space:]')
+            export "$key=$value"
+          done < version.properties
+          echo "major=$VERSION_MAJOR" >> "$GITHUB_OUTPUT"
+          echo "minor=$VERSION_MINOR" >> "$GITHUB_OUTPUT"
+          echo "patch=$VERSION_PATCH" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH" >> "$GITHUB_OUTPUT"
 
       # ----------------------------------------------------------------
       # 3. Génération de src/version.js
       # ----------------------------------------------------------------
       - name: Generate src/version.js
         run: |
-          echo "// Auto-généré par le CI — ne pas modifier manuellement" > src/version.js
-          echo "export const APP_VERSION = '${{ steps.version.outputs.version }}';" >> src/version.js
+          VERSION="${{ steps.version.outputs.version }}"
+          printf '// Auto-généré par le CI — ne pas modifier manuellement\nexport const APP_VERSION = "%s";\n' "$VERSION" > src/version.js
 
       # ----------------------------------------------------------------
-      # 4. Setup Node.js
+      # 4. Setup Node.js (sans cache pour éviter l'erreur lock file)
       # ----------------------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       # ----------------------------------------------------------------
-      # 5. Build React (npm install + npm run build)
+      # 5. Build React
       # ----------------------------------------------------------------
       - name: Install dependencies
         run: npm install
@@ -66,10 +74,12 @@ jobs:
           java-version: '17'
 
       # ----------------------------------------------------------------
-      # 7. Setup Android SDK
+      # 7. Setup Android SDK via sdkmanager
       # ----------------------------------------------------------------
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" > /dev/null 2>&1
 
       # ----------------------------------------------------------------
       # 8. Capacitor: init + add android + sync
@@ -77,12 +87,261 @@ jobs:
       - name: Install Capacitor CLI
         run: npm install -g @capacitor/cli@6
 
-      - name: Capacitor init (idempotent)
-        run: npx cap init OmniBaby com.omnibaby.app --web-dir=dist --npm-client=npm 2>&1 || true
+      - name: Capacitor init
+        run: |
+          if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
+            npx cap init OmniBaby com.omnibaby.app --web-dir=dist --npm-client=npm
+          else
+            echo "capacitor.config.json already present, skipping init."
+          fi
 
-      - name: Capacitor add android (idempotent)
-        run: npx cap add android 2>&1 || true
+      - name: Capacitor add android
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            echo "android/ already present, skipping add."
+          fi
 
+      - name: Capacitor sync
+        run: npx cap sync android
+
+      # ----------------------------------------------------------------
+      # 9. Fix Maven (contourne erreurs 403 sur GitHub runner)
+      # ----------------------------------------------------------------
+      - name: Fix Maven repositories
+        run: |
+          python3 - << 'PYEOF'
+          import re
+
+          with open("android/build.gradle", "r") as f:
+              content = f.read()
+
+          mirror = '\n        maven { url "https://repo1.maven.org/maven2" }\n        maven { url "https://dl.google.com/dl/android/maven2" }'
+
+          # Ajouter les miroirs après google() dans les blocs repositories
+          content = re.sub(
+              r'(google\(\))',
+              r'\1' + mirror,
+              content,
+              count=1
+          )
+
+          with open("android/build.gradle", "w") as f:
+              f.write(content)
+
+          print("Maven mirrors added.")
+          PYEOF
+
+      # ----------------------------------------------------------------
+      # 10. Injection des icônes
+      # ----------------------------------------------------------------
+      - name: Inject Android icons
+        run: |
+          for dpi in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            SRC="assets/android-icons/mipmap-${dpi}"
+            DST="android/app/src/main/res/mipmap-${dpi}"
+            if [ -d "$SRC" ]; then
+              mkdir -p "$DST"
+              cp -f "$SRC"/*.png "$DST/" 2>/dev/null || true
+              echo "Icons copied for $dpi"
+            fi
+          done
+
+      # ----------------------------------------------------------------
+      # 11. versionCode et versionName
+      # ----------------------------------------------------------------
+      - name: Set version in build.gradle
+        run: |
+          python3 - << 'PYEOF'
+          import re, os
+
+          major = int(os.environ.get("MAJOR", "1"))
+          minor = int(os.environ.get("MINOR", "0"))
+          patch = int(os.environ.get("PATCH", "0"))
+          version = f"{major}.{minor}.{patch}"
+          version_code = major * 10000 + minor * 100 + patch
+
+          with open("android/app/build.gradle", "r") as f:
+              content = f.read()
+
+          content = re.sub(r'versionCode\s+\d+', f'versionCode {version_code}', content)
+          content = re.sub(r'versionName\s+"[^"]*"', f'versionName "{version}"', content)
+
+          with open("android/app/build.gradle", "w") as f:
+              f.write(content)
+
+          print(f"Set versionCode={version_code}, versionName={version}")
+          PYEOF
+        env:
+          MAJOR: ${{ steps.version.outputs.major }}
+          MINOR: ${{ steps.version.outputs.minor }}
+          PATCH: ${{ steps.version.outputs.patch }}
+
+      # ----------------------------------------------------------------
+      # 12. Décodage du keystore
+      # ----------------------------------------------------------------
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/omnibaby.keystore
+          echo "Keystore size: $(wc -c < android/app/omnibaby.keystore) bytes"
+
+      # ----------------------------------------------------------------
+      # 13. keystore.properties (sans indentation pour éviter les espaces)
+      # ----------------------------------------------------------------
+      - name: Create keystore.properties
+        run: |
+          cat > android/keystore.properties << KEOF
+          storeFile=omnibaby.keystore
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          KEOF
+          # Supprimer les espaces en début de ligne (artefact du heredoc indenté)
+          sed -i 's/^[[:space:]]*//' android/keystore.properties
+
+      # ----------------------------------------------------------------
+      # 14. Configuration de la signature via Python (plus fiable que sed)
+      # ----------------------------------------------------------------
+      - name: Configure signing in app/build.gradle
+        run: |
+          python3 - << 'PYEOF'
+          with open("android/app/build.gradle", "r") as f:
+              content = f.read()
+
+          if "keystoreProperties" in content:
+              print("Signing already configured, skipping.")
+          else:
+              header = '''def keystorePropertiesFile = rootProject.file("keystore.properties")
+          def keystoreProperties = new Properties()
+          if (keystorePropertiesFile.exists()) {
+              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+          }
+
+          '''
+              signing_config = '''    signingConfigs {
+              release {
+                  storeFile file(keystoreProperties["storeFile"])
+                  storePassword keystoreProperties["storePassword"]
+                  keyAlias keystoreProperties["keyAlias"]
+                  keyPassword keystoreProperties["keyPassword"]
+              }
+          }
+
+          '''
+              # Ajouter le header en tête de fichier
+              content = header + content
+
+              # Insérer signingConfigs avant buildTypes
+              content = content.replace("    buildTypes {", signing_config + "    buildTypes {", 1)
+
+              # Ajouter signingConfig dans le bloc release
+              content = content.replace(
+                  "        release {",
+                  "        release {\n            signingConfig signingConfigs.release",
+                  1
+              )
+
+              with open("android/app/build.gradle", "w") as f:
+                  f.write(content)
+
+              print("Signing configuration added.")
+          PYEOF
+
+      # ----------------------------------------------------------------
+      # 15. Build APK signé
+      # ----------------------------------------------------------------
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
+
+      # ----------------------------------------------------------------
+      # 16. Renommage APK
+      # ----------------------------------------------------------------
+      - name: Rename APK
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          APK_SRC=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          if [ -z "$APK_SRC" ]; then
+            echo "ERROR: APK not found!"
+            find android/app/build/outputs -name "*.apk" 2>/dev/null || echo "No APK anywhere."
+            exit 1
+          fi
+          cp "$APK_SRC" "OmniBaby-v${VERSION}.apk"
+          echo "APK_PATH=OmniBaby-v${VERSION}.apk" >> "$GITHUB_ENV"
+          echo "APK produced: OmniBaby-v${VERSION}.apk ($(wc -c < "OmniBaby-v${VERSION}.apk") bytes)"
+
+      # ----------------------------------------------------------------
+      # 17. ZIP sources web
+      # ----------------------------------------------------------------
+      - name: Create web ZIP
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          zip -r "OmniBaby-web-v${VERSION}.zip" dist/
+          echo "ZIP_PATH=OmniBaby-web-v${VERSION}.zip" >> "$GITHUB_ENV"
+
+      # ----------------------------------------------------------------
+      # 18. Tag Git
+      # ----------------------------------------------------------------
+      - name: Create Git tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists, skipping."
+          else
+            git tag -a "v${VERSION}" -m "Release v${VERSION}"
+            git push origin "v${VERSION}"
+          fi
+
+      # ----------------------------------------------------------------
+      # 19. Upload artifact (30 jours)
+      # ----------------------------------------------------------------
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OmniBaby-v${{ steps.version.outputs.version }}
+          path: |
+            ${{ env.APK_PATH }}
+            ${{ env.ZIP_PATH }}
+          retention-days: 30
+
+      # ----------------------------------------------------------------
+      # 20. GitHub Release
+      # ----------------------------------------------------------------
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: OmniBaby v${{ steps.version.outputs.version }}
+          body: |
+            ## OmniBaby v${{ steps.version.outputs.version }}
+
+            Application Android de suivi bébé — 100% hors-ligne, multi-enfants, sans compte.
+
+            ### Installation
+            1. Télécharger `OmniBaby-v${{ steps.version.outputs.version }}.apk`
+            2. Ouvrir le fichier sur votre téléphone Android
+            3. Autoriser l'installation depuis des sources inconnues si demandé
+            4. Installer — les données existantes sont conservées lors des mises à jour (même keystore)
+
+            ### Fichiers
+            - `OmniBaby-v${{ steps.version.outputs.version }}.apk` — APK Android signé, prêt à installer
+            - `OmniBaby-web-v${{ steps.version.outputs.version }}.zip` — Sources web compilées (dist/)
+          files: |
+            ${{ env.APK_PATH }}
+            ${{ env.ZIP_PATH }}
+          make_latest: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Capacitor sync
         run: npx cap sync android
 
