@@ -303,27 +303,54 @@ function TodayOverview({ entries, child, filterType, setFilterType }) {
   const lastSommeil = lastOfType(entries, 'sommeil');
   const nextBiberon = estimateNextBiberon(entries);
 
+  // Cumuls du jour
+  const todayBiberons = entries.filter((e) => e.type === 'biberon');
+  const totalLait = todayBiberons.filter((b) => b.mode === 'biberon').reduce((sum, b) => sum + (b.quantite || 0), 0);
+  const totalTetees = todayBiberons.filter((b) => b.mode === 'sein').reduce((sum, b) => sum + (b.duree || 0), 0);
+  const totalCouches = entries.filter((e) => e.type === 'couche').length;
+  const totalSommeilMin = entries.filter((e) => e.type === 'sommeil').reduce((sum, s) => sum + (s.duree || 0), 0);
+
+  // Ligne de détail sous chaque stamp
+  const biberonDetail = todayBiberons.length > 0
+    ? totalLait > 0
+      ? `${todayBiberons.length}x · ${totalLait} ml`
+      : totalTetees > 0
+        ? `${todayBiberons.length}x · ${totalTetees} min`
+        : `${todayBiberons.length}x`
+    : null;
+
+  const coucheDetail = totalCouches > 0 ? `${totalCouches} changes` : null;
+
+  const sommeilDetail = totalSommeilMin > 0
+    ? totalSommeilMin >= 60
+      ? `${Math.floor(totalSommeilMin / 60)}h${String(totalSommeilMin % 60).padStart(2, '0')}`
+      : `${totalSommeilMin} min`
+    : null;
+
   const stats = [
-    { key: 'biberon', icon: '🍼', label: 'Biberon', value: lastBiberon ? formatTimeFR(lastBiberon.date) : '—' },
-    { key: 'couche', icon: '🧷', label: 'Change', value: lastCouche ? formatTimeFR(lastCouche.date) : '—' },
-    { key: 'sommeil', icon: '🌙', label: 'Sommeil', value: lastSommeil ? formatTimeFR(lastSommeil.date) : '—' },
+    {
+      key: 'biberon', icon: '🍼', label: 'Dernier',
+      value: lastBiberon ? formatTimeFR(lastBiberon.date) : '—',
+      detail: biberonDetail,
+    },
+    {
+      key: 'couche', icon: '🧷', label: 'Dernier',
+      value: lastCouche ? formatTimeFR(lastCouche.date) : '—',
+      detail: coucheDetail,
+    },
+    {
+      key: 'sommeil', icon: '🌙', label: 'Dernier',
+      value: lastSommeil ? formatTimeFR(lastSommeil.date) : '—',
+      detail: sommeilDetail,
+    },
   ];
 
   const handleShare = async () => {
     const text = buildShareSummary(entries, child);
     if (navigator.share) {
-      try {
-        await navigator.share({ text, title: 'Résumé du jour' });
-      } catch (e) {
-        /* user cancelled */
-      }
+      try { await navigator.share({ text, title: 'Résumé du jour' }); } catch (e) { /* annulé */ }
     } else {
-      try {
-        await navigator.clipboard.writeText(text);
-        alert('Résumé copié dans le presse-papier !');
-      } catch (e) {
-        alert(text);
-      }
+      try { await navigator.clipboard.writeText(text); alert('Résumé copié !'); } catch (e) { alert(text); }
     }
   };
 
@@ -343,6 +370,11 @@ function TodayOverview({ entries, child, filterType, setFilterType }) {
             <span className="stamp-icon">{s.icon}</span>
             <span className="stamp-value">{s.value}</span>
             <span className="stamp-label">{s.label}</span>
+            {s.detail && (
+              <span style={{ fontSize: '0.62rem', color: 'var(--primary-deep)', fontWeight: 700, marginTop: 1 }}>
+                {s.detail}
+              </span>
+            )}
           </button>
         ))}
       </div>
