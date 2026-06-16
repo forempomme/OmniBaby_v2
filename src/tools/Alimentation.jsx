@@ -47,7 +47,7 @@ export const ALIMENTS_SEED = [
   { nom: 'Beurre', categorie: 'laitier', icon: '🧈' },
   // Allergènes (à surveiller particulièrement)
   { nom: 'Arachide', categorie: 'allergene', icon: '🥜' },
-  { nom: 'Blanc d'œuf', categorie: 'allergene', icon: '🍳' },
+  { nom: "Blanc d'œuf", categorie: "allergene", icon: "🍳" },
   { nom: 'Lait de vache', categorie: 'allergene', icon: '🐄' },
   { nom: 'Gluten (blé)', categorie: 'allergene', icon: '🌾' },
   { nom: 'Fruits à coque', categorie: 'allergene', icon: '🌰' },
