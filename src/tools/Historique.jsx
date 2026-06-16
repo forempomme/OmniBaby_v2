@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, filterByActiveChild, getActiveChild } from '../store.js';
-import { formatTimeFR, groupByDay, dayLabel, SwipeToDelete, useToast } from '../utils.js';
+import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
+import { formatTimeFR, groupByDay, dayLabel, SwipeToDelete, useToast } from '../utils.jsx';
 import { ENTRY_TYPES } from '../Journal.jsx';
 import { ALIMENT_STATUTS } from '../data/diversification.js';
 
