@@ -22,13 +22,13 @@ function initials(nom) {
 }
 
 // ----------------------------------------------------------------------
-// Biometric helper (capacitor-native-biometric) — safe no-op on web
+// Biometric helper (@capgo/capacitor-native-biometric) — safe no-op on web
 // ----------------------------------------------------------------------
 let NativeBiometricModule = null;
 async function getBiometric() {
   if (NativeBiometricModule !== null) return NativeBiometricModule;
   try {
-    const mod = await import('capacitor-native-biometric');
+    const mod = await import('@capgo/capacitor-native-biometric');
     NativeBiometricModule = mod.NativeBiometric || null;
   } catch (e) {
     NativeBiometricModule = null;
