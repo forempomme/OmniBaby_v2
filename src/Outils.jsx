@@ -11,11 +11,9 @@ import UrgenceTool from './tools/Urgence.jsx';
 import RechercheTool from './tools/Recherche.jsx';
 import HistoriqueTool from './tools/Historique.jsx';
 import JournalBordTool from './tools/JournalBord.jsx';
-import JournalBordTool from './tools/JournalBord.jsx';
 
 // ----------------------------------------------------------------------
 // Tool definitions
-// ----------------------------------------------------------------------
 export const TOOLS = [
   { key: 'minuteur', icon: '⏱️', name: 'Minuteur', desc: 'Chrono de tétée par sein avec alternance' },
   { key: 'medicaments', icon: '💊', name: 'Médicaments', desc: 'Traitements en cours et alertes de dose' },
@@ -29,10 +27,7 @@ export const TOOLS = [
   { key: 'urgence', icon: '🆘', name: 'Urgence', desc: 'Fiche allergies, médecin, contacts' },
   { key: 'recherche', icon: '🔍', name: 'Recherche', desc: "Recherche globale dans toute l'app" },
 ];
-
-// ----------------------------------------------------------------------
 // Placeholder for tools not yet implemented
-// ----------------------------------------------------------------------
 function ToolPlaceholder({ icon, name }) {
   return (
     <div className="empty-state">
@@ -42,26 +37,18 @@ function ToolPlaceholder({ icon, name }) {
     </div>
   );
 }
-
-// ----------------------------------------------------------------------
 // Main Outils tab
-// ----------------------------------------------------------------------
 export default function OutilsTab({ openToolKey, setOpenToolKey, onTimerFinish }) {
   const [internalOpen, setInternalOpen] = useState(null);
   const activeKey = openToolKey || internalOpen;
-
   const close = () => {
     setInternalOpen(null);
     if (setOpenToolKey) setOpenToolKey(null);
   };
-
   const open = (key) => {
     if (setOpenToolKey) setOpenToolKey(key);
     else setInternalOpen(key);
-  };
-
   const activeTool = TOOLS.find((t) => t.key === activeKey);
-
   const renderTool = () => {
     if (!activeTool) return null;
     switch (activeTool.key) {
@@ -94,14 +81,9 @@ export default function OutilsTab({ openToolKey, setOpenToolKey, onTimerFinish }
         return <HistoriqueTool />;
       case 'journalbord':
         return <JournalBordTool />;
-      case 'journalbord':
-        return <JournalBordTool />;
       default:
         return <ToolPlaceholder icon={activeTool.icon} name={activeTool.name} />;
     }
-  };
-
-  return (
     <div>
       <div className="section-title">🛠️ Outils</div>
       <div className="tools-grid">
@@ -113,10 +95,6 @@ export default function OutilsTab({ openToolKey, setOpenToolKey, onTimerFinish }
           </button>
         ))}
       </div>
-
       <Modal open={!!activeTool} onClose={close} title={activeTool?.name || ''} icon={activeTool?.icon} full>
         {renderTool()}
       </Modal>
-    </div>
-  );
-}
