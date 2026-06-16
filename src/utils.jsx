@@ -235,3 +235,59 @@ export function fireConfetti() {
     setTimeout(() => el.remove(), 2600);
   }
 }
+
+// ----------------------------------------------------------------------
+// Accordion component (section repliable)
+// ----------------------------------------------------------------------
+export function Accordion({ icon, title, badge, badgeColor, children, defaultOpen = false }) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <div style={{
+      marginBottom: 8,
+      borderRadius: 'var(--radius-lg)',
+      overflow: 'hidden',
+      border: '1px solid var(--border)',
+    }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', padding: '12px 14px',
+          background: open ? 'var(--primary-soft)' : 'var(--surface)',
+          border: 'none', cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {icon && <span style={{ fontSize: '1.1rem' }}>{icon}</span>}
+          <span style={{
+            fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '0.92rem',
+            color: open ? 'var(--primary-deep)' : 'var(--text)',
+          }}>{title}</span>
+          {badge != null && (
+            <span style={{
+              fontSize: '0.62rem', fontWeight: 700, padding: '2px 7px',
+              borderRadius: 'var(--radius-pill)',
+              background: badgeColor || (open ? 'var(--primary-deep)' : 'var(--primary)'),
+              color: '#fff',
+            }}>{badge}</span>
+          )}
+        </div>
+        <span style={{
+          fontSize: '0.7rem', color: open ? 'var(--primary-deep)' : 'var(--text-faint)',
+          transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.2s ease',
+          display: 'inline-block',
+        }}>▼</span>
+      </button>
+      {open && (
+        <div style={{
+          padding: '12px 14px 14px',
+          background: 'var(--surface)',
+          borderTop: '1px solid var(--border)',
+        }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild, ageInMonths } from '../store.jsx';
-import { useToast, fireConfetti, ConfirmInline } from '../utils.jsx';
+import { useToast, fireConfetti, ConfirmInline, Accordion } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 import { DIVERSIFICATION_STAGES, ALIMENT_CATEGORIES, ALIMENT_STATUTS } from '../data/diversification.js';
 
@@ -58,7 +58,7 @@ export const ALIMENTS_SEED = [
 // ----------------------------------------------------------------------
 // Conseils lait selon l'âge (OMS 2023 + PNNS4)
 // ----------------------------------------------------------------------
-function FeedingAdvice({ child }) {
+function FeedingAdvice({ child, embedded = false }) {
   const ageM = ageInMonths(child.birthdate);
   if (ageM == null) return null;
 
@@ -76,8 +76,8 @@ function FeedingAdvice({ child }) {
   }
 
   return (
-    <div className="card appear">
-      <div className="section-title" style={{ marginBottom: 6 }}>🥛 Conseils selon l'âge</div>
+    <div className={embedded ? '' : 'card appear'}>
+      <div className="section-title" style={{ marginBottom: 6, display: embedded ? 'none' : 'flex' }}>🥛 Conseils selon l'âge</div>
       <div className="muted" style={{ fontSize: '0.85rem' }}>{milkAdvice}</div>
     </div>
   );
@@ -86,7 +86,7 @@ function FeedingAdvice({ child }) {
 // ----------------------------------------------------------------------
 // Étapes de diversification
 // ----------------------------------------------------------------------
-function DiversificationSection({ child, etapesDiv, canEdit }) {
+function DiversificationSection({ child, etapesDiv, canEdit, embedded = false }) {
   const { update } = useStore();
   const ageM = ageInMonths(child.birthdate) ?? 0;
 
@@ -107,8 +107,8 @@ function DiversificationSection({ child, etapesDiv, canEdit }) {
   };
 
   return (
-    <div className="card appear">
-      <div className="section-title" style={{ marginBottom: 4 }}>🥦 Étapes 0-3 ans</div>
+    <div className={embedded ? '' : 'card appear'}>
+      <div className="section-title" style={{ marginBottom: 4, display: embedded ? 'none' : 'flex' }}>🥦 Étapes 0-3 ans</div>
       <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 10 }}>
         PNNS4 · HCSP 2020 · OMS 2023 — inclut hygiène dentaire et protection solaire
       </div>
@@ -254,7 +254,7 @@ function AlimentForm({ open, onClose, child, editing, onDelete }) {
 // Filtre par catégorie (chips) + filtre par statut (chips)
 // Touche l'icône pour cycler le statut, touche la carte pour éditer
 // ----------------------------------------------------------------------
-function AlimentsGrid({ child, aliments, canEdit }) {
+function AlimentsGrid({ child, aliments, canEdit, embedded = false }) {
   const { update } = useStore();
   const showToast = useToast();
   const [formOpen, setFormOpen] = useState(false);
@@ -293,7 +293,7 @@ function AlimentsGrid({ child, aliments, canEdit }) {
   }, [aliments]);
 
   return (
-    <div className="card appear">
+    <div className={embedded ? '' : 'card appear'}>
       <div className="flex-between">
         <div className="section-title" style={{ marginBottom: 0 }}>🍽️ Aliments testés</div>
         {canEdit && (
@@ -473,11 +473,34 @@ export default function AlimentationTool() {
     );
   }
 
+  // Calcul du badge de progression pour les étapes
+  const totalSteps = DIVERSIFICATION_STAGES.reduce((sum, s) => sum + s.steps.length, 0);
+  const doneSteps = DIVERSIFICATION_STAGES.reduce((sum, s) =>
+    sum + s.steps.filter((step) => store.etapesDiv[step.id]).length, 0);
+
   return (
     <div>
-      <FeedingAdvice child={activeChild} />
-      <DiversificationSection child={activeChild} etapesDiv={store.etapesDiv} canEdit={canEdit} />
-      <AlimentsGrid child={activeChild} aliments={childAliments} canEdit={canEdit} />
+      <Accordion icon="🥛" title="Conseils selon l'âge" defaultOpen={false}>
+        <FeedingAdvice child={activeChild} embedded />
+      </Accordion>
+
+      <Accordion
+        icon="🥦"
+        title="Étapes de diversification"
+        badge={`${doneSteps}/${totalSteps}`}
+        defaultOpen={false}>
+        <DiversificationSection child={activeChild} etapesDiv={store.etapesDiv} canEdit={canEdit} embedded />
+      </Accordion>
+
+      <Accordion
+        icon="🍽️"
+        title="Aliments testés"
+        badge={childAliments.filter(a => a.statut !== 'a_tester').length
+          ? `${childAliments.filter(a => a.statut !== 'a_tester').length}/${childAliments.length}`
+          : childAliments.length || null}
+        defaultOpen={true}>
+        <AlimentsGrid child={activeChild} aliments={childAliments} canEdit={canEdit} embedded />
+      </Accordion>
     </div>
   );
 }

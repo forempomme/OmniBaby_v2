@@ -3,6 +3,7 @@ import { useStore, genId, ageInMonths, formatAge } from './store.jsx';
 import { toISODate, useToast, ConfirmInline } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import { isBiometricAvailable } from './Auth.jsx';
+import { Accordion } from './utils.jsx';
 
 const EMOJIS = ['👶', '👧', '👦', '🧒', '👼'];
 
@@ -182,7 +183,7 @@ function ChildForm({ open, onClose, editing }) {
 // ----------------------------------------------------------------------
 // Children profiles section
 // ----------------------------------------------------------------------
-function ChildrenSection({ canEdit }) {
+function ChildrenSection({ canEdit, embedded = false }) {
   const { store, update } = useStore();
   const showToast = useToast();
   const [formOpen, setFormOpen] = useState(false);
@@ -207,9 +208,9 @@ function ChildrenSection({ canEdit }) {
   };
 
   return (
-    <div className="card appear">
+    <div className={embedded ? '' : 'card appear'}>
       <div className="flex-between">
-        <div className="section-title" style={{ marginBottom: 0 }}>👶 Profils enfants</div>
+        <div className="section-title" style={{ marginBottom: 0, display: embedded ? 'none' : 'flex' }}>👶 Profils enfants</div>
         {canEdit && (
           <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}>＋ Ajouter</button>
         )}
@@ -258,7 +259,7 @@ function ChildrenSection({ canEdit }) {
 // ----------------------------------------------------------------------
 // Biometric section
 // ----------------------------------------------------------------------
-function BiometricSection() {
+function BiometricSection({ embedded = false }) {
   const { store, update } = useStore();
   const [available, setAvailable] = React.useState(false);
   const [checked, setChecked] = React.useState(false);
@@ -294,8 +295,8 @@ function BiometricSection() {
   };
 
   return (
-    <div className="card appear">
-      <div className="section-title" style={{ marginBottom: 6 }}>🔐 Biométrie</div>
+    <div className={embedded ? '' : 'card appear'}>
+      <div className="section-title" style={{ marginBottom: 6, display: embedded ? 'none' : 'flex' }}>🔐 Biométrie</div>
       <div className="flex-between" style={{ padding: '8px 0' }}>
         <div>
           <div style={{ fontWeight: 600, fontSize: '0.86rem' }}>Connexion par empreinte digitale</div>
@@ -312,7 +313,7 @@ function BiometricSection() {
 // ----------------------------------------------------------------------
 // Appearance section (theme)
 // ----------------------------------------------------------------------
-function AppearanceSection() {
+function AppearanceSection({ embedded = false }) {
   const { store, update } = useStore();
 
   const setDark = (value) => {
@@ -325,8 +326,8 @@ function AppearanceSection() {
   const current = store.settings.dark;
 
   return (
-    <div className="card appear">
-      <div className="section-title" style={{ marginBottom: 6 }}>🎨 Apparence</div>
+    <div className={embedded ? '' : 'card appear'} style={{ marginTop: embedded ? 12 : 0 }}>
+      <div className="section-title" style={{ marginBottom: 6, display: embedded ? 'none' : 'flex' }}>🎨 Apparence</div>
       <div className="pill-group mt-8">
         <button className={`pill-choice ${current === null || current === undefined ? 'selected' : ''}`} onClick={() => setDark(null)}>
           🌗 Auto (21h-7h)
@@ -354,7 +355,7 @@ const NOTIF_LABELS = {
   activite: { label: 'Activités / rappels', icon: '🎯' },
 };
 
-function NotificationsSection() {
+function NotificationsSection({ embedded = false }) {
   const { store, update } = useStore();
 
   const toggle = (key) => {
@@ -365,8 +366,8 @@ function NotificationsSection() {
   };
 
   return (
-    <div className="card appear">
-      <div className="section-title" style={{ marginBottom: 6 }}>🔔 Notifications</div>
+    <div className={embedded ? '' : 'card appear'}>
+      <div className="section-title" style={{ marginBottom: 6, display: embedded ? 'none' : 'flex' }}>🔔 Notifications</div>
       <div className="muted" style={{ fontSize: '0.8rem', marginBottom: 10 }}>
         Préférences utilisées par les modules Rappels et Médicaments.
       </div>
@@ -383,7 +384,7 @@ function NotificationsSection() {
 // ----------------------------------------------------------------------
 // Data section: export / import / reset
 // ----------------------------------------------------------------------
-function DataSection({ canEdit }) {
+function DataSection({ canEdit, embedded = false }) {
   const { store, update, replaceStore, resetStore } = useStore();
   const showToast = useToast();
   const fileInputRef = useRef(null);
@@ -434,8 +435,8 @@ function DataSection({ canEdit }) {
   };
 
   return (
-    <div className="card appear">
-      <div className="section-title" style={{ marginBottom: 6 }}>💾 Données</div>
+    <div className={embedded ? '' : 'card appear'}>
+      <div className="section-title" style={{ marginBottom: 6, display: embedded ? 'none' : 'flex' }}>💾 Données</div>
 
       {needsBackup && (
         <div className="card" style={{ background: 'var(--accent-sun-soft)', border: 'none', marginBottom: 12 }}>
@@ -500,22 +501,33 @@ export default function ReglagesTab({ onOpenFamille }) {
 
   return (
     <div>
-      <ChildrenSection canEdit={canEdit} />
-      <BiometricSection />
-      <AppearanceSection />
-      <NotificationsSection />
+      <Accordion icon="👶" title="Profils enfants"
+        badge={store.children.length || null}
+        defaultOpen={true}>
+        <ChildrenSection canEdit={canEdit} embedded />
+      </Accordion>
 
-      <div className="card appear">
-        <div className="flex-between">
-          <div className="section-title" style={{ marginBottom: 0 }}>👨‍👩‍👧 Famille</div>
+      <Accordion icon="🔐" title="Biométrie & Apparence" defaultOpen={false}>
+        <BiometricSection embedded />
+        <AppearanceSection embedded />
+      </Accordion>
+
+      <Accordion icon="🔔" title="Notifications" defaultOpen={false}>
+        <NotificationsSection embedded />
+      </Accordion>
+
+      <Accordion icon="👨‍👩‍👧" title="Famille" defaultOpen={false}>
+        <div className="flex-between" style={{ marginBottom: 8 }}>
+          <div className="muted" style={{ fontSize: '0.85rem' }}>
+            Utilisateurs, rôles (admin, éditeur, lecture seule).
+          </div>
           <button className="btn btn-secondary btn-sm" onClick={onOpenFamille}>Gérer →</button>
         </div>
-        <div className="muted mt-8" style={{ fontSize: '0.85rem' }}>
-          Ajoute ou modifie les profils des membres de la famille et leurs rôles (admin, éditeur, lecture seule) dans le module Famille (Outils).
-        </div>
-      </div>
+      </Accordion>
 
-      <DataSection canEdit={canEdit} />
+      <Accordion icon="💾" title="Données" defaultOpen={false}>
+        <DataSection canEdit={canEdit} embedded />
+      </Accordion>
     </div>
   );
 }

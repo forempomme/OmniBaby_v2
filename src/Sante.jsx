@@ -10,6 +10,7 @@ import {
   SwipeToDelete,
   useToast,
 } from './utils.jsx';
+import { Accordion } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import {
   WEIGHT_LMS,
@@ -290,7 +291,7 @@ function GrowthChart({ type, child, mesures }) {
 // ----------------------------------------------------------------------
 // Measure section: chart + history list
 // ----------------------------------------------------------------------
-function MesureSection({ type, child, mesures, canEdit }) {
+function MesureSection({ type, child, mesures, canEdit, embedded = false }) {
   const { update } = useStore();
   const showToast = useToast();
   const def = MESURE_TYPES[type];
@@ -311,7 +312,7 @@ function MesureSection({ type, child, mesures, canEdit }) {
   };
 
   return (
-    <div className="card appear">
+    <div className={embedded ? '' : 'card appear'}>
       <div className="flex-between">
         <div className="section-title" style={{ marginBottom: 0 }}>{def.icon} {def.label}</div>
         {canEdit && (
@@ -355,7 +356,7 @@ function MesureSection({ type, child, mesures, canEdit }) {
 // ----------------------------------------------------------------------
 // Vaccination record
 // ----------------------------------------------------------------------
-function VaccinSection({ child, vaccins, canEdit }) {
+function VaccinSection({ child, vaccins, canEdit, embedded = false }) {
   const { update, nextId } = useStore();
   const showToast = useToast();
   const [showAll, setShowAll] = useState(false);
@@ -388,9 +389,9 @@ function VaccinSection({ child, vaccins, canEdit }) {
     : VACCINS_CALENDRIER.filter((v) => statusFor(v.id) || v.ageMonths <= ageM + 2);
 
   return (
-    <div className="card appear">
+    <div className={embedded ? '' : 'card appear'}>
       <div className="flex-between">
-        <div className="section-title" style={{ marginBottom: 0 }}>💉 Carnet de vaccination</div>
+        <div className="section-title" style={{ marginBottom: 0, display: embedded ? 'none' : 'flex' }}>💉 Carnet de vaccination</div>
         <button className="btn btn-ghost btn-sm" onClick={() => setShowAll((s) => !s)}>
           {showAll ? 'Recommandés' : 'Tout afficher'}
         </button>
@@ -446,14 +447,35 @@ export default function SanteTab() {
     );
   }
 
+  const ageM = ageInMonths(activeChild.birthdate) ?? 0;
+
   return (
     <div>
-      <VitaminDCard child={activeChild} canEdit={canEdit} />
-      <FeedingAdviceCard child={activeChild} />
-      <MesureSection type="poids" child={activeChild} mesures={childMesures} canEdit={canEdit} />
-      <MesureSection type="taille" child={activeChild} mesures={childMesures} canEdit={canEdit} />
-      <MesureSection type="perimetre" child={activeChild} mesures={childMesures} canEdit={canEdit} />
-      <VaccinSection child={activeChild} vaccins={childVaccins} canEdit={canEdit} />
+      <Accordion icon="💊" title="Vitamine D & Alimentation" defaultOpen={true}>
+        <VitaminDCard child={activeChild} canEdit={canEdit} />
+        <FeedingAdviceCard child={activeChild} />
+      </Accordion>
+      <Accordion icon="⚖️" title="Poids"
+        badge={childMesures.filter(m=>m.type==='poids').length || null}
+        defaultOpen={true}>
+        <MesureSection type="poids" child={activeChild} mesures={childMesures} canEdit={canEdit} embedded />
+      </Accordion>
+      <Accordion icon="📏" title="Taille"
+        badge={childMesures.filter(m=>m.type==='taille').length || null}
+        defaultOpen={false}>
+        <MesureSection type="taille" child={activeChild} mesures={childMesures} canEdit={canEdit} embedded />
+      </Accordion>
+      <Accordion icon="🧠" title="Périmètre crânien"
+        badge={childMesures.filter(m=>m.type==='perimetre').length || null}
+        defaultOpen={false}>
+        <MesureSection type="perimetre" child={activeChild} mesures={childMesures} canEdit={canEdit} embedded />
+      </Accordion>
+      <Accordion icon="💉" title="Carnet de vaccination"
+        badge={childVaccins.length || null}
+        badgeColor="var(--accent-sage)"
+        defaultOpen={false}>
+        <VaccinSection child={activeChild} vaccins={childVaccins} canEdit={canEdit} embedded />
+      </Accordion>
     </div>
   );
 }
