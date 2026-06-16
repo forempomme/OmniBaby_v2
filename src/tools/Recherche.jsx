@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, filterByActiveChild, getActiveChild } from '../store.js';
-import { formatDateFR, formatDateTimeFR } from '../utils.js';
+import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
+import { formatDateFR, formatDateTimeFR } from '../utils.jsx';
 import { ENTRY_TYPES } from '../Journal.jsx';
 import { ALIMENT_STATUTS, ALIMENT_CATEGORIES } from '../data/diversification.js';
 
