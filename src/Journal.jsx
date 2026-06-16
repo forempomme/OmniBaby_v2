@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, genId, filterByActiveChild, getActiveChild, ageInMonths } from './store.js';
+import { useStore, genId, filterByActiveChild, getActiveChild, ageInMonths } from './store.jsx';
 import {
   toISODateTime,
   formatTimeFR,
@@ -10,7 +10,7 @@ import {
   isToday,
   SwipeToDelete,
   useToast,
-} from './utils.js';
+} from './utils.jsx';
 import { Modal } from './Modal.jsx';
 
 // ----------------------------------------------------------------------
