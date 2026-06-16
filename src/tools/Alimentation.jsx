@@ -5,7 +5,7 @@ import { Modal } from '../Modal.jsx';
 import { DIVERSIFICATION_STAGES, ALIMENT_CATEGORIES, ALIMENT_STATUTS } from '../data/diversification.js';
 
 // ----------------------------------------------------------------------
-// Feeding advice (detailed, age-based)
+// Conseils lait selon l'âge (OMS 2023 + PNNS4)
 // ----------------------------------------------------------------------
 function FeedingAdvice({ child }) {
   const ageM = ageInMonths(child.birthdate);
@@ -15,13 +15,13 @@ function FeedingAdvice({ child }) {
   if (ageM < 6) {
     milkAdvice = child.alimentation === 'lait_infantile'
       ? "Lait infantile 1er âge recommandé jusqu'à 6 mois."
-      : "Allaitement exclusif recommandé jusqu'à 6 mois.";
+      : "Allaitement exclusif recommandé jusqu'à 6 mois (OMS).";
   } else if (ageM < 12) {
-    milkAdvice = 'Transition vers le lait 2e âge (suite) entre 6 et 12 mois, en complément de la diversification.';
+    milkAdvice = "Lait 2e âge en complément de la diversification. Lait animal déconseillé avant 1 an (OMS 2023).";
   } else if (ageM < 36) {
-    milkAdvice = "Lait de croissance recommandé entre 1 et 3 ans, en complément d'une alimentation variée.";
+    milkAdvice = "Lait de croissance recommandé jusqu'à 3 ans (500-750 ml/jour). Apports en fer, DHA et vitamine D adaptés.";
   } else {
-    milkAdvice = 'Lait de vache entier ou produits laitiers adaptés peuvent être proposés au quotidien.';
+    milkAdvice = "Lait de vache entier ou produits laitiers au quotidien. Alimentation familiale complète et variée.";
   }
 
   return (
@@ -33,7 +33,7 @@ function FeedingAdvice({ child }) {
 }
 
 // ----------------------------------------------------------------------
-// Diversification stages with checkable steps
+// Étapes de diversification
 // ----------------------------------------------------------------------
 function DiversificationSection({ child, etapesDiv, canEdit }) {
   const { update } = useStore();
@@ -51,22 +51,16 @@ function DiversificationSection({ child, etapesDiv, canEdit }) {
 
   const toggleStep = (stepId) => {
     const checked = !etapesDiv[stepId];
-    update((draft) => {
-      draft.etapesDiv[stepId] = checked;
-      return draft;
-    });
-    if (checked) {
-      fireConfetti();
-    }
+    update((draft) => { draft.etapesDiv[stepId] = checked; return draft; });
+    if (checked) fireConfetti();
   };
 
   return (
     <div className="card appear">
-      <div className="section-title" style={{ marginBottom: 6 }}>🥦 Étapes de diversification (0-3 ans)</div>
-      <div className="muted" style={{ fontSize: '0.8rem', marginBottom: 12 }}>
-        Repères PNNS / Santé publique France, incluant hygiène bucco-dentaire et protection solaire.
+      <div className="section-title" style={{ marginBottom: 4 }}>🥦 Étapes 0-3 ans</div>
+      <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 10 }}>
+        PNNS4 · HCSP 2020 · OMS 2023 — inclut hygiène dentaire et protection solaire
       </div>
-
       <div className="chip-row">
         {DIVERSIFICATION_STAGES.map((stage) => (
           <button
@@ -78,7 +72,6 @@ function DiversificationSection({ child, etapesDiv, canEdit }) {
           </button>
         ))}
       </div>
-
       {DIVERSIFICATION_STAGES.filter((s) => s.key === openStage).map((stage) => {
         const total = stage.steps.length;
         const done = stage.steps.filter((s) => etapesDiv[s.id]).length;
@@ -95,14 +88,17 @@ function DiversificationSection({ child, etapesDiv, canEdit }) {
                   <div
                     key={step.id}
                     className="swipe-content"
-                    style={{ cursor: canEdit ? 'pointer' : 'default', opacity: checked ? 0.7 : 1 }}
+                    style={{ cursor: canEdit ? 'pointer' : 'default', opacity: checked ? 0.65 : 1 }}
                     onClick={() => canEdit && toggleStep(step.id)}
                   >
-                    <div className="entry-icon" style={{ background: checked ? 'var(--accent-sage-soft)' : 'var(--surface-2)', color: checked ? 'var(--accent-sage)' : 'var(--text-faint)' }}>
+                    <div className="entry-icon" style={{
+                      background: checked ? 'var(--accent-sage-soft)' : 'var(--surface-2)',
+                      color: checked ? 'var(--accent-sage)' : 'var(--text-faint)',
+                    }}>
                       {checked ? '✅' : step.icon}
                     </div>
                     <div className="entry-body">
-                      <div className="entry-title" style={{ fontSize: '0.85rem', textDecoration: checked ? 'line-through' : 'none' }}>
+                      <div className="entry-title" style={{ fontSize: '0.82rem', textDecoration: checked ? 'line-through' : 'none' }}>
                         {step.label}
                       </div>
                     </div>
@@ -118,9 +114,9 @@ function DiversificationSection({ child, etapesDiv, canEdit }) {
 }
 
 // ----------------------------------------------------------------------
-// Add aliment form
+// Formulaire ajout / édition aliment
 // ----------------------------------------------------------------------
-function AlimentForm({ open, onClose, child }) {
+function AlimentForm({ open, onClose, child, editing }) {
   const { update, nextId } = useStore();
   const showToast = useToast();
   const [nom, setNom] = useState('');
@@ -130,39 +126,40 @@ function AlimentForm({ open, onClose, child }) {
 
   React.useEffect(() => {
     if (open) {
-      setNom('');
-      setCategorie('legume');
-      setStatut('a_tester');
-      setNotes('');
+      if (editing) {
+        setNom(editing.nom || '');
+        setCategorie(editing.categorie || 'legume');
+        setStatut(editing.statut || 'a_tester');
+        setNotes(editing.notes || '');
+      } else {
+        setNom('');
+        setCategorie('legume');
+        setStatut('a_tester');
+        setNotes('');
+      }
     }
-  }, [open]);
+  }, [open, editing]);
 
   const handleSubmit = () => {
-    if (!nom.trim()) {
-      showToast("Entre le nom de l'aliment", '⚠️');
-      return;
-    }
+    if (!nom.trim()) { showToast("Entre le nom de l'aliment", '⚠️'); return; }
     update((draft) => {
-      draft.aliments.push({
-        id: nextId(),
-        childId: child.id,
-        nom: nom.trim(),
-        categorie,
-        statut,
-        notes,
-        date: new Date().toISOString(),
-      });
+      if (editing) {
+        const idx = draft.aliments.findIndex((a) => a.id === editing.id);
+        if (idx !== -1) draft.aliments[idx] = { ...draft.aliments[idx], nom: nom.trim(), categorie, statut, notes };
+      } else {
+        draft.aliments.push({ id: nextId(), childId: child.id, nom: nom.trim(), categorie, statut, notes, date: new Date().toISOString() });
+      }
       return draft;
     });
-    showToast('Aliment ajouté', '✅');
+    showToast(editing ? 'Aliment modifié' : 'Aliment ajouté', '✅');
     onClose();
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Nouvel aliment" icon="🥦">
+    <Modal open={open} onClose={onClose} title={editing ? 'Modifier' : 'Nouvel aliment'} icon="🥦">
       <div className="field">
-        <label>Nom de l'aliment</label>
-        <input type="text" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex : Carotte" autoFocus />
+        <label>Nom</label>
+        <input type="text" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex : Carotte, Saumon, Yaourt..." autoFocus />
       </div>
       <div className="field">
         <label>Catégorie</label>
@@ -186,102 +183,201 @@ function AlimentForm({ open, onClose, child }) {
       </div>
       <div className="field">
         <label>Notes (optionnel)</label>
-        <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Réaction observée, texture, contexte..." />
+        <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Réaction, texture, contexte..." />
       </div>
-      <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>Ajouter ✓</button>
+      <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>
+        {editing ? 'Enregistrer ✓' : 'Ajouter ✓'}
+      </button>
     </Modal>
   );
 }
 
 // ----------------------------------------------------------------------
-// Aliments testés section with filters
+// Grille aliments — variante A
+// Cartes 3 colonnes avec icône catégorie + nom + badge statut coloré
+// Filtre par catégorie (chips) + filtre par statut (chips)
+// Touche l'icône pour cycler le statut, touche la carte pour éditer
 // ----------------------------------------------------------------------
-function AlimentsSection({ child, aliments, canEdit }) {
+function AlimentsGrid({ child, aliments, canEdit }) {
   const { update } = useStore();
   const showToast = useToast();
   const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [filterCat, setFilterCat] = useState('tous');
   const [filterStatut, setFilterStatut] = useState('tous');
 
   const filtered = useMemo(() => {
-    return aliments.filter((a) => {
-      if (filterCat !== 'tous' && a.categorie !== filterCat) return false;
-      if (filterStatut !== 'tous' && a.statut !== filterStatut) return false;
-      return true;
-    }).sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+    return aliments
+      .filter((a) => filterCat === 'tous' || a.categorie === filterCat)
+      .filter((a) => filterStatut === 'tous' || a.statut === filterStatut)
+      .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
   }, [aliments, filterCat, filterStatut]);
 
   const handleDelete = (id) => {
-    update((draft) => {
-      draft.aliments = draft.aliments.filter((a) => a.id !== id);
-      return draft;
-    });
+    update((draft) => { draft.aliments = draft.aliments.filter((a) => a.id !== id); return draft; });
     showToast('Aliment supprimé', '🗑️');
   };
 
-  const cycleStatut = (aliment) => {
+  const cycleStatut = (e, aliment) => {
+    e.stopPropagation();
+    if (!canEdit) return;
     const idx = ALIMENT_STATUTS.findIndex((s) => s.key === aliment.statut);
     const next = ALIMENT_STATUTS[(idx + 1) % ALIMENT_STATUTS.length];
-    update((draft) => {
-      const a = draft.aliments.find((x) => x.id === aliment.id);
-      if (a) a.statut = next.key;
-      return draft;
-    });
+    update((draft) => { const a = draft.aliments.find((x) => x.id === aliment.id); if (a) a.statut = next.key; return draft; });
   };
+
+  const openEdit = (aliment) => { if (!canEdit) return; setEditing(aliment); setFormOpen(true); };
+  const openAdd = () => { setEditing(null); setFormOpen(true); };
+
+  // Compteurs par statut
+  const counts = useMemo(() => {
+    const c = {};
+    ALIMENT_STATUTS.forEach((s) => { c[s.key] = aliments.filter((a) => a.statut === s.key).length; });
+    return c;
+  }, [aliments]);
 
   return (
     <div className="card appear">
       <div className="flex-between">
         <div className="section-title" style={{ marginBottom: 0 }}>🍽️ Aliments testés</div>
         {canEdit && (
-          <button className="btn btn-secondary btn-sm" onClick={() => setFormOpen(true)}>＋ Ajouter</button>
+          <button className="btn btn-secondary btn-sm" onClick={openAdd}>＋ Ajouter</button>
         )}
       </div>
 
-      <div className="chip-row mt-8">
-        <button className={`chip ${filterCat === 'tous' ? 'active' : ''}`} onClick={() => setFilterCat('tous')}>Toutes catégories</button>
+      {/* Résumé rapide statuts */}
+      {aliments.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 8px' }}>
+          {ALIMENT_STATUTS.filter((s) => counts[s.key] > 0).map((s) => (
+            <span
+              key={s.key}
+              onClick={() => setFilterStatut(filterStatut === s.key ? 'tous' : s.key)}
+              style={{
+                padding: '3px 10px', borderRadius: 'var(--radius-pill)', fontSize: '0.7rem', fontWeight: 700,
+                background: filterStatut === s.key ? s.color : 'var(--surface-2)',
+                color: filterStatut === s.key ? '#fff' : s.color,
+                border: `1.5px solid ${s.color}`, cursor: 'pointer',
+              }}
+            >
+              {s.icon} {counts[s.key]}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Filtre catégorie */}
+      <div className="chip-row">
+        <button className={`chip ${filterCat === 'tous' ? 'active' : ''}`} onClick={() => setFilterCat('tous')}>Tout</button>
         {ALIMENT_CATEGORIES.map((c) => (
-          <button key={c.key} className={`chip ${filterCat === c.key ? 'active' : ''}`} onClick={() => setFilterCat(c.key)}>{c.icon} {c.label}</button>
-        ))}
-      </div>
-      <div className="chip-row" style={{ marginTop: -4 }}>
-        <button className={`chip ${filterStatut === 'tous' ? 'active' : ''}`} onClick={() => setFilterStatut('tous')}>Tous statuts</button>
-        {ALIMENT_STATUTS.map((s) => (
-          <button key={s.key} className={`chip ${filterStatut === s.key ? 'active' : ''}`} onClick={() => setFilterStatut(s.key)}>{s.icon} {s.label}</button>
+          <button key={c.key} className={`chip ${filterCat === c.key ? 'active' : ''}`} onClick={() => setFilterCat(c.key)}>
+            {c.icon} {c.label}
+          </button>
         ))}
       </div>
 
       {filtered.length === 0 ? (
-        <div className="empty-state" style={{ padding: '24px 12px' }}>
+        <div className="empty-state" style={{ padding: '20px 12px' }}>
           <div className="emoji">🥦</div>
-          <div className="desc">Aucun aliment ne correspond. Ajoute le premier aliment testé !</div>
+          <div className="desc">
+            {aliments.length === 0
+              ? 'Ajoute le premier aliment testé par ' + child.nom + ' !'
+              : 'Aucun aliment pour ce filtre.'}
+          </div>
         </div>
       ) : (
-        <div className="entry-list mt-16">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 4 }}>
           {filtered.map((a) => {
             const statutDef = ALIMENT_STATUTS.find((s) => s.key === a.statut) || ALIMENT_STATUTS[0];
             const catDef = ALIMENT_CATEGORIES.find((c) => c.key === a.categorie);
             return (
-              <div key={a.id} className="swipe-content">
-                <div
-                  className="entry-icon"
-                  style={{ background: 'var(--surface-2)', color: statutDef.color, cursor: canEdit ? 'pointer' : 'default' }}
-                  onClick={() => canEdit && cycleStatut(a)}
+              <div
+                key={a.id}
+                onClick={() => openEdit(a)}
+                style={{
+                  background: statutDef.bg,
+                  border: `1.5px solid ${statutDef.border}`,
+                  borderRadius: 'var(--radius-md)',
+                  padding: '10px 6px 8px',
+                  textAlign: 'center',
+                  cursor: canEdit ? 'pointer' : 'default',
+                  position: 'relative',
+                  minHeight: 80,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 3,
+                }}
+              >
+                {/* Icône catégorie */}
+                <div style={{ fontSize: '1.4rem', lineHeight: 1 }}>{catDef?.icon || '🍽️'}</div>
+                {/* Nom */}
+                <div style={{ fontWeight: 600, fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                  {a.nom}
+                </div>
+                {/* Badge statut — cliquable pour cycler */}
+                <button
+                  onClick={(e) => cycleStatut(e, a)}
+                  style={{
+                    background: 'none', border: 'none', padding: 0,
+                    fontSize: '0.9rem', cursor: canEdit ? 'pointer' : 'default',
+                    lineHeight: 1,
+                  }}
+                  title={statutDef.label}
                 >
                   {statutDef.icon}
-                </div>
-                <div className="entry-body">
-                  <div className="entry-title">{a.nom}</div>
-                  <div className="entry-sub">{catDef ? `${catDef.icon} ${catDef.label} · ` : ''}{statutDef.label}{a.notes ? ` · ${a.notes}` : ''}</div>
-                </div>
-                {canEdit && <ConfirmInline onConfirm={() => handleDelete(a.id)} />}
+                </button>
+                {/* Bouton supprimer */}
+                {canEdit && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
+                    style={{
+                      position: 'absolute', top: 3, right: 4,
+                      background: 'none', border: 'none', fontSize: '0.6rem',
+                      color: 'var(--text-faint)', cursor: 'pointer', padding: 2,
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             );
           })}
+          {/* Bouton ajouter dans la grille */}
+          {canEdit && (
+            <div
+              onClick={openAdd}
+              style={{
+                border: '1.5px dashed var(--border)', borderRadius: 'var(--radius-md)',
+                padding: '10px 6px', textAlign: 'center', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', gap: 4, minHeight: 80,
+                color: 'var(--text-faint)',
+              }}
+            >
+              <div style={{ fontSize: '1.3rem' }}>＋</div>
+              <div style={{ fontSize: '0.65rem', fontWeight: 600 }}>Ajouter</div>
+            </div>
+          )}
         </div>
       )}
 
-      <AlimentForm open={formOpen} onClose={() => setFormOpen(false)} child={child} />
+      {/* Légende */}
+      {aliments.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+          {ALIMENT_STATUTS.map((s) => (
+            <span key={s.key} style={{ fontSize: '0.65rem', color: 'var(--text-soft)', display: 'flex', alignItems: 'center', gap: 2 }}>
+              {s.icon} {s.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <AlimentForm
+        open={formOpen}
+        onClose={() => { setFormOpen(false); setEditing(null); }}
+        child={child}
+        editing={editing}
+      />
     </div>
   );
 }
@@ -314,7 +410,7 @@ export default function AlimentationTool() {
     <div>
       <FeedingAdvice child={activeChild} />
       <DiversificationSection child={activeChild} etapesDiv={store.etapesDiv} canEdit={canEdit} />
-      <AlimentsSection child={activeChild} aliments={childAliments} canEdit={canEdit} />
+      <AlimentsGrid child={activeChild} aliments={childAliments} canEdit={canEdit} />
     </div>
   );
 }
