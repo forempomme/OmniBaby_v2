@@ -23,19 +23,27 @@ function initials(nom) {
 
 // ----------------------------------------------------------------------
 // Biometric helper
-// Stratégie : on tente l'import du plugin uniquement sur plateforme native.
-// La vérification window.Capacitor est faite au moment de l'appel (pas
-// au chargement du module) pour être sûr que Capacitor est initialisé.
+// On attend que Capacitor soit prêt avant d'appeler le plugin.
+// Le plugin est enregistré nativement par Capacitor sur Android —
+// window.Capacitor.Plugins.NativeBiometric est disponible après init.
 // ----------------------------------------------------------------------
-function isNative() {
-  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+function getPlugin() {
+  try {
+    const cap = window.Capacitor;
+    if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return null;
+    // Le plugin est accessible via le bridge natif Capacitor
+    const plugin = cap.Plugins && cap.Plugins.NativeBiometric;
+    return plugin || null;
+  } catch (e) {
+    return null;
+  }
 }
 
 export async function isBiometricAvailable() {
-  if (!isNative()) return false;
   try {
-    const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
-    const result = await NativeBiometric.isAvailable();
+    const plugin = getPlugin();
+    if (!plugin) return false;
+    const result = await plugin.isAvailable();
     return !!(result && result.isAvailable);
   } catch (e) {
     return false;
@@ -43,14 +51,15 @@ export async function isBiometricAvailable() {
 }
 
 export async function biometricVerify(reason) {
-  if (!isNative()) return false;
   try {
-    const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
-    await NativeBiometric.verifyIdentity({
+    const plugin = getPlugin();
+    if (!plugin) return false;
+    await plugin.verifyIdentity({
       reason: reason || 'Connexion à OmniBaby',
       title: 'OmniBaby',
-      subtitle: 'Connexion sécurisée',
+      subtitle: 'Connexion par empreinte digitale',
       description: '',
+      useFallback: false,
     });
     return true;
   } catch (e) {
@@ -164,19 +173,49 @@ function LockScreen({ onUnlocked }) {
   const [shake, setShake] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
 
-  // Vérifier la disponibilité de la biométrie au montage
-  // Délai de 500ms pour laisser Capacitor s'initialiser complètement
-  // Respecte le réglage store.settings.biometrie
+  const biometrieActivee = store.settings?.biometrie !== false;
+
+  // Attendre que Capacitor soit initialisé avant de vérifier la biométrie
   useEffect(() => {
-    const biometrieActivee = store.settings.biometrie !== false;
-    if (!biometrieActivee) { setBioAvailable(false); return; }
-    const timer = setTimeout(() => {
-      isBiometricAvailable().then(setBioAvailable);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [store.settings.biometrie]);
+    if (!biometrieActivee) return;
+
+    let cancelled = false;
+
+    const check = async () => {
+      // Réessayer jusqu'à 10 fois avec 300ms d'intervalle
+      for (let i = 0; i < 10; i++) {
+        if (cancelled) return;
+        const ok = await isBiometricAvailable();
+        if (ok) {
+          setBioAvailable(true);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    };
+
+    check();
+    return () => { cancelled = true; };
+  }, [biometrieActivee]);
 
   const selectedUser = store.users.find((u) => u.id === selectedUserId);
+
+  const handleBiometric = useCallback(async () => {
+    const ok = await biometricVerify(`Connexion en tant que ${selectedUser?.nom || ''}`);
+    if (ok && selectedUser) {
+      setSession({ userId: selectedUser.id });
+      onUnlocked();
+    } else {
+      showToast('Biométrie annulée ou indisponible', '⚠️');
+    }
+  }, [selectedUser, setSession, onUnlocked, showToast]);
+
+  // Proposer automatiquement la biométrie dès qu'elle est détectée
+  useEffect(() => {
+    if (bioAvailable) {
+      handleBiometric();
+    }
+  }, [bioAvailable]);
 
   const handleDigit = useCallback((d) => {
     if (pin.length >= 4) return;
@@ -194,23 +233,6 @@ function LockScreen({ onUnlocked }) {
   }, [pin, selectedUser, setSession, onUnlocked]);
 
   const handleDelete = () => setPin((p) => p.slice(0, -1));
-
-  const handleBiometric = async () => {
-    const ok = await biometricVerify(`Connexion en tant que ${selectedUser?.nom || ''}`);
-    if (ok && selectedUser) {
-      setSession({ userId: selectedUser.id });
-      onUnlocked();
-    } else {
-      showToast('Biométrie non disponible ou annulée', '⚠️');
-    }
-  };
-
-  // Proposer automatiquement la biométrie à l'ouverture si disponible
-  useEffect(() => {
-    if (bioAvailable && store.users.length === 1) {
-      handleBiometric();
-    }
-  }, [bioAvailable]);
 
   return (
     <div className="lock-screen">

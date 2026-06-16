@@ -182,8 +182,12 @@ function TodaySummaryCard({ sommeils, child }) {
 
   const todaySleeps = sommeils.filter((s) => isToday(s.debut));
   const totalMinutes = todaySleeps.reduce((sum, s) => sum + (s.duree || 0), 0);
-  const nuits = todaySleeps.filter((s) => s.type === 'nuit').length;
-  const siestes = todaySleeps.filter((s) => s.type === 'sieste').length;
+  const nuits = todaySleeps.filter((s) => s.type === 'nuit');
+  const siestes = todaySleeps.filter((s) => s.type === 'sieste');
+
+  // Durées cumulées nuits / siestes
+  const dureeNuits = nuits.reduce((sum, s) => sum + (s.duree || 0), 0);
+  const dureeSiestes = siestes.reduce((sum, s) => sum + (s.duree || 0), 0);
 
   const totalHours = totalMinutes / 60;
   const [recoMin, recoMax] = reco.total;
@@ -213,13 +217,23 @@ function TodaySummaryCard({ sommeils, child }) {
         </div>
         <div className="stamp" style={{ cursor: 'default' }}>
           <span className="stamp-icon">🌃</span>
-          <span className="stamp-value">{nuits}</span>
+          <span className="stamp-value">{nuits.length}</span>
           <span className="stamp-label">Nuit(s)</span>
+          {dureeNuits > 0 && (
+            <span style={{ fontSize: '0.62rem', color: 'var(--primary-deep)', fontWeight: 700, marginTop: 1 }}>
+              {formatDuration(dureeNuits)}
+            </span>
+          )}
         </div>
         <div className="stamp" style={{ cursor: 'default' }}>
           <span className="stamp-icon">☀️</span>
-          <span className="stamp-value">{siestes}</span>
+          <span className="stamp-value">{siestes.length}</span>
           <span className="stamp-label">Sieste(s)</span>
+          {dureeSiestes > 0 && (
+            <span style={{ fontSize: '0.62rem', color: 'var(--primary-deep)', fontWeight: 700, marginTop: 1 }}>
+              {formatDuration(dureeSiestes)}
+            </span>
+          )}
         </div>
       </div>
       <div className="flex-between mt-8" style={{ fontSize: '0.82rem' }}>

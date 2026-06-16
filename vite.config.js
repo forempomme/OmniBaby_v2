@@ -6,10 +6,11 @@ export default defineConfig({
   base: './',
   build: {
     outDir: 'dist',
+    // Ne pas externaliser @capgo/capacitor-native-biometric —
+    // on accède au plugin via window.Capacitor.Plugins.NativeBiometric
+    // (bridge natif), donc Vite n'a pas besoin de le bundler du tout.
+    // On le met en external pour éviter l'erreur de résolution.
     rollupOptions: {
-      // Le plugin biométrique n'est disponible que dans le runtime Capacitor natif.
-      // On l'externalise pour que Vite ne tente pas de le bundler — il sera
-      // résolu par Capacitor au moment de l'exécution sur Android.
       external: ['@capgo/capacitor-native-biometric'],
     },
   },

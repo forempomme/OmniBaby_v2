@@ -261,17 +261,33 @@ function ChildrenSection({ canEdit }) {
 function BiometricSection() {
   const { store, update } = useStore();
   const [available, setAvailable] = React.useState(false);
+  const [checked, setChecked] = React.useState(false);
 
   React.useEffect(() => {
-    isBiometricAvailable().then(setAvailable);
+    let cancelled = false;
+    const check = async () => {
+      for (let i = 0; i < 10; i++) {
+        if (cancelled) return;
+        const ok = await isBiometricAvailable();
+        if (ok) { setAvailable(true); setChecked(true); return; }
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      setChecked(true);
+    };
+    check();
+    return () => { cancelled = true; };
   }, []);
 
+  // Ne rien afficher tant que la vérification n'est pas terminée
+  if (!checked) return null;
+  // Cacher la section si biométrie non disponible sur cet appareil
   if (!available) return null;
 
-  const enabled = store.settings.biometrie !== false;
+  const enabled = store.settings?.biometrie !== false;
 
   const toggle = () => {
     update((draft) => {
+      if (!draft.settings) draft.settings = {};
       draft.settings.biometrie = !enabled;
       return draft;
     });
