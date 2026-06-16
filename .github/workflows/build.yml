@@ -110,22 +110,30 @@ jobs:
         run: npx cap sync android
 
       # ----------------------------------------------------------------
-      # 9. Injection des icônes Android (APRÈS cap sync pour ne pas
-      #    être écrasées par Capacitor)
+      # 9. Génération des icônes Android via @capacitor/assets
+      #    À partir de public/icon.png (doit être ≥ 1024×1024 px)
+      #    Génère toutes les tailles mipmap-* automatiquement et
+      #    les place dans android/app/src/main/res/ APRÈS cap sync
+      #    pour ne pas être écrasées.
       # ----------------------------------------------------------------
-      - name: Inject Android icons
+      - name: Generate Android icons with @capacitor/assets
         run: |
-          for dpi in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            SRC="assets/android-icons/mipmap-${dpi}"
-            DST="android/app/src/main/res/mipmap-${dpi}"
-            if [ -d "$SRC" ]; then
-              mkdir -p "$DST"
-              cp -f "$SRC"/*.png "$DST/"
-              echo "✓ Icons copied for $dpi"
-            else
-              echo "⚠ No icons found for $dpi, skipping."
-            fi
-          done
+          npm install -g @capacitor/assets@latest
+
+          # @capacitor/assets attend le fichier source dans assets/icon.png
+          # On copie public/icon.png vers assets/icon.png si nécessaire
+          if [ -f "public/icon.png" ] && [ ! -f "assets/icon.png" ]; then
+            mkdir -p assets
+            cp public/icon.png assets/icon.png
+            echo "Copied public/icon.png → assets/icon.png"
+          fi
+
+          if [ -f "assets/icon.png" ]; then
+            npx @capacitor/assets generate --android
+            echo "✓ Android icons generated from assets/icon.png"
+          else
+            echo "⚠ No icon source found (assets/icon.png or public/icon.png), skipping icon generation."
+          fi
 
       # ----------------------------------------------------------------
       # 10. Fix Maven repositories
