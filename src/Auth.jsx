@@ -166,12 +166,15 @@ function LockScreen({ onUnlocked }) {
 
   // Vérifier la disponibilité de la biométrie au montage
   // Délai de 500ms pour laisser Capacitor s'initialiser complètement
+  // Respecte le réglage store.settings.biometrie
   useEffect(() => {
+    const biometrieActivee = store.settings.biometrie !== false;
+    if (!biometrieActivee) { setBioAvailable(false); return; }
     const timer = setTimeout(() => {
       isBiometricAvailable().then(setBioAvailable);
     }, 500);
     return () => clearTimeout(timer);
-  }, []);
+  }, [store.settings.biometrie]);
 
   const selectedUser = store.users.find((u) => u.id === selectedUserId);
 
