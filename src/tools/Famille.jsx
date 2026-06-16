@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useStore, genId } from '../store.js';
-import { useToast, ConfirmInline } from '../utils.js';
+import { useStore, genId } from '../store.jsx';
+import { useToast, ConfirmInline } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 import { avatarColor, AVATAR_COLOR_KEYS } from '../Auth.jsx';
 
