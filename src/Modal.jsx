@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 // ----------------------------------------------------------------------
-// Modal stack context — provides a LIFO stack so the Android back button
-// can close the topmost modal first.
+// Modal stack context
 // ----------------------------------------------------------------------
 const ModalStackContext = createContext(null);
 
 export function ModalStackProvider({ children }) {
-  const [stack, setStack] = useState([]); // array of close callbacks
+  const [stack, setStack] = useState([]);
 
   const push = useCallback((closeFn) => {
     setStack((s) => [...s, closeFn]);
@@ -40,7 +40,8 @@ export function useModalStack() {
 }
 
 // ----------------------------------------------------------------------
-// Sliding panel (bottom sheet style modal)
+// Sliding panel — rendu via portal dans #modal-root (au niveau app-shell)
+// pour ne jamais être confiné dans un conteneur scrollable.
 // ----------------------------------------------------------------------
 export function Modal({ open, onClose, title, icon, children, full = false }) {
   const { push, pop } = useModalStack();
@@ -54,19 +55,30 @@ export function Modal({ open, onClose, title, icon, children, full = false }) {
     return () => pop(closeFn);
   }, [open, push, pop]);
 
+  // Bloquer le scroll du body quand un modal est ouvert
+  useEffect(() => {
+    if (!open) return;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
   if (!open) return null;
 
-  return (
+  // Trouver le conteneur app-shell, sinon fallback sur document.body
+  const container = document.querySelector('.app-shell') || document.body;
+
+  return createPortal(
     <>
-      <div className="modal-backdrop" onClick={onClose} />
-      <div className={`modal-panel ${full ? 'full' : ''}`}>
+      <div className="modal-backdrop" onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 50 }} />
+      <div className={`modal-panel ${full ? 'full' : ''}`} style={{ position: 'absolute', zIndex: 51 }}>
         <div className="modal-header">
           <h2>{icon && <span>{icon}</span>} {title}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">{children}</div>
       </div>
-    </>
+    </>,
+    container
   );
 }
 
@@ -90,7 +102,7 @@ export function useAndroidBack({ activeTab, setActiveTab, defaultTab = 'journal'
           handleBack();
         });
       } catch (e) {
-        // Not running in Capacitor (e.g. browser) — ignore
+        // Not running in Capacitor — ignore
       }
     })();
 
