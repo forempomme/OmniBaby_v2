@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StoreProvider, useStore, getActiveChild } from './store.js';
-import { ToastProvider } from './utils.js';
+import { StoreProvider, useStore, getActiveChild } from './store.jsx';
+import { ToastProvider } from './utils.jsx';
 import { ModalStackProvider, useAndroidBack, Modal } from './Modal.jsx';
 import AuthGate, { avatarColor } from './Auth.jsx';
 import JournalTab from './Journal.jsx';
