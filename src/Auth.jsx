@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useStore, genId } from './store.js';
-import { useToast } from './utils.js';
+import { useStore, genId } from './store.jsx';
+import { useToast } from './utils.jsx';
 
 const AVATAR_COLORS = {
   purple: '#9B7EBD',
@@ -22,13 +22,13 @@ function initials(nom) {
 }
 
 // ----------------------------------------------------------------------
-// Biometric helper (@capgo/capacitor-native-biometric) — safe no-op on web
+// Biometric helper (capacitor-native-biometric) — safe no-op on web
 // ----------------------------------------------------------------------
 let NativeBiometricModule = null;
 async function getBiometric() {
   if (NativeBiometricModule !== null) return NativeBiometricModule;
   try {
-    const mod = await import('@capgo/capacitor-native-biometric');
+    const mod = await import('capacitor-native-biometric');
     NativeBiometricModule = mod.NativeBiometric || null;
   } catch (e) {
     NativeBiometricModule = null;
