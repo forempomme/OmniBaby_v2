@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { useStore, genId, ageInMonths, formatAge } from './store.js';
-import { toISODate, useToast, ConfirmInline } from './utils.js';
+import { useStore, genId, ageInMonths, formatAge } from './store.jsx';
+import { toISODate, useToast, ConfirmInline } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 
 const EMOJIS = ['👶', '👧', '👦', '🧒', '👼'];
