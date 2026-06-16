@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, filterByActiveChild, getActiveChild } from '../store.js';
-import { formatDateFR, ConfirmInline, useToast } from '../utils.js';
+import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
+import { formatDateFR, ConfirmInline, useToast } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 
 // ----------------------------------------------------------------------
