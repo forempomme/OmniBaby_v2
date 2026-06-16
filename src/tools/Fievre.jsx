@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, filterByActiveChild, getActiveChild } from '../store.js';
-import { toISODateTime, formatDateFR, formatTimeFR, groupByDay, dayLabel, daysAgo, SwipeToDelete, useToast } from '../utils.js';
+import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
+import { toISODateTime, formatDateFR, formatTimeFR, groupByDay, dayLabel, daysAgo, SwipeToDelete, useToast } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 
 const FEVER_THRESHOLD = 38.5;
