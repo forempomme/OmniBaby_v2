@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { toISODateTime } from '../utils.js';
+import { toISODateTime } from '../utils.jsx';
 
 const STORAGE_KEY = 'omnibaby_minuteur_v1';
 
