@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, filterByActiveChild, getActiveChild } from '../store.js';
-import { toISODate, daysAgo } from '../utils.js';
+import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
+import { toISODate, daysAgo } from '../utils.jsx';
 
 const PERIODS = [
   { key: '7d', label: '7 jours', days: 7 },
