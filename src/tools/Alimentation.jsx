@@ -5,6 +5,57 @@ import { Modal } from '../Modal.jsx';
 import { DIVERSIFICATION_STAGES, ALIMENT_CATEGORIES, ALIMENT_STATUTS } from '../data/diversification.js';
 
 // ----------------------------------------------------------------------
+// Aliments pré-remplis (seed au premier lancement pour un enfant)
+// Tous en statut "a_tester" — l'utilisateur met à jour au fil des essais
+// ----------------------------------------------------------------------
+export const ALIMENTS_SEED = [
+  // Légumes
+  { nom: 'Carotte', categorie: 'legume', icon: '🥕' },
+  { nom: 'Courgette', categorie: 'legume', icon: '🥒' },
+  { nom: 'Haricot vert', categorie: 'legume', icon: '🫛' },
+  { nom: 'Patate douce', categorie: 'legume', icon: '🍠' },
+  { nom: 'Brocoli', categorie: 'legume', icon: '🥦' },
+  { nom: 'Poireau', categorie: 'legume', icon: '🌿' },
+  { nom: 'Épinard', categorie: 'legume', icon: '🌱' },
+  { nom: 'Tomate', categorie: 'legume', icon: '🍅' },
+  // Fruits
+  { nom: 'Pomme', categorie: 'fruit', icon: '🍎' },
+  { nom: 'Poire', categorie: 'fruit', icon: '🍐' },
+  { nom: 'Banane', categorie: 'fruit', icon: '🍌' },
+  { nom: 'Mangue', categorie: 'fruit', icon: '🥭' },
+  { nom: 'Avocat', categorie: 'fruit', icon: '🥑' },
+  { nom: 'Fraise', categorie: 'fruit', icon: '🍓' },
+  { nom: 'Pêche', categorie: 'fruit', icon: '🍑' },
+  { nom: 'Melon', categorie: 'fruit', icon: '🍈' },
+  // Féculents
+  { nom: 'Riz', categorie: 'feculent', icon: '🍚' },
+  { nom: 'Pâtes', categorie: 'feculent', icon: '🍝' },
+  { nom: 'Pomme de terre', categorie: 'feculent', icon: '🥔' },
+  { nom: 'Pain', categorie: 'feculent', icon: '🍞' },
+  { nom: 'Semoule', categorie: 'feculent', icon: '🌾' },
+  // Protéines
+  { nom: 'Poulet', categorie: 'proteine', icon: '🍗' },
+  { nom: 'Saumon', categorie: 'proteine', icon: '🐟' },
+  { nom: 'Cabillaud', categorie: 'proteine', icon: '🐠' },
+  { nom: 'Œuf', categorie: 'proteine', icon: '🥚' },
+  { nom: 'Bœuf', categorie: 'proteine', icon: '🥩' },
+  { nom: 'Lentilles', categorie: 'proteine', icon: '🫘' },
+  // Produits laitiers
+  { nom: 'Yaourt nature', categorie: 'laitier', icon: '🥛' },
+  { nom: 'Fromage blanc', categorie: 'laitier', icon: '🧴' },
+  { nom: 'Emmental', categorie: 'laitier', icon: '🧀' },
+  { nom: 'Beurre', categorie: 'laitier', icon: '🧈' },
+  // Allergènes (à surveiller particulièrement)
+  { nom: 'Arachide', categorie: 'allergene', icon: '🥜' },
+  { nom: 'Blanc d'œuf', categorie: 'allergene', icon: '🍳' },
+  { nom: 'Lait de vache', categorie: 'allergene', icon: '🐄' },
+  { nom: 'Gluten (blé)', categorie: 'allergene', icon: '🌾' },
+  { nom: 'Fruits à coque', categorie: 'allergene', icon: '🌰' },
+];
+
+
+
+// ----------------------------------------------------------------------
 // Conseils lait selon l'âge (OMS 2023 + PNNS4)
 // ----------------------------------------------------------------------
 function FeedingAdvice({ child }) {
@@ -116,7 +167,7 @@ function DiversificationSection({ child, etapesDiv, canEdit }) {
 // ----------------------------------------------------------------------
 // Formulaire ajout / édition aliment
 // ----------------------------------------------------------------------
-function AlimentForm({ open, onClose, child, editing }) {
+function AlimentForm({ open, onClose, child, editing, onDelete }) {
   const { update, nextId } = useStore();
   const showToast = useToast();
   const [nom, setNom] = useState('');
@@ -188,6 +239,11 @@ function AlimentForm({ open, onClose, child, editing }) {
       <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>
         {editing ? 'Enregistrer ✓' : 'Ajouter ✓'}
       </button>
+      {editing && onDelete && (
+        <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center' }}>
+          <ConfirmInline onConfirm={onDelete} label="Supprimer cet aliment" icon="🗑️" />
+        </div>
+      )}
     </Modal>
   );
 }
@@ -326,19 +382,7 @@ function AlimentsGrid({ child, aliments, canEdit }) {
                 >
                   {statutDef.icon}
                 </button>
-                {/* Bouton supprimer */}
-                {canEdit && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
-                    style={{
-                      position: 'absolute', top: 3, right: 4,
-                      background: 'none', border: 'none', fontSize: '0.6rem',
-                      color: 'var(--text-faint)', cursor: 'pointer', padding: 2,
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
+                {/* Suppression via formulaire d'édition — pas de suppression directe */}
               </div>
             );
           })}
@@ -377,6 +421,7 @@ function AlimentsGrid({ child, aliments, canEdit }) {
         onClose={() => { setFormOpen(false); setEditing(null); }}
         child={child}
         editing={editing}
+        onDelete={editing ? () => { handleDelete(editing.id); setFormOpen(false); setEditing(null); } : null}
       />
     </div>
   );
@@ -386,7 +431,7 @@ function AlimentsGrid({ child, aliments, canEdit }) {
 // Main Alimentation module
 // ----------------------------------------------------------------------
 export default function AlimentationTool() {
-  const { store, session } = useStore();
+  const { store, update, nextId, session } = useStore();
   const activeChild = getActiveChild(store);
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role !== 'lecture';
@@ -395,6 +440,28 @@ export default function AlimentationTool() {
     () => filterByActiveChild(store.aliments, store.activeChildId),
     [store.aliments, store.activeChildId]
   );
+
+  // Seed les aliments pré-remplis au premier accès pour cet enfant
+  React.useEffect(() => {
+    if (!activeChild || !canEdit) return;
+    const hasAliments = store.aliments.some((a) => a.childId === activeChild.id);
+    if (hasAliments) return;
+    update((draft) => {
+      ALIMENTS_SEED.forEach((seed) => {
+        draft.aliments.push({
+          id: draft.nextId++,
+          childId: activeChild.id,
+          nom: seed.nom,
+          categorie: seed.categorie,
+          statut: 'a_tester',
+          notes: '',
+          date: new Date().toISOString(),
+          seeded: true,
+        });
+      });
+      return draft;
+    });
+  }, [activeChild?.id]);
 
   if (!activeChild) {
     return (
