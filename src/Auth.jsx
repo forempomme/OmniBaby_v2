@@ -22,39 +22,34 @@ function initials(nom) {
 }
 
 // ----------------------------------------------------------------------
-// Biometric helper — import statique avec fallback silencieux sur web
-// Le module @capgo/capacitor-native-biometric est externalisé dans vite.config.js
-// et n'est disponible que dans le contexte Capacitor/Android natif.
+// Biometric helper
+// Stratégie : on tente l'import du plugin uniquement sur plateforme native.
+// La vérification window.Capacitor est faite au moment de l'appel (pas
+// au chargement du module) pour être sûr que Capacitor est initialisé.
 // ----------------------------------------------------------------------
-let _biometricChecked = false;
-let _biometricAvailable = false;
+function isNative() {
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
 
 export async function isBiometricAvailable() {
-  if (_biometricChecked) return _biometricAvailable;
-  _biometricChecked = true;
+  if (!isNative()) return false;
   try {
-    // window.Capacitor est défini uniquement dans le runtime Android natif
-    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) {
-      _biometricAvailable = false;
-      return false;
-    }
     const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
     const result = await NativeBiometric.isAvailable();
-    _biometricAvailable = !!(result && result.isAvailable);
+    return !!(result && result.isAvailable);
   } catch (e) {
-    _biometricAvailable = false;
+    return false;
   }
-  return _biometricAvailable;
 }
 
 export async function biometricVerify(reason) {
+  if (!isNative()) return false;
   try {
-    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return false;
     const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
     await NativeBiometric.verifyIdentity({
       reason: reason || 'Connexion à OmniBaby',
-      title: 'Vérification',
-      subtitle: '',
+      title: 'OmniBaby',
+      subtitle: 'Connexion sécurisée',
       description: '',
     });
     return true;
@@ -64,7 +59,7 @@ export async function biometricVerify(reason) {
 }
 
 // ----------------------------------------------------------------------
-// PIN pad component
+// PIN pad
 // ----------------------------------------------------------------------
 function PinPad({ onDigit, onDelete, onBiometric, showBiometric }) {
   const digits = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -89,7 +84,7 @@ function PinPad({ onDigit, onDelete, onBiometric, showBiometric }) {
 }
 
 // ----------------------------------------------------------------------
-// First launch: create first profile (becomes Admin)
+// First launch
 // ----------------------------------------------------------------------
 function FirstLaunch({ onCreated }) {
   const { update, setSession } = useStore();
@@ -109,8 +104,10 @@ function FirstLaunch({ onCreated }) {
     if (!nom.trim()) { setError('Entre ton prénom pour continuer.'); return; }
     if (pin.length !== 4) { setError('Choisis un code PIN à 4 chiffres.'); return; }
     const id = genId();
-    const user = { id, nom: nom.trim(), pin, role: 'admin', initiales: initials(nom), couleur: color };
-    update((draft) => { draft.users.push(user); return draft; });
+    update((draft) => {
+      draft.users.push({ id, nom: nom.trim(), pin, role: 'admin', initiales: initials(nom), couleur: color });
+      return draft;
+    });
     setSession({ userId: id });
     onCreated();
   };
@@ -157,7 +154,7 @@ function FirstLaunch({ onCreated }) {
 }
 
 // ----------------------------------------------------------------------
-// Lock screen: profile selection + PIN entry / biometric
+// Lock screen
 // ----------------------------------------------------------------------
 function LockScreen({ onUnlocked }) {
   const { store, setSession } = useStore();
@@ -167,7 +164,14 @@ function LockScreen({ onUnlocked }) {
   const [shake, setShake] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
 
-  useEffect(() => { isBiometricAvailable().then(setBioAvailable); }, []);
+  // Vérifier la disponibilité de la biométrie au montage
+  // Délai de 500ms pour laisser Capacitor s'initialiser complètement
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      isBiometricAvailable().then(setBioAvailable);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const selectedUser = store.users.find((u) => u.id === selectedUserId);
 
@@ -189,14 +193,21 @@ function LockScreen({ onUnlocked }) {
   const handleDelete = () => setPin((p) => p.slice(0, -1));
 
   const handleBiometric = async () => {
-    const ok = await biometricVerify(`Se connecter en tant que ${selectedUser?.nom || ''}`);
+    const ok = await biometricVerify(`Connexion en tant que ${selectedUser?.nom || ''}`);
     if (ok && selectedUser) {
       setSession({ userId: selectedUser.id });
       onUnlocked();
     } else {
-      showToast('Authentification biométrique indisponible', '⚠️');
+      showToast('Biométrie non disponible ou annulée', '⚠️');
     }
   };
+
+  // Proposer automatiquement la biométrie à l'ouverture si disponible
+  useEffect(() => {
+    if (bioAvailable && store.users.length === 1) {
+      handleBiometric();
+    }
+  }, [bioAvailable]);
 
   return (
     <div className="lock-screen">
@@ -222,13 +233,18 @@ function LockScreen({ onUnlocked }) {
         ))}
       </div>
 
-      <PinPad onDigit={handleDigit} onDelete={handleDelete} onBiometric={handleBiometric} showBiometric={bioAvailable} />
+      <PinPad
+        onDigit={handleDigit}
+        onDelete={handleDelete}
+        onBiometric={handleBiometric}
+        showBiometric={bioAvailable}
+      />
     </div>
   );
 }
 
 // ----------------------------------------------------------------------
-// Main Auth gate component
+// Main Auth gate
 // ----------------------------------------------------------------------
 export default function AuthGate({ children }) {
   const { store } = useStore();
