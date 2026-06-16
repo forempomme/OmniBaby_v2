@@ -1,0 +1,17 @@
+{
+  "appId": "com.omnibaby.app",
+  "appName": "OmniBaby",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "NativeBiometric": {
+      "biometricTitle": "OmniBaby",
+      "biometricSubTitle": "Connexion sécurisée"
+    }
+  }
+}

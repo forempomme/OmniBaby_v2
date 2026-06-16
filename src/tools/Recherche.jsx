@@ -1,0 +1,200 @@
+import React, { useState, useMemo } from 'react';
+import { useStore, filterByActiveChild, getActiveChild } from '../store.js';
+import { formatDateFR, formatDateTimeFR } from '../utils.js';
+import { ENTRY_TYPES } from '../Journal.jsx';
+import { ALIMENT_STATUTS, ALIMENT_CATEGORIES } from '../data/diversification.js';
+
+// ----------------------------------------------------------------------
+// Helpers
+// ----------------------------------------------------------------------
+function normalize(str) {
+  return (str || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function matches(query, ...fields) {
+  const q = normalize(query);
+  return fields.some((f) => normalize(f).includes(q));
+}
+
+const SOURCE_DEFS = {
+  journal: { label: 'Journal', icon: '📓' },
+  aliment: { label: 'Aliments', icon: '🥦' },
+  vaccin: { label: 'Vaccins', icon: '💉' },
+  medicament: { label: 'Médicaments', icon: '💊' },
+  rappel: { label: 'Rappels', icon: '🎯' },
+  journalbord: { label: 'Journal de bord', icon: '📸' },
+};
+
+// ----------------------------------------------------------------------
+// Result item
+// ----------------------------------------------------------------------
+function ResultItem({ source, title, subtitle, time }) {
+  const def = SOURCE_DEFS[source];
+  return (
+    <div className="swipe-content" style={{ cursor: 'default' }}>
+      <div className="entry-icon" style={{ background: 'var(--primary-soft)', color: 'var(--primary-deep)' }}>
+        {def.icon}
+      </div>
+      <div className="entry-body">
+        <div className="entry-title">{title}</div>
+        <div className="entry-sub">{def.label}{subtitle ? ` · ${subtitle}` : ''}</div>
+      </div>
+      {time && <div className="entry-time">{time}</div>}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// Main Recherche module
+// ----------------------------------------------------------------------
+export default function RechercheTool() {
+  const { store } = useStore();
+  const activeChild = getActiveChild(store);
+  const [query, setQuery] = useState('');
+  const [activeSources, setActiveSources] = useState(Object.keys(SOURCE_DEFS));
+
+  const toggleSource = (key) => {
+    setActiveSources((prev) => (prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key]));
+  };
+
+  const results = useMemo(() => {
+    if (!query.trim()) return [];
+    const out = [];
+
+    if (activeSources.includes('journal')) {
+      for (const e of filterByActiveChild(store.entries, store.activeChildId)) {
+        const def = ENTRY_TYPES[e.type];
+        const text = e.note || '';
+        if (matches(query, def?.label, text, e.type)) {
+          out.push({
+            source: 'journal',
+            title: def?.label || e.type,
+            subtitle: text || undefined,
+            time: formatDateTimeFR(e.date),
+            date: e.date,
+          });
+        }
+      }
+    }
+
+    if (activeSources.includes('aliment')) {
+      for (const a of filterByActiveChild(store.aliments, store.activeChildId)) {
+        if (matches(query, a.nom, a.notes)) {
+          const catDef = ALIMENT_CATEGORIES.find((c) => c.key === a.categorie);
+          const statutDef = ALIMENT_STATUTS.find((s) => s.key === a.statut);
+          out.push({
+            source: 'aliment',
+            title: a.nom,
+            subtitle: [catDef?.label, statutDef?.label].filter(Boolean).join(' · '),
+            time: a.date ? formatDateFR(a.date) : undefined,
+            date: a.date,
+          });
+        }
+      }
+    }
+
+    if (activeSources.includes('vaccin')) {
+      for (const v of filterByActiveChild(store.vaccins, store.activeChildId)) {
+        if (matches(query, v.name)) {
+          out.push({
+            source: 'vaccin',
+            title: v.name,
+            subtitle: v.status === 'done' ? 'Fait' : undefined,
+            time: v.date ? formatDateFR(v.date) : undefined,
+            date: v.date,
+          });
+        }
+      }
+    }
+
+    if (activeSources.includes('medicament')) {
+      for (const m of filterByActiveChild(store.medicaments, store.activeChildId)) {
+        if (matches(query, m.nom, m.dose, m.notes)) {
+          out.push({
+            source: 'medicament',
+            title: m.nom,
+            subtitle: [m.dose, m.notes].filter(Boolean).join(' · '),
+            time: m.prochaineDose ? `Prochaine : ${m.prochaineDose}` : undefined,
+          });
+        }
+      }
+    }
+
+    if (activeSources.includes('rappel')) {
+      for (const r of store.rappels) {
+        if (matches(query, r.titre)) {
+          out.push({
+            source: 'rappel',
+            title: r.titre,
+            subtitle: r.fait ? 'Fait' : undefined,
+            time: formatDateTimeFR(r.date),
+            date: r.date,
+          });
+        }
+      }
+    }
+
+    if (activeSources.includes('journalbord')) {
+      for (const j of filterByActiveChild(store.journal, store.activeChildId)) {
+        if (matches(query, j.titre, j.note, j.tag)) {
+          out.push({
+            source: 'journalbord',
+            title: j.titre || '(sans titre)',
+            subtitle: j.tag,
+            time: j.date ? formatDateFR(j.date) : undefined,
+            date: j.date,
+          });
+        }
+      }
+    }
+
+    return out.sort((a, b) => {
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return a.date < b.date ? 1 : -1;
+    });
+  }, [query, activeSources, store]);
+
+  return (
+    <div>
+      <div className="field">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher un aliment, un vaccin, un rappel..."
+          autoFocus
+        />
+      </div>
+
+      <div className="chip-row">
+        {Object.entries(SOURCE_DEFS).map(([key, def]) => (
+          <button key={key} className={`chip ${activeSources.includes(key) ? 'active' : ''}`} onClick={() => toggleSource(key)}>
+            {def.icon} {def.label}
+          </button>
+        ))}
+      </div>
+
+      {!query.trim() ? (
+        <div className="empty-state">
+          <div className="emoji">🔍</div>
+          <div className="title">Recherche globale</div>
+          <div className="desc">Tape un mot-clé pour chercher dans le journal, les aliments, vaccins, médicaments, rappels et le journal de bord{activeChild ? ` de ${activeChild.nom}` : ''}.</div>
+        </div>
+      ) : results.length === 0 ? (
+        <div className="empty-state">
+          <div className="emoji">🤷</div>
+          <div className="title">Aucun résultat</div>
+          <div className="desc">Aucune correspondance pour "{query}". Essaie un autre mot-clé ou active d'autres catégories.</div>
+        </div>
+      ) : (
+        <div className="entry-list">
+          {results.map((r, i) => (
+            <ResultItem key={i} {...r} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
