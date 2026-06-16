@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useStore, genId, ageInMonths, formatAge } from './store.jsx';
 import { toISODate, useToast, ConfirmInline } from './utils.jsx';
 import { Modal } from './Modal.jsx';
+import { isBiometricAvailable } from './Auth.jsx';
 
 const EMOJIS = ['👶', '👧', '👦', '🧒', '👼'];
 
@@ -253,6 +254,45 @@ function ChildrenSection({ canEdit }) {
   );
 }
 
+
+// ----------------------------------------------------------------------
+// Biometric section
+// ----------------------------------------------------------------------
+function BiometricSection() {
+  const { store, update } = useStore();
+  const [available, setAvailable] = React.useState(false);
+
+  React.useEffect(() => {
+    isBiometricAvailable().then(setAvailable);
+  }, []);
+
+  if (!available) return null;
+
+  const enabled = store.settings.biometrie !== false;
+
+  const toggle = () => {
+    update((draft) => {
+      draft.settings.biometrie = !enabled;
+      return draft;
+    });
+  };
+
+  return (
+    <div className="card appear">
+      <div className="section-title" style={{ marginBottom: 6 }}>🔐 Biométrie</div>
+      <div className="flex-between" style={{ padding: '8px 0' }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '0.86rem' }}>Connexion par empreinte digitale</div>
+          <div className="muted" style={{ fontSize: '0.72rem', marginTop: 2 }}>
+            Déverrouille l'app sans saisir le code PIN
+          </div>
+        </div>
+        <button className={`switch ${enabled ? 'on' : 'off'}`} onClick={toggle} />
+      </div>
+    </div>
+  );
+}
+
 // ----------------------------------------------------------------------
 // Appearance section (theme)
 // ----------------------------------------------------------------------
@@ -445,6 +485,7 @@ export default function ReglagesTab({ onOpenFamille }) {
   return (
     <div>
       <ChildrenSection canEdit={canEdit} />
+      <BiometricSection />
       <AppearanceSection />
       <NotificationsSection />
 
