@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, filterByActiveChild, getActiveChild, ageInMonths } from '../store.js';
-import { useToast, fireConfetti, ConfirmInline } from '../utils.js';
+import { useStore, filterByActiveChild, getActiveChild, ageInMonths } from '../store.jsx';
+import { useToast, fireConfetti, ConfirmInline } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 import { DIVERSIFICATION_STAGES, ALIMENT_CATEGORIES, ALIMENT_STATUTS } from '../data/diversification.js';
 
