@@ -1,5 +1,5 @@
 import React from 'react';
-import { useStore, getActiveChild, formatAge } from '../store.js';
+import { useStore, getActiveChild, formatAge } from '../store.jsx';
 
 // ----------------------------------------------------------------------
 // Call button
