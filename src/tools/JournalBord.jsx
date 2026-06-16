@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, filterByActiveChild, getActiveChild } from '../store.js';
-import { toISODate, formatDateFR, groupByDay, dayLabel, useToast, ConfirmInline } from '../utils.js';
+import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
+import { toISODate, formatDateFR, groupByDay, dayLabel, useToast, ConfirmInline } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 
 const TAGS = [
