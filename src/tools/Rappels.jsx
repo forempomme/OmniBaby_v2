@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, getActiveChild } from '../store.js';
-import { toISODateTime, formatDateTimeFR, useToast, ConfirmInline } from '../utils.js';
+import { useStore, getActiveChild } from '../store.jsx';
+import { toISODateTime, formatDateTimeFR, useToast, ConfirmInline } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 import { VISITES_OBLIGATOIRES } from '../data/who-growth.js';
 
