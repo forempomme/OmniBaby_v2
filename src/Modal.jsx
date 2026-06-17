@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 
 // ----------------------------------------------------------------------
-// Modal stack context
+// Modal stack context — provides a LIFO stack so the Android back button
+// can close the topmost modal first.
 // ----------------------------------------------------------------------
 const ModalStackContext = createContext(null);
 
 export function ModalStackProvider({ children }) {
-  const [stack, setStack] = useState([]);
+  const [stack, setStack] = useState([]); // array of close callbacks
 
   const push = useCallback((closeFn) => {
     setStack((s) => [...s, closeFn]);
@@ -40,10 +40,18 @@ export function useModalStack() {
 }
 
 // ----------------------------------------------------------------------
-// Sliding panel — rendu via portal dans #modal-root (au niveau app-shell)
-// pour ne jamais être confiné dans un conteneur scrollable.
+// Sliding panel (bottom sheet style modal)
 // ----------------------------------------------------------------------
-export function Modal({ open, onClose, title, icon, children, full = false }) {
+export function Modal({ open, onClose, title, icon, children, full = false, dirty = false }) {
+  const [confirmClose, setConfirmClose] = React.useState(false);
+
+  const handleClose = () => {
+    if (dirty) { setConfirmClose(true); }
+    else { onClose(); }
+  };
+
+  const handleConfirmAbandon = () => { setConfirmClose(false); onClose(); };
+  const handleCancelAbandon = () => setConfirmClose(false);
   const { push, pop } = useModalStack();
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -55,30 +63,57 @@ export function Modal({ open, onClose, title, icon, children, full = false }) {
     return () => pop(closeFn);
   }, [open, push, pop]);
 
-  // Bloquer le scroll du body quand un modal est ouvert
-  useEffect(() => {
-    if (!open) return;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, [open]);
-
   if (!open) return null;
 
-  // Trouver le conteneur app-shell, sinon fallback sur document.body
-  const container = document.querySelector('.app-shell') || document.body;
-
-  return createPortal(
+  return (
     <>
-      <div className="modal-backdrop" onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 50 }} />
-      <div className={`modal-panel ${full ? 'full' : ''}`} style={{ position: 'absolute', zIndex: 51 }}>
+      <div className="modal-backdrop" onClick={handleClose} />
+      <div className={`modal-panel ${full ? 'full' : ''}`}>
         <div className="modal-header">
           <h2>{icon && <span>{icon}</span>} {title}</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={handleClose}>✕</button>
         </div>
-        <div className="modal-body">{children}</div>
+        <div className="modal-body">
+          {children}
+          {confirmClose && (
+            <div style={{
+              position: 'absolute', inset: 0, background: 'rgba(43,35,32,.6)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', zIndex: 60, borderRadius: 'inherit', gap: 12,
+            }}>
+              <div style={{
+                background: 'var(--surface)', borderRadius: 'var(--radius-lg)',
+                padding: '20px 24px', textAlign: 'center', maxWidth: 260,
+              }}>
+                <div style={{ fontSize: '1.4rem', marginBottom: 8 }}>⚠️</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: 6 }}>
+                  Abandonner les modifications ?
+                </div>
+                <div style={{ fontSize: '.82rem', color: 'var(--text-soft)', marginBottom: 16 }}>
+                  Les données saisies seront perdues.
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={handleCancelAbandon} style={{
+                    flex: 1, padding: '8px', borderRadius: 'var(--radius-pill)',
+                    background: 'var(--surface-2)', border: '1px solid var(--border)',
+                    fontWeight: 600, cursor: 'pointer', fontSize: '.82rem', fontFamily: 'inherit',
+                  }}>
+                    Continuer
+                  </button>
+                  <button onClick={handleConfirmAbandon} style={{
+                    flex: 1, padding: '8px', borderRadius: 'var(--radius-pill)',
+                    background: 'var(--danger)', color: '#fff',
+                    border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: '.82rem', fontFamily: 'inherit',
+                  }}>
+                    Abandonner
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </>,
-    container
+    </>
   );
 }
 
@@ -102,7 +137,7 @@ export function useAndroidBack({ activeTab, setActiveTab, defaultTab = 'journal'
           handleBack();
         });
       } catch (e) {
-        // Not running in Capacitor — ignore
+        // Not running in Capacitor (e.g. browser) — ignore
       }
     })();
 
