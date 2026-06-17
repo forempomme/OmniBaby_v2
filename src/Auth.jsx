@@ -162,6 +162,60 @@ function FirstLaunch({ onCreated }) {
   );
 }
 
+
+// ----------------------------------------------------------------------
+// BabySitterContent : fiche de garde accessible sans PIN
+// Affiche les infos essentielles de l'enfant actif
+// ----------------------------------------------------------------------
+function BabySitterContent({ store }) {
+  const activeChild = store.children.find((c) => c.id === store.activeChildId) || store.children[0];
+  if (!activeChild) return (
+    <div style={{ textAlign: 'center', color: 'var(--text-soft)', padding: '24px 0' }}>
+      Aucun profil enfant configuré.
+    </div>
+  );
+  return (
+    <div>
+      <div style={{ background: 'var(--primary)', color: '#fff', borderRadius: 'var(--radius-lg)',
+        padding: '14px', textAlign: 'center', marginBottom: 12 }}>
+        <div style={{ fontSize: '2rem' }}>{activeChild.emoji || '👶'}</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.2rem', marginTop: 4 }}>
+          {activeChild.nom}
+        </div>
+      </div>
+      {activeChild.allergies && (
+        <div style={{ background: 'var(--danger-soft)', borderRadius: 'var(--radius-md)',
+          padding: '10px 12px', marginBottom: 10 }}>
+          <div style={{ color: 'var(--danger)', fontWeight: 700, fontSize: '.85rem' }}>⚠️ Allergies</div>
+          <div style={{ fontWeight: 600, marginTop: 2 }}>{activeChild.allergies}</div>
+        </div>
+      )}
+      {[
+        { label: '🩸 Groupe sanguin', val: activeChild.groupeSanguin },
+        { label: '👨‍⚕️ Médecin', val: activeChild.medecinNom, tel: activeChild.medecinTel },
+        { label: '👤 Urgence famille', val: activeChild.contactUrgenceNom, tel: activeChild.contactUrgenceTel },
+      ].map((r, i) => r.val && (
+        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+          <div>
+            <div style={{ fontSize: '.65rem', color: 'var(--text-soft)', fontWeight: 700, textTransform: 'uppercase' }}>{r.label}</div>
+            <div style={{ fontWeight: 600, fontSize: '.86rem', marginTop: 1 }}>{r.val}</div>
+          </div>
+          {r.tel && <a href={`tel:${r.tel.replace(/\s+/g,'')}`} style={{
+            background: 'var(--primary)', color: '#fff', borderRadius: 'var(--radius-pill)',
+            padding: '5px 12px', fontSize: '.75rem', fontWeight: 600, textDecoration: 'none',
+          }}>📞 Appeler</a>}
+        </div>
+      ))}
+      <a href="tel:15" style={{ display: 'block', textAlign: 'center', marginTop: 14,
+        background: 'var(--danger)', color: '#fff', borderRadius: 'var(--radius-pill)',
+        padding: '10px', fontWeight: 700, fontSize: '.88rem', textDecoration: 'none' }}>
+        🚨 SAMU — 15
+      </a>
+    </div>
+  );
+}
+
 // ----------------------------------------------------------------------
 // Lock screen
 // ----------------------------------------------------------------------
@@ -172,6 +226,7 @@ function LockScreen({ onUnlocked }) {
   const [pin, setPin] = useState('');
   const [shake, setShake] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
+  const [babySitterOpen, setBabySitterOpen] = useState(false);
 
   const biometrieActivee = store.settings?.biometrie !== false;
 
@@ -264,6 +319,42 @@ function LockScreen({ onUnlocked }) {
         onBiometric={handleBiometric}
         showBiometric={bioAvailable}
       />
+
+      <button
+        onClick={() => setBabySitterOpen(true)}
+        style={{
+          marginTop: 16, background: 'none', border: 'none',
+          color: 'rgba(255,255,255,.6)', fontSize: '.78rem', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 4,
+        }}
+      >
+        🧑‍🍼 Fiche de garde (sans PIN)
+      </button>
+
+      {babySitterOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,.55)', display: 'flex', flexDirection: 'column',
+          justifyContent: 'flex-end',
+        }}>
+          <div style={{
+            background: 'var(--bg)', borderRadius: '20px 20px 0 0',
+            padding: '16px 16px 32px', maxHeight: '80vh', overflowY: 'auto',
+          }}>
+            <div style={{ width: 36, height: 4, background: 'var(--border)', borderRadius: 2, margin: '0 auto 12px' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem' }}>
+                🧑‍🍼 Fiche de garde
+              </div>
+              <button onClick={() => setBabySitterOpen(false)} style={{
+                background: 'var(--surface-2)', border: 'none',
+                borderRadius: 'var(--radius-pill)', padding: '4px 12px', cursor: 'pointer', fontSize: '.8rem',
+              }}>✕ Fermer</button>
+            </div>
+            <BabySitterContent store={store} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
