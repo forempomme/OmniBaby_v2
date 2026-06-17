@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useStore, genId, ageInMonths, formatAge } from './store.jsx';
-import { toISODate, useToast, ConfirmInline } from './utils.jsx';
+import { toISODate, useToast, ConfirmInline, exportPDF } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import { isBiometricAvailable } from './Auth.jsx';
 import { Accordion } from './utils.jsx';
@@ -393,23 +393,58 @@ function DataSection({ canEdit, embedded = false }) {
   const lastExport = store.settings.lastExportDate;
   const needsBackup = !lastExport || (new Date() - new Date(lastExport)) / (1000 * 60 * 60 * 24) > 7;
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const data = JSON.stringify(store, null, 2);
+    const filename = `omnibaby-export-${toISODate()}.json`;
+
+    // Sur Android (Capacitor), utiliser l'API de partage native
+    // qui permet de choisir où enregistrer le fichier (Drive, Messages, etc.)
+    if (navigator.share && navigator.canShare) {
+      try {
+        const blob = new Blob([data], { type: 'application/json' });
+        const file = new File([blob], filename, { type: 'application/json' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Sauvegarde OmniBaby',
+            text: `Données OmniBaby exportées le ${toISODate()}`,
+          });
+          update((draft) => { draft.settings.lastExportDate = toISODate(); return draft; });
+          showToast('Partage ouvert', '📤');
+          return;
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          // Partage annulé par l'utilisateur — ne pas afficher d'erreur
+        } else {
+          return;
+        }
+      }
+    }
+
+    // Fallback navigateur desktop : téléchargement direct
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `omnibaby-export-${toISODate()}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    update((draft) => {
-      draft.settings.lastExportDate = toISODate();
-      return draft;
-    });
+    update((draft) => { draft.settings.lastExportDate = toISODate(); return draft; });
     showToast('Export téléchargé', '📤');
+  };
+
+  const handleExportPDF = async () => {
+    const activeChild = store.children.find((c) => c.id === store.activeChildId);
+    if (!activeChild) { showToast('Aucun enfant actif', '⚠️'); return; }
+    try {
+      await exportPDF(store, activeChild);
+      showToast('PDF généré', '📄');
+    } catch (e) {
+      showToast('Erreur PDF : ' + e.message, '⚠️');
+    }
   };
 
   const handleImportFile = (e) => {
@@ -448,7 +483,8 @@ function DataSection({ canEdit, embedded = false }) {
       )}
 
       <div className="flex-row" style={{ flexWrap: 'wrap', gap: 8 }}>
-        <button className="btn btn-primary btn-sm" onClick={handleExport}>📤 Exporter en JSON</button>
+        <button className="btn btn-primary btn-sm" onClick={handleExport}>📤 Exporter JSON</button>
+        <button className="btn btn-secondary btn-sm" onClick={handleExportPDF}>📄 PDF pédiatre</button>
         {canEdit && (
           <>
             <button className="btn btn-outline btn-sm" onClick={() => fileInputRef.current?.click()}>📥 Importer un JSON</button>
