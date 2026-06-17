@@ -148,8 +148,11 @@ function EntryForm({ open, onClose, prefill, onSaved }) {
     onClose();
   };
 
+  // dirty = true dès qu'une valeur a changé par rapport au prefill
+  const isDirty = quantite !== '' || duree !== '' || contenu !== 'pipi' || note !== '';
+
   return (
-    <Modal open={open} onClose={onClose} title="Nouvelle entrée" icon="📓">
+    <Modal open={open} onClose={onClose} title="Nouvelle entrée" icon="📓" dirty={isDirty}>
       <div className="field">
         <label>Type</label>
         <div className="pill-group">
@@ -297,60 +300,33 @@ function buildShareSummary(entries, child) {
   return txt;
 }
 
-function TodayOverview({ entries, child, filterType, setFilterType }) {
+function TodayOverview({ entries, child, filterType, setFilterType, onLongPress }) {
   const lastBiberon = lastOfType(entries, 'biberon');
   const lastCouche = lastOfType(entries, 'couche');
   const lastSommeil = lastOfType(entries, 'sommeil');
   const nextBiberon = estimateNextBiberon(entries);
 
-  // Cumuls du jour
-  const todayBiberons = entries.filter((e) => e.type === 'biberon');
-  const totalLait = todayBiberons.filter((b) => b.mode === 'biberon').reduce((sum, b) => sum + (b.quantite || 0), 0);
-  const totalTetees = todayBiberons.filter((b) => b.mode === 'sein').reduce((sum, b) => sum + (b.duree || 0), 0);
-  const totalCouches = entries.filter((e) => e.type === 'couche').length;
-  const totalSommeilMin = entries.filter((e) => e.type === 'sommeil').reduce((sum, s) => sum + (s.duree || 0), 0);
-
-  // Ligne de détail sous chaque stamp
-  const biberonDetail = todayBiberons.length > 0
-    ? totalLait > 0
-      ? `${todayBiberons.length}x · ${totalLait} ml`
-      : totalTetees > 0
-        ? `${todayBiberons.length}x · ${totalTetees} min`
-        : `${todayBiberons.length}x`
-    : null;
-
-  const coucheDetail = totalCouches > 0 ? `${totalCouches} changes` : null;
-
-  const sommeilDetail = totalSommeilMin > 0
-    ? totalSommeilMin >= 60
-      ? `${Math.floor(totalSommeilMin / 60)}h${String(totalSommeilMin % 60).padStart(2, '0')}`
-      : `${totalSommeilMin} min`
-    : null;
-
   const stats = [
-    {
-      key: 'biberon', icon: '🍼', label: 'Dernier',
-      value: lastBiberon ? formatTimeFR(lastBiberon.date) : '—',
-      detail: biberonDetail,
-    },
-    {
-      key: 'couche', icon: '🧷', label: 'Dernier',
-      value: lastCouche ? formatTimeFR(lastCouche.date) : '—',
-      detail: coucheDetail,
-    },
-    {
-      key: 'sommeil', icon: '🌙', label: 'Dernier',
-      value: lastSommeil ? formatTimeFR(lastSommeil.date) : '—',
-      detail: sommeilDetail,
-    },
+    { key: 'biberon', icon: '🍼', label: 'Biberon', value: lastBiberon ? formatTimeFR(lastBiberon.date) : '—' },
+    { key: 'couche', icon: '🧷', label: 'Change', value: lastCouche ? formatTimeFR(lastCouche.date) : '—' },
+    { key: 'sommeil', icon: '🌙', label: 'Sommeil', value: lastSommeil ? formatTimeFR(lastSommeil.date) : '—' },
   ];
 
   const handleShare = async () => {
     const text = buildShareSummary(entries, child);
     if (navigator.share) {
-      try { await navigator.share({ text, title: 'Résumé du jour' }); } catch (e) { /* annulé */ }
+      try {
+        await navigator.share({ text, title: 'Résumé du jour' });
+      } catch (e) {
+        /* user cancelled */
+      }
     } else {
-      try { await navigator.clipboard.writeText(text); alert('Résumé copié !'); } catch (e) { alert(text); }
+      try {
+        await navigator.clipboard.writeText(text);
+        alert('Résumé copié dans le presse-papier !');
+      } catch (e) {
+        alert(text);
+      }
     }
   };
 
@@ -370,11 +346,6 @@ function TodayOverview({ entries, child, filterType, setFilterType }) {
             <span className="stamp-icon">{s.icon}</span>
             <span className="stamp-value">{s.value}</span>
             <span className="stamp-label">{s.label}</span>
-            {s.detail && (
-              <span style={{ fontSize: '0.62rem', color: 'var(--primary-deep)', fontWeight: 700, marginTop: 1 }}>
-                {s.detail}
-              </span>
-            )}
           </button>
         ))}
       </div>
@@ -415,6 +386,61 @@ const PERIOD_OPTIONS = [
   { key: '7days', label: '7 jours' },
   { key: 'all', label: 'Tout' },
 ];
+
+
+// ----------------------------------------------------------------------
+// Résumé hebdomadaire (moyennes 7 jours pour le pédiatre)
+// ----------------------------------------------------------------------
+function WeekSummary({ entries }) {
+  const stats = React.useMemo(() => {
+    if (!entries.length) return null;
+    const days = {};
+    entries.forEach((e) => {
+      const d = e.date.slice(0, 10);
+      if (!days[d]) days[d] = { biberons: 0, ml: 0, couches: 0 };
+      if (e.type === 'biberon') { days[d].biberons++; days[d].ml += (e.quantite || 0); }
+      if (e.type === 'couche') days[d].couches++;
+    });
+    const ds = Object.values(days);
+    if (!ds.length) return null;
+    const n = ds.length;
+    return {
+      avgBib: (ds.reduce((s, d) => s + d.biberons, 0) / n).toFixed(1),
+      avgMl: Math.round(ds.reduce((s, d) => s + d.ml, 0) / n),
+      avgCouche: (ds.reduce((s, d) => s + d.couches, 0) / n).toFixed(1),
+      days: n,
+    };
+  }, [entries]);
+
+  if (!stats) return null;
+
+  return (
+    <div className="card appear" style={{ background: 'var(--surface-2)', marginBottom: 12 }}>
+      <div className="section-title" style={{ marginBottom: 8 }}>
+        📊 Moyennes sur {stats.days} jour{stats.days > 1 ? 's' : ''}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        {[
+          { icon: '🍼', val: stats.avgBib, label: 'biberons/j' },
+          { icon: '💧', val: stats.avgMl > 0 ? `${stats.avgMl}ml` : '—', label: 'lait moyen/j' },
+          { icon: '🧷', val: stats.avgCouche, label: 'changes/j' },
+        ].map((s, i) => (
+          <div key={i} style={{ textAlign: 'center', padding: '6px 0' }}>
+            <div style={{ fontSize: '1.1rem' }}>{s.icon}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '.9rem', marginTop: 2 }}>
+              {s.val}
+            </div>
+            <div style={{ fontSize: '.62rem', color: 'var(--text-soft)', fontWeight: 600 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: '.7rem', color: 'var(--text-faint)', marginTop: 6 }}>
+        Résumé utile pour le pédiatre · Données Journal uniquement
+      </div>
+    </div>
+  );
+}
+
 
 export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefill, onTimerFinished }) {
   const { store, update, session } = useStore();
@@ -477,7 +503,17 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
 
   return (
     <div>
-      <TodayOverview entries={todayEntries} child={activeChild} filterType={filterType} setFilterType={setFilterType} />
+      <TodayOverview
+          entries={todayEntries}
+          child={activeChild}
+          filterType={filterType}
+          setFilterType={setFilterType}
+          onLongPress={(type) => {
+            if (type === 'biberon') { setOpenEntryForm(true); }
+            else if (type === 'couche') { setOpenEntryForm(true); }
+            else if (type === 'sommeil') { setOpenEntryForm(true); }
+          }}
+        />
 
       <div className="chip-row mt-16">
         {PERIOD_OPTIONS.map((p) => (
@@ -486,6 +522,7 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
           </button>
         ))}
       </div>
+      {period === '7days' && <WeekSummary entries={periodFiltered} />}
 
       {filterType !== 'tous' && (
         <div className="chip-row" style={{ marginTop: -6 }}>
