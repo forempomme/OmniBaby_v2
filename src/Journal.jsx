@@ -366,28 +366,29 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
 
   if (compact) {
     return (
-      <div onClick={onEdit} style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-        background: 'var(--surface)', borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--border)', cursor: 'pointer', marginBottom: 5,
-      }}>
-        <div style={{
-          width: 26, height: 26, borderRadius: '50%', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', fontSize: '.8rem',
-          background: def.color, color: def.iconColor, flexShrink: 0,
-        }}>{def.icon}</div>
-        <div style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: '.76rem' }}>
-          {def.label}
-          {entry.mode === 'biberon' && entry.quantite
-            ? <span style={{ color: 'var(--primary-deep)', fontWeight: 400 }}> · {entry.quantite}ml</span>
-            : entry.type === 'couche' && entry.contenu
-            ? <span style={{ color: 'var(--text-soft)', fontWeight: 400 }}> · {entry.contenu}</span>
-            : null}
+      <SwipeToDelete onDelete={onDelete}>
+        <div onClick={onEdit} style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+          cursor: 'pointer', flex: 1,
+        }}>
+          <div style={{
+            width: 26, height: 26, borderRadius: '50%', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', fontSize: '.8rem',
+            background: def.color, color: def.iconColor, flexShrink: 0,
+          }}>{def.icon}</div>
+          <div style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: '.76rem' }}>
+            {def.label}
+            {entry.mode === 'biberon' && entry.quantite
+              ? <span style={{ color: 'var(--primary-deep)', fontWeight: 400 }}> · {entry.quantite}ml</span>
+              : entry.type === 'couche' && entry.contenu
+              ? <span style={{ color: 'var(--text-soft)', fontWeight: 400 }}> · {entry.contenu}</span>
+              : null}
+          </div>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '.68rem', color: 'var(--text-faint)', flexShrink: 0 }}>
+            {entry.date ? new Date(entry.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
+          </span>
         </div>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '.68rem', color: 'var(--text-faint)', flexShrink: 0 }}>
-          {entry.date ? new Date(entry.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
-        </span>
-      </div>
+      </SwipeToDelete>
     );
   }
 
@@ -558,11 +559,11 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
   const activeChild = getActiveChild(store);
   const [period, setPeriod] = useState('today');
   const [filterType, setFilterType] = useState('tous');
-  const [compact, setCompact] = React.useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
 
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role !== 'lecture';
+  const compact = !!store.settings?.journalCompact;
 
   const childEntries = useMemo(
     () => filterByActiveChild(store.entries, store.activeChildId).sort((a, b) => (a.date < b.date ? 1 : -1)),
@@ -626,26 +627,12 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
           }}
         />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, marginTop: 16 }}>
-        <div className="chip-row" style={{ flex: 1, margin: 0 }}>
-          {PERIOD_OPTIONS.map((p) => (
-            <button key={p.key} className={`chip ${period === p.key ? 'active' : ''}`} onClick={() => setPeriod(p.key)}>
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setCompact((c) => !c)}
-          style={{
-            flexShrink: 0, padding: '5px 10px', borderRadius: 'var(--radius-pill)',
-            background: compact ? 'var(--primary-soft)' : 'var(--surface)',
-            border: `1.5px solid ${compact ? 'var(--primary)' : 'var(--border)'}`,
-            color: compact ? 'var(--primary-deep)' : 'var(--text-soft)',
-            fontSize: '.72rem', fontWeight: 700, cursor: 'pointer',
-          }}
-        >
-          {compact ? '▤ Compacte' : '☰ Normale'}
-        </button>
+      <div className="chip-row mt-16">
+        {PERIOD_OPTIONS.map((p) => (
+          <button key={p.key} className={`chip ${period === p.key ? 'active' : ''}`} onClick={() => setPeriod(p.key)}>
+            {p.label}
+          </button>
+        ))}
       </div>
       {period === 'today' && <QuickEntryBar entries={todayEntries} onSaved={() => {}} />}
       {period === '7days' && <WeekSummary entries={periodFiltered} />}
@@ -673,6 +660,7 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
                 <EntryItem
                   key={entry.id}
                   entry={entry}
+                  compact={compact}
                   onEdit={() => canEdit && setEditingEntry(entry)}
                   onDelete={() => canEdit && handleDelete(entry.id)}
                 />

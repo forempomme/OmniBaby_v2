@@ -313,31 +313,50 @@ function BiometricSection({ embedded = false }) {
 // ----------------------------------------------------------------------
 // Appearance section (theme)
 // ----------------------------------------------------------------------
-function AppearanceSection({ embedded = false }) {
+ function AppearanceSection({ embedded = false }) {
   const { store, update } = useStore();
 
   const setDark = (value) => {
+    update((draft) => { draft.settings.dark = value; return draft; });
+  };
+
+  const toggleCompact = () => {
     update((draft) => {
-      draft.settings.dark = value;
+      draft.settings.journalCompact = !draft.settings?.journalCompact;
       return draft;
     });
   };
 
   const current = store.settings.dark;
+  const compact = !!store.settings?.journalCompact;
 
   return (
     <div className={embedded ? '' : 'card appear'} style={{ marginTop: embedded ? 12 : 0 }}>
       <div className="section-title" style={{ marginBottom: 6, display: embedded ? 'none' : 'flex' }}>🎨 Apparence</div>
-      <div className="pill-group mt-8">
-        <button className={`pill-choice ${current === null || current === undefined ? 'selected' : ''}`} onClick={() => setDark(null)}>
-          🌗 Auto (21h-7h)
-        </button>
-        <button className={`pill-choice ${current === false ? 'selected' : ''}`} onClick={() => setDark(false)}>
-          ☀️ Clair
-        </button>
-        <button className={`pill-choice ${current === true ? 'selected' : ''}`} onClick={() => setDark(true)}>
-          🌙 Sombre
-        </button>
+
+      <div className="field">
+        <label>Theme</label>
+        <div className="pill-group">
+          <button className={`pill-choice ${current === null || current === undefined ? 'selected' : ''}`} onClick={() => setDark(null)}>
+            🌗 Auto (21h-7h)
+          </button>
+          <button className={`pill-choice ${current === false ? 'selected' : ''}`} onClick={() => setDark(false)}>
+            ☀️ Clair
+          </button>
+          <button className={`pill-choice ${current === true ? 'selected' : ''}`} onClick={() => setDark(true)}>
+            🌙 Sombre
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-between" style={{ padding: '10px 0', borderTop: '1px solid var(--border)', marginTop: 8 }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '0.86rem' }}>Vue compacte du Journal</div>
+          <div className="muted" style={{ fontSize: '0.72rem', marginTop: 2 }}>
+            Entrées sur une ligne, plus d'elements visibles
+          </div>
+        </div>
+        <button className={`switch ${compact ? 'on' : 'off'}`} onClick={toggleCompact} />
       </div>
     </div>
   );
