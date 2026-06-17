@@ -407,6 +407,8 @@ export async function exportPDF(store, child) {
   const { jsPDF } = await import('jspdf');
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  // Activer le support UTF-8 pour les caractères accentués français
+  doc.setLanguage('fr');
   const W = 210; // largeur A4
   const MARGIN = 14;
   const COL = W - MARGIN * 2;
@@ -422,7 +424,7 @@ export async function exportPDF(store, child) {
   };
 
   const fmtDate = (iso) => {
-    if (!iso) return '—';
+    if (!iso) return '-';
     return new Date(iso).toLocaleDateString('fr-FR');
   };
 
@@ -447,11 +449,11 @@ export async function exportPDF(store, child) {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('OmniBaby — Résumé pédiatrique', MARGIN, 12);
+  doc.text('OmniBaby - Resume pediatrique', MARGIN, 12);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Généré le ${todayStr}`, MARGIN, 20);
-  doc.text(`Données : ${todayStr}`, W - MARGIN, 20, { align: 'right' });
+  doc.text(`Genere le ${todayStr}`, MARGIN, 20);
+  doc.text(`Donnees : ${todayStr}`, W - MARGIN, 20, { align: 'right' });
   y = 34;
 
   // ── Profil enfant ─────────────────────────────────────────────────
@@ -460,14 +462,14 @@ export async function exportPDF(store, child) {
   doc.rect(MARGIN, y, COL, 22, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
-  doc.text(`${child.emoji || '👶'} ${child.nom}`, MARGIN + 4, y + 8);
+  doc.text(child.nom, MARGIN + 4, y + 8);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(100, 80, 70);
   doc.text([
     `Né(e) le : ${fmtDate(child.birthdate)}  |  Âge : ${ageStr(child.birthdate)}`,
-    `Sexe : ${child.sexe === 'garcon' ? 'Garçon' : 'Fille'}  |  Groupe sanguin : ${child.groupeSanguin || '—'}`,
-    child.allergies ? `⚠ Allergies : ${child.allergies}` : '',
+    `Sexe : ${child.sexe === 'garcon' ? 'Garçon' : 'Fille'}  |  Groupe sanguin : ${child.groupeSanguin || '-'}`,
+    child.allergies ? ` Allergies : ${child.allergies}` : '',
   ].filter(Boolean), MARGIN + 4, y + 14);
   y += 28;
 
@@ -484,11 +486,11 @@ export async function exportPDF(store, child) {
     doc.setFontSize(9);
     doc.setTextColor(80, 65, 58);
     if (child.medecinNom) {
-      doc.text(`Médecin / pédiatre : ${child.medecinNom}${child.medecinTel ? '  —  ' + child.medecinTel : ''}`, MARGIN, y);
+      doc.text(`Medecin / pediatre : ${child.medecinNom}${child.medecinTel ? '  -  ' + child.medecinTel : ''}`, MARGIN, y);
       y += 5;
     }
     if (child.contactUrgenceNom) {
-      doc.text(`Contact urgence : ${child.contactUrgenceNom}${child.contactUrgenceTel ? '  —  ' + child.contactUrgenceTel : ''}`, MARGIN, y);
+      doc.text(`Contact urgence : ${child.contactUrgenceNom}${child.contactUrgenceTel ? '  -  ' + child.contactUrgenceTel : ''}`, MARGIN, y);
       y += 5;
     }
     y += 4;
@@ -510,17 +512,17 @@ export async function exportPDF(store, child) {
     doc.setTextColor(43, 35, 32);
   };
 
-  sectionTitle('Résumé — 7 derniers jours');
+  sectionTitle('Resume - 7 derniers jours');
 
-  const avg = (arr) => arr.length ? (arr.reduce((s, x) => s + x, 0) / 7).toFixed(1) : '—';
+  const avg = (arr) => arr.length ? (arr.reduce((s, x) => s + x, 0) / 7).toFixed(1) : '-';
   const totalMl = biberons7.filter((b) => b.mode === 'biberon').reduce((s, b) => s + (b.quantite || 0), 0);
   const dureeNuits = nuits7.reduce((s, n) => s + (n.duree || 0), 0);
 
   const stats = [
     [`Biberons / tétées`, `${biberons7.length} total  (moy. ${avg(Array(7).fill(biberons7.length / 7))} /j)`],
-    [`Lait total (biberon)`, totalMl > 0 ? `${totalMl} ml  (moy. ${Math.round(totalMl / 7)} ml/j)` : '—'],
+    [`Lait total (biberon)`, totalMl > 0 ? `${totalMl} ml  (moy. ${Math.round(totalMl / 7)} ml/j)` : '-'],
     [`Changes`, `${couches7.length} total  (moy. ${avg(Array(7).fill(couches7.length / 7))} /j)`],
-    [`Nuits enregistrées`, `${nuits7.length}  —  durée totale : ${Math.floor(dureeNuits / 60)}h${String(dureeNuits % 60).padStart(2, '0')}`],
+    [`Nuits enregistrées`, `${nuits7.length}  -  durée totale : ${Math.floor(dureeNuits / 60)}h${String(dureeNuits % 60).padStart(2, '0')}`],
     [`Températures relevées`, temps7.length > 0 ? `${temps7.length}  (max : ${Math.max(...temps7.map((t) => t.valeur)).toFixed(1)}°C)` : 'Aucune'],
   ];
 
@@ -539,7 +541,7 @@ export async function exportPDF(store, child) {
     const types = [
       { key: 'poids', label: 'Poids', unit: 'kg' },
       { key: 'taille', label: 'Taille', unit: 'cm' },
-      { key: 'perimetre', label: 'Périmètre crânien', unit: 'cm' },
+      { key: 'perimetre', label: 'Perimetre cranien', unit: 'cm' },
     ];
     types.forEach(({ key, label, unit }) => {
       const mesures = childMesures.filter((m) => m.type === key).sort((a, b) => a.date > b.date ? 1 : -1);
@@ -550,7 +552,7 @@ export async function exportPDF(store, child) {
       doc.setFont('helvetica', 'bold');
       doc.text(`${label} :`, MARGIN, y);
       doc.setFont('helvetica', 'normal');
-      doc.text(`${last.valeur} ${unit}  —  ${fmtDate(last.date)}${diff}`, MARGIN + 40, y);
+      doc.text(`${last.valeur} ${unit}  -  ${fmtDate(last.date)}${diff}`, MARGIN + 40, y);
       y += 5.5;
     });
     y += 4;
@@ -558,11 +560,11 @@ export async function exportPDF(store, child) {
 
   // ── Vaccins ───────────────────────────────────────────────────────
   if (childVaccins.length > 0) {
-    sectionTitle('Vaccinations effectuées');
+    sectionTitle('Vaccinations effectuees');
     childVaccins
       .sort((a, b) => a.date > b.date ? 1 : -1)
       .forEach((v) => {
-        doc.text(`• ${v.name}`, MARGIN + 2, y);
+        doc.text(`- ${v.name}`, MARGIN + 2, y);
         doc.text(fmtDate(v.date), W - MARGIN, y, { align: 'right' });
         y += 5;
         if (y > 270) { doc.addPage(); y = 14; }
@@ -572,7 +574,7 @@ export async function exportPDF(store, child) {
 
   // ── Notes médicales ────────────────────────────────────────────────
   if (child.notesMedicales) {
-    sectionTitle('Notes médicales');
+    sectionTitle('Notes medicales');
     const lines = doc.splitTextToSize(child.notesMedicales, COL);
     lines.forEach((line) => {
       doc.text(line, MARGIN, y);
@@ -589,7 +591,7 @@ export async function exportPDF(store, child) {
     doc.setFontSize(7);
     doc.setTextColor(179, 162, 153);
     doc.text(
-      `OmniBaby v${store.settings?.appVersion || '—'}  |  ${todayStr}  |  Page ${i}/${pageCount}  |  Données confidentielles`,
+      `OmniBaby v${store.settings?.appVersion || '-'}  |  ${todayStr}  |  Page ${i}/${pageCount}  |  Données confidentielles`,
       W / 2, 292, { align: 'center' }
     );
   }
