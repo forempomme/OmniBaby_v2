@@ -1,3 +1,27 @@
+/* ─── Animation stamps au changement de valeur ─── */
+@keyframes stampPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.08); }
+  70%  { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+@keyframes stampFade {
+  0%   { opacity: 0.4; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.stamp-value {
+  animation: stampFade 0.3s ease;
+}
+.stamp:active {
+  animation: stampPop 0.25s ease;
+}
+
+/* ─── Badge pulsant (minuteur actif) ─── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
 
 :root {
