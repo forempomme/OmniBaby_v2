@@ -361,8 +361,36 @@ function TodayOverview({ entries, child, filterType, setFilterType, onLongPress 
 // ----------------------------------------------------------------------
 // Entry list item
 // ----------------------------------------------------------------------
-function EntryItem({ entry, onEdit, onDelete }) {
+function EntryItem({ entry, onEdit, onDelete, compact = false }) {
   const def = ENTRY_TYPES[entry.type] || ENTRY_TYPES.autre;
+
+  if (compact) {
+    return (
+      <div onClick={onEdit} style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+        background: 'var(--surface)', borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border)', cursor: 'pointer', marginBottom: 5,
+      }}>
+        <div style={{
+          width: 26, height: 26, borderRadius: '50%', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', fontSize: '.8rem',
+          background: def.color, color: def.iconColor, flexShrink: 0,
+        }}>{def.icon}</div>
+        <div style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: '.76rem' }}>
+          {def.label}
+          {entry.mode === 'biberon' && entry.quantite
+            ? <span style={{ color: 'var(--primary-deep)', fontWeight: 400 }}> · {entry.quantite}ml</span>
+            : entry.type === 'couche' && entry.contenu
+            ? <span style={{ color: 'var(--text-soft)', fontWeight: 400 }}> · {entry.contenu}</span>
+            : null}
+        </div>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '.68rem', color: 'var(--text-faint)', flexShrink: 0 }}>
+          {entry.date ? new Date(entry.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <SwipeToDelete onDelete={onDelete}>
       <div onClick={onEdit} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, cursor: 'pointer' }}>
@@ -387,6 +415,88 @@ const PERIOD_OPTIONS = [
   { key: 'all', label: 'Tout' },
 ];
 
+
+
+// ----------------------------------------------------------------------
+// Saisie rapide — biberon en 2 taps (heure auto + dernière quantité)
+// ----------------------------------------------------------------------
+function QuickEntryBar({ entries, onSaved }) {
+  const { store, update, nextId } = useStore();
+  const showToast = useToast();
+  const activeChild = getActiveChild(store);
+  const [saving, setSaving] = React.useState(null);
+
+  // Dernière quantité utilisée
+  const lastQty = React.useMemo(() => {
+    const last = entries.filter((e) => e.type === 'biberon' && e.mode === 'biberon' && e.quantite)
+      .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+    return last?.quantite || 120;
+  }, [entries]);
+
+  const quickSave = (type, extra = {}) => {
+    if (!activeChild) return;
+    setSaving(type);
+    const entry = {
+      id: nextId(),
+      childId: activeChild.id,
+      type,
+      date: new Date().toISOString(),
+      ...extra,
+    };
+    update((draft) => { draft.entries.push(entry); return draft; });
+    showToast('Enregistré', '✅');
+    onSaved && onSaved(entry);
+    setTimeout(() => setSaving(null), 600);
+  };
+
+  const actions = [
+    {
+      key: 'biberon',
+      icon: '🍼',
+      label: `Biberon · ${lastQty}ml`,
+      sub: 'maintenant',
+      onPress: () => quickSave('biberon', { mode: 'biberon', quantite: lastQty }),
+    },
+    {
+      key: 'couche_pipi',
+      icon: '💧',
+      label: 'Pipi',
+      sub: 'maintenant',
+      onPress: () => quickSave('couche', { contenu: 'pipi' }),
+    },
+    {
+      key: 'couche_selles',
+      icon: '💩',
+      label: 'Selles',
+      sub: 'maintenant',
+      onPress: () => quickSave('couche', { contenu: 'selles' }),
+    },
+  ];
+
+  return (
+    <div style={{
+      display: 'flex', gap: 7, marginBottom: 12, overflowX: 'auto', paddingBottom: 2,
+    }}>
+      {actions.map((a) => (
+        <button
+          key={a.key}
+          onClick={a.onPress}
+          style={{
+            flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            gap: 2, padding: '8px 12px', borderRadius: 'var(--radius-lg)',
+            background: saving === a.key ? 'var(--accent-sage-soft)' : 'var(--surface)',
+            border: `1.5px solid ${saving === a.key ? 'var(--accent-sage)' : 'var(--border)'}`,
+            cursor: 'pointer', transition: 'all .15s', minWidth: 72,
+          }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>{saving === a.key ? '✅' : a.icon}</span>
+          <span style={{ fontSize: '.68rem', fontWeight: 700, color: 'var(--text)' }}>{a.label}</span>
+          <span style={{ fontSize: '.6rem', color: 'var(--text-faint)' }}>{a.sub}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // ----------------------------------------------------------------------
 // Résumé hebdomadaire (moyennes 7 jours pour le pédiatre)
@@ -448,6 +558,7 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
   const activeChild = getActiveChild(store);
   const [period, setPeriod] = useState('today');
   const [filterType, setFilterType] = useState('tous');
+  const [compact, setCompact] = React.useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
 
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
@@ -515,13 +626,28 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
           }}
         />
 
-      <div className="chip-row mt-16">
-        {PERIOD_OPTIONS.map((p) => (
-          <button key={p.key} className={`chip ${period === p.key ? 'active' : ''}`} onClick={() => setPeriod(p.key)}>
-            {p.label}
-          </button>
-        ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, marginTop: 16 }}>
+        <div className="chip-row" style={{ flex: 1, margin: 0 }}>
+          {PERIOD_OPTIONS.map((p) => (
+            <button key={p.key} className={`chip ${period === p.key ? 'active' : ''}`} onClick={() => setPeriod(p.key)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setCompact((c) => !c)}
+          style={{
+            flexShrink: 0, padding: '5px 10px', borderRadius: 'var(--radius-pill)',
+            background: compact ? 'var(--primary-soft)' : 'var(--surface)',
+            border: `1.5px solid ${compact ? 'var(--primary)' : 'var(--border)'}`,
+            color: compact ? 'var(--primary-deep)' : 'var(--text-soft)',
+            fontSize: '.72rem', fontWeight: 700, cursor: 'pointer',
+          }}
+        >
+          {compact ? '▤ Compacte' : '☰ Normale'}
+        </button>
       </div>
+      {period === 'today' && <QuickEntryBar entries={todayEntries} onSaved={() => {}} />}
       {period === '7days' && <WeekSummary entries={periodFiltered} />}
 
       {filterType !== 'tous' && (
