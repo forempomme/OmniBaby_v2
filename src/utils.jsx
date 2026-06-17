@@ -311,6 +311,61 @@ export function Accordion({ icon, title, badge, badgeColor, children, defaultOpe
   );
 }
 
+
+// ----------------------------------------------------------------------
+// Helper : écrire un fichier dans le cache Capacitor puis le partager
+// via le sélecteur natif Android, ou téléchargement web en fallback.
+// ----------------------------------------------------------------------
+async function shareFileNative(filename, mimeType, base64Data) {
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+  if (isNative) {
+    // 1. Écrire dans le cache (seul dossier partageable par défaut sur Android)
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Share } = await import('@capacitor/share');
+
+    const writeResult = await Filesystem.writeFile({
+      path: filename,
+      data: base64Data,
+      directory: Directory.Cache,
+    });
+
+    // 2. Ouvrir le sélecteur natif avec l'URI du fichier
+    await Share.share({
+      title: filename,
+      url: writeResult.uri,
+      dialogTitle: 'Partager / Enregistrer',
+    });
+    return;
+  }
+
+  // Fallback web : téléchargement classique via <a>
+  const byteString = atob(base64Data);
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+  const blob = new Blob([ab], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ----------------------------------------------------------------------
+// Export JSON via partage natif
+// ----------------------------------------------------------------------
+export async function shareJSON(store) {
+  const data = JSON.stringify(store, null, 2);
+  const filename = `omnibaby-export-${new Date().toISOString().slice(0, 10)}.json`;
+  // Encoder en base64
+  const base64 = btoa(unescape(encodeURIComponent(data)));
+  await shareFileNative(filename, 'application/json', base64);
+}
+
 // ----------------------------------------------------------------------
 // Export PDF résumé pédiatre
 // Utilise jsPDF (import dynamique pour ne pas alourdir le bundle)
@@ -506,29 +561,9 @@ export async function exportPDF(store, child) {
     );
   }
 
-  // ── Export via partage natif ou téléchargement ─────────────────────
+
+  // ── Export via shareFileNative ─────────────────────────────────────
   const pdfFilename = `OmniBaby-resume-${child.nom}-${new Date().toISOString().slice(0,10)}.pdf`;
-  const pdfBlob = doc.output('blob');
-
-  if (navigator.share && navigator.canShare) {
-    try {
-      const file = new File([pdfBlob], pdfFilename, { type: 'application/pdf' });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Résumé pédiatrique OmniBaby' });
-        return;
-      }
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-    }
-  }
-
-  // Fallback téléchargement
-  const url = URL.createObjectURL(pdfBlob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = pdfFilename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const base64PDF = doc.output('datauristring').split(',')[1];
+  await shareFileNative(pdfFilename, 'application/pdf', base64PDF);
 }
