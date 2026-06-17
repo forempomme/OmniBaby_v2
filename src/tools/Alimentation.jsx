@@ -258,6 +258,7 @@ function AlimentsGrid({ child, aliments, canEdit, embedded = false }) {
   const { update } = useStore();
   const showToast = useToast();
   const [formOpen, setFormOpen] = useState(false);
+  const [gridCols, setGridCols] = useState(3);
   const [editing, setEditing] = useState(null);
   const [filterCat, setFilterCat] = useState('tous');
   const [filterStatut, setFilterStatut] = useState('tous');
@@ -296,9 +297,21 @@ function AlimentsGrid({ child, aliments, canEdit, embedded = false }) {
     <div className={embedded ? '' : 'card appear'}>
       <div className="flex-between">
         <div className="section-title" style={{ marginBottom: 0 }}>🍽️ Aliments testés</div>
-        {canEdit && (
-          <button className="btn btn-secondary btn-sm" onClick={openAdd}>＋ Ajouter</button>
-        )}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <button
+            onClick={() => setGridCols(c => c === 3 ? 4 : 3)}
+            style={{
+              padding: '3px 8px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--surface-2)', border: '1px solid var(--border)',
+              fontSize: '.68rem', fontWeight: 700, color: 'var(--text-soft)', cursor: 'pointer',
+            }}
+          >
+            {gridCols === 3 ? '⊞ 4' : '⊟ 3'}
+          </button>
+          {canEdit && (
+            <button className="btn btn-secondary btn-sm" onClick={openAdd}>＋ Ajouter</button>
+          )}
+        </div>
       </div>
 
       {/* Résumé rapide statuts */}
@@ -341,7 +354,7 @@ function AlimentsGrid({ child, aliments, canEdit, embedded = false }) {
           </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gap: gridCols === 4 ? 5 : 8, marginTop: 4 }}>
           {filtered.map((a) => {
             const statutDef = ALIMENT_STATUTS.find((s) => s.key === a.statut) || ALIMENT_STATUTS[0];
             const catDef = ALIMENT_CATEGORIES.find((c) => c.key === a.categorie);
