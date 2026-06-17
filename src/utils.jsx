@@ -79,6 +79,14 @@ export function groupByDay(items, dateField) {
 export function dayLabel(isoDay) {
   if (isToday(isoDay + 'T12:00:00')) return "Aujourd'hui";
   if (isYesterday(isoDay + 'T12:00:00')) return 'Hier';
+  // Labels relatifs jusqu'à 7 jours
+  const now = new Date();
+  const day = new Date(isoDay + 'T12:00:00');
+  const diffDays = Math.round((now - day) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 7) {
+    const joursSemaine = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    return `${joursSemaine[day.getDay()]} dernier (il y a ${diffDays} jours)`;
+  }
   return formatDateLongFR(isoDay);
 }
 
@@ -253,11 +261,36 @@ export function useVitamineDuJour(entries, child) {
   }, [entries, child]);
 }
 
+
+// ----------------------------------------------------------------------
+// Hook : persistance état accordéons (mémoire session, pas localStorage)
+// Empêche les accordéons de se refermer lors de la navigation entre onglets.
+// Usage : const [isOpen, setIsOpen] = useAccordionState('sante.poids', false)
+// ----------------------------------------------------------------------
+const _accordionState = {};
+
+export function useAccordionState(key, defaultOpen = false) {
+  const [open, setOpen] = React.useState(() => {
+    if (key in _accordionState) return _accordionState[key];
+    return defaultOpen;
+  });
+
+  const setOpenPersisted = React.useCallback((val) => {
+    const next = typeof val === 'function' ? val(open) : val;
+    _accordionState[key] = next;
+    setOpen(next);
+  }, [key, open]);
+
+  return [open, setOpenPersisted];
+}
+
 // ----------------------------------------------------------------------
 // Accordion — section repliable réutilisable
 // ----------------------------------------------------------------------
-export function Accordion({ icon, title, badge, badgeColor, children, defaultOpen = false }) {
-  const [open, setOpen] = React.useState(defaultOpen);
+export function Accordion({ icon, title, badge, badgeColor, children, defaultOpen = false, stateKey }) {
+  const [openKeyed, setOpenKeyed] = useAccordionState(stateKey || ('acc_' + title), defaultOpen);
+  const open = openKeyed;
+  const setOpen = setOpenKeyed;
   return (
     <div style={{
       marginBottom: 8,
