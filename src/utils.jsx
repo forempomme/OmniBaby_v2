@@ -310,3 +310,225 @@ export function Accordion({ icon, title, badge, badgeColor, children, defaultOpe
     </div>
   );
 }
+
+// ----------------------------------------------------------------------
+// Export PDF résumé pédiatre
+// Utilise jsPDF (import dynamique pour ne pas alourdir le bundle)
+// ----------------------------------------------------------------------
+export async function exportPDF(store, child) {
+  const { jsPDF } = await import('jspdf');
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210; // largeur A4
+  const MARGIN = 14;
+  const COL = W - MARGIN * 2;
+  let y = 0;
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  const ageStr = (birthdate) => {
+    if (!birthdate) return '';
+    const ms = new Date() - new Date(birthdate);
+    const months = Math.floor(ms / (1000 * 60 * 60 * 24 * 30.44));
+    if (months < 24) return `${months} mois`;
+    return `${Math.floor(months / 12)} ans ${months % 12} mois`;
+  };
+
+  const fmtDate = (iso) => {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('fr-FR');
+  };
+
+  const todayStr = new Date().toLocaleDateString('fr-FR');
+  const childEntries = (store.entries || []).filter((e) => e.childId === child.id || !e.childId);
+  const childMesures = (store.mesures || []).filter((e) => e.childId === child.id || !e.childId);
+  const childVaccins = (store.vaccins || []).filter((e) => e.childId === child.id || !e.childId);
+  const childTemps = (store.temperatures || []).filter((e) => e.childId === child.id || !e.childId);
+  const childSommeils = (store.sommeils || []).filter((e) => e.childId === child.id || !e.childId);
+
+  // Données 7 derniers jours
+  const limit7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const entries7 = childEntries.filter((e) => e.date >= limit7);
+  const biberons7 = entries7.filter((e) => e.type === 'biberon');
+  const couches7 = entries7.filter((e) => e.type === 'couche');
+  const nuits7 = childSommeils.filter((s) => s.debut >= limit7 && s.type === 'nuit');
+  const temps7 = childTemps.filter((t) => t.date >= limit7);
+
+  // ── En-tête ──────────────────────────────────────────────────────
+  doc.setFillColor(201, 111, 74); // --primary terracotta
+  doc.rect(0, 0, W, 28, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('OmniBaby — Résumé pédiatrique', MARGIN, 12);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Généré le ${todayStr}`, MARGIN, 20);
+  doc.text(`Données : ${todayStr}`, W - MARGIN, 20, { align: 'right' });
+  y = 34;
+
+  // ── Profil enfant ─────────────────────────────────────────────────
+  doc.setTextColor(43, 35, 32);
+  doc.setFillColor(240, 205, 188); // primary-soft
+  doc.rect(MARGIN, y, COL, 22, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text(`${child.emoji || '👶'} ${child.nom}`, MARGIN + 4, y + 8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(100, 80, 70);
+  doc.text([
+    `Né(e) le : ${fmtDate(child.birthdate)}  |  Âge : ${ageStr(child.birthdate)}`,
+    `Sexe : ${child.sexe === 'garcon' ? 'Garçon' : 'Fille'}  |  Groupe sanguin : ${child.groupeSanguin || '—'}`,
+    child.allergies ? `⚠ Allergies : ${child.allergies}` : '',
+  ].filter(Boolean), MARGIN + 4, y + 14);
+  y += 28;
+
+  // ── Médecin & Urgence ─────────────────────────────────────────────
+  if (child.medecinNom || child.contactUrgenceNom) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(43, 35, 32);
+    doc.text('Contacts', MARGIN, y + 5);
+    doc.setDrawColor(234, 217, 203);
+    doc.line(MARGIN, y + 7, W - MARGIN, y + 7);
+    y += 10;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(80, 65, 58);
+    if (child.medecinNom) {
+      doc.text(`Médecin / pédiatre : ${child.medecinNom}${child.medecinTel ? '  —  ' + child.medecinTel : ''}`, MARGIN, y);
+      y += 5;
+    }
+    if (child.contactUrgenceNom) {
+      doc.text(`Contact urgence : ${child.contactUrgenceNom}${child.contactUrgenceTel ? '  —  ' + child.contactUrgenceTel : ''}`, MARGIN, y);
+      y += 5;
+    }
+    y += 4;
+  }
+
+  // ── Section résumé 7 jours ────────────────────────────────────────
+  const sectionTitle = (title) => {
+    doc.setFillColor(251, 244, 238);
+    doc.rect(MARGIN, y, COL, 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(138, 90, 68);
+    doc.text(title, MARGIN + 2, y + 5);
+    doc.setDrawColor(201, 111, 74);
+    doc.line(MARGIN, y + 7, W - MARGIN, y + 7);
+    y += 11;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(43, 35, 32);
+  };
+
+  sectionTitle('Résumé — 7 derniers jours');
+
+  const avg = (arr) => arr.length ? (arr.reduce((s, x) => s + x, 0) / 7).toFixed(1) : '—';
+  const totalMl = biberons7.filter((b) => b.mode === 'biberon').reduce((s, b) => s + (b.quantite || 0), 0);
+  const dureeNuits = nuits7.reduce((s, n) => s + (n.duree || 0), 0);
+
+  const stats = [
+    [`Biberons / tétées`, `${biberons7.length} total  (moy. ${avg(Array(7).fill(biberons7.length / 7))} /j)`],
+    [`Lait total (biberon)`, totalMl > 0 ? `${totalMl} ml  (moy. ${Math.round(totalMl / 7)} ml/j)` : '—'],
+    [`Changes`, `${couches7.length} total  (moy. ${avg(Array(7).fill(couches7.length / 7))} /j)`],
+    [`Nuits enregistrées`, `${nuits7.length}  —  durée totale : ${Math.floor(dureeNuits / 60)}h${String(dureeNuits % 60).padStart(2, '0')}`],
+    [`Températures relevées`, temps7.length > 0 ? `${temps7.length}  (max : ${Math.max(...temps7.map((t) => t.valeur)).toFixed(1)}°C)` : 'Aucune'],
+  ];
+
+  stats.forEach(([label, val]) => {
+    doc.setFont('helvetica', 'bold');
+    doc.text(label + ' :', MARGIN, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(val, MARGIN + 52, y);
+    y += 5.5;
+  });
+  y += 4;
+
+  // ── Croissance ────────────────────────────────────────────────────
+  if (childMesures.length > 0) {
+    sectionTitle('Courbe de croissance');
+    const types = [
+      { key: 'poids', label: 'Poids', unit: 'kg' },
+      { key: 'taille', label: 'Taille', unit: 'cm' },
+      { key: 'perimetre', label: 'Périmètre crânien', unit: 'cm' },
+    ];
+    types.forEach(({ key, label, unit }) => {
+      const mesures = childMesures.filter((m) => m.type === key).sort((a, b) => a.date > b.date ? 1 : -1);
+      if (!mesures.length) return;
+      const last = mesures[mesures.length - 1];
+      const prev = mesures[mesures.length - 2];
+      const diff = prev ? ` (${(last.valeur - prev.valeur) > 0 ? '+' : ''}${(last.valeur - prev.valeur).toFixed(1)} ${unit} depuis ${fmtDate(prev.date)})` : '';
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${label} :`, MARGIN, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${last.valeur} ${unit}  —  ${fmtDate(last.date)}${diff}`, MARGIN + 40, y);
+      y += 5.5;
+    });
+    y += 4;
+  }
+
+  // ── Vaccins ───────────────────────────────────────────────────────
+  if (childVaccins.length > 0) {
+    sectionTitle('Vaccinations effectuées');
+    childVaccins
+      .sort((a, b) => a.date > b.date ? 1 : -1)
+      .forEach((v) => {
+        doc.text(`• ${v.name}`, MARGIN + 2, y);
+        doc.text(fmtDate(v.date), W - MARGIN, y, { align: 'right' });
+        y += 5;
+        if (y > 270) { doc.addPage(); y = 14; }
+      });
+    y += 4;
+  }
+
+  // ── Notes médicales ────────────────────────────────────────────────
+  if (child.notesMedicales) {
+    sectionTitle('Notes médicales');
+    const lines = doc.splitTextToSize(child.notesMedicales, COL);
+    lines.forEach((line) => {
+      doc.text(line, MARGIN, y);
+      y += 5;
+      if (y > 270) { doc.addPage(); y = 14; }
+    });
+    y += 4;
+  }
+
+  // ── Pied de page ──────────────────────────────────────────────────
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(179, 162, 153);
+    doc.text(
+      `OmniBaby v${store.settings?.appVersion || '—'}  |  ${todayStr}  |  Page ${i}/${pageCount}  |  Données confidentielles`,
+      W / 2, 292, { align: 'center' }
+    );
+  }
+
+  // ── Export via partage natif ou téléchargement ─────────────────────
+  const pdfFilename = `OmniBaby-resume-${child.nom}-${new Date().toISOString().slice(0,10)}.pdf`;
+  const pdfBlob = doc.output('blob');
+
+  if (navigator.share && navigator.canShare) {
+    try {
+      const file = new File([pdfBlob], pdfFilename, { type: 'application/pdf' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Résumé pédiatrique OmniBaby' });
+        return;
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // Fallback téléchargement
+  const url = URL.createObjectURL(pdfBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = pdfFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
