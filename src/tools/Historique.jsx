@@ -119,7 +119,18 @@ function buildHistory(store) {
     });
   }
 
-  return items.filter((i) => i.date).sort((a, b) => (a.date < b.date ? 1 : -1));
+  return items.filter((i) => i.date);
+}
+
+function sortItems(items, sortBy) {
+  if (sortBy === 'type') {
+    return [...items].sort((a, b) => {
+      const sc = a.source.localeCompare(b.source);
+      if (sc !== 0) return sc;
+      return a.date < b.date ? 1 : -1;
+    });
+  }
+  return [...items].sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
 // ----------------------------------------------------------------------
@@ -140,18 +151,33 @@ export default function HistoriqueTool() {
   const showToast = useToast();
   const activeChild = getActiveChild(store);
   const [filter, setFilter] = useState('tous');
+  const [sortBy, setSortBy] = useState('date'); // 'date' | 'type'
 
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role !== 'lecture';
 
   const allItems = useMemo(() => buildHistory(store), [store]);
+  const sortedItems = useMemo(() => sortItems(allItems, sortBy), [allItems, sortBy]);
 
   const filtered = useMemo(() => {
-    if (filter === 'tous') return allItems;
-    return allItems.filter((i) => i.source === filter);
+    if (filter === 'tous') return sortedItems;
+    return sortedItems.filter((i) => i.source === filter);
   }, [allItems, filter]);
 
-  const grouped = useMemo(() => groupByDay(filtered, 'date'), [filtered]);
+  const grouped = useMemo(() => {
+    if (sortBy === 'type') {
+      // Grouper par source au lieu de par date
+      const groups = {};
+      const ORDER = ['entry','sommeil','mesure','temperature','vaccin','aliment'];
+      filtered.forEach((item) => {
+        const key = item.source;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(item);
+      });
+      return ORDER.filter((k) => groups[k]).map((k) => [k, groups[k]]);
+    }
+    return groupByDay(filtered, 'date');
+  }, [filtered, sortBy]);
 
   const handleDelete = (item) => {
     update((draft) => {
@@ -171,6 +197,11 @@ export default function HistoriqueTool() {
     );
   }
 
+  const SOURCE_LABELS = {
+    entry: '📓 Journal', sommeil: '🌙 Sommeil', mesure: '📏 Mesures',
+    temperature: '🌡️ Températures', vaccin: '💉 Vaccins', aliment: '🥦 Aliments',
+  };
+
   return (
     <div>
       <div className="chip-row">
@@ -179,6 +210,15 @@ export default function HistoriqueTool() {
             {f.icon} {f.label}
           </button>
         ))}
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        <span style={{ fontSize: '.7rem', color: 'var(--text-soft)', alignSelf: 'center' }}>Tri :</span>
+        <button className={`chip ${sortBy === 'date' ? 'active' : ''}`} onClick={() => setSortBy('date')}>
+          📅 Par date
+        </button>
+        <button className={`chip ${sortBy === 'type' ? 'active' : ''}`} onClick={() => setSortBy('type')}>
+          🏷️ Par type
+        </button>
       </div>
 
       {grouped.length === 0 ? (
@@ -190,7 +230,7 @@ export default function HistoriqueTool() {
       ) : (
         grouped.map(([day, items]) => (
           <div key={day}>
-            <div className="day-group-label">{dayLabel(day)}</div>
+            <div className="day-group-label">{sortBy === 'type' ? (SOURCE_LABELS[day] || day) : dayLabel(day)}</div>
             <div className="entry-list">
               {items.map((item, idx) => (
                 <SwipeToDelete key={`${item.table}-${item.id}-${idx}`} onDelete={() => canEdit && handleDelete(item)} disabled={!canEdit}>
