@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useStore, genId, ageInMonths, formatAge } from './store.jsx';
-import { toISODate, useToast, ConfirmInline, exportPDF } from './utils.jsx';
+import { toISODate, useToast, ConfirmInline, exportPDF, shareJSON } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import { isBiometricAvailable } from './Auth.jsx';
 import { Accordion } from './utils.jsx';
@@ -394,46 +394,13 @@ function DataSection({ canEdit, embedded = false }) {
   const needsBackup = !lastExport || (new Date() - new Date(lastExport)) / (1000 * 60 * 60 * 24) > 7;
 
   const handleExport = async () => {
-    const data = JSON.stringify(store, null, 2);
-    const filename = `omnibaby-export-${toISODate()}.json`;
-
-    // Sur Android (Capacitor), utiliser l'API de partage native
-    // qui permet de choisir où enregistrer le fichier (Drive, Messages, etc.)
-    if (navigator.share && navigator.canShare) {
-      try {
-        const blob = new Blob([data], { type: 'application/json' });
-        const file = new File([blob], filename, { type: 'application/json' });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'Sauvegarde OmniBaby',
-            text: `Données OmniBaby exportées le ${toISODate()}`,
-          });
-          update((draft) => { draft.settings.lastExportDate = toISODate(); return draft; });
-          showToast('Partage ouvert', '📤');
-          return;
-        }
-      } catch (e) {
-        if (e.name !== 'AbortError') {
-          // Partage annulé par l'utilisateur — ne pas afficher d'erreur
-        } else {
-          return;
-        }
-      }
+    try {
+      await shareJSON(store);
+      update((draft) => { draft.settings.lastExportDate = toISODate(); return draft; });
+      showToast('Export partagé', '📤');
+    } catch (e) {
+      if (e.name !== 'AbortError') showToast('Erreur export : ' + e.message, '⚠️');
     }
-
-    // Fallback navigateur desktop : téléchargement direct
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    update((draft) => { draft.settings.lastExportDate = toISODate(); return draft; });
-    showToast('Export téléchargé', '📤');
   };
 
   const handleExportPDF = async () => {
