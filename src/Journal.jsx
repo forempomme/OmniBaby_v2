@@ -359,52 +359,122 @@ function TodayOverview({ entries, child, filterType, setFilterType, onLongPress 
 }
 
 // ----------------------------------------------------------------------
-// Entry list item
+// Entry list item — swipe natif intégré (gauche → corbeille)
 // ----------------------------------------------------------------------
 function EntryItem({ entry, onEdit, onDelete, compact = false }) {
   const def = ENTRY_TYPES[entry.type] || ENTRY_TYPES.autre;
+  const [dragX, setDragX] = React.useState(0);
+  const [swiping, setSwiping] = React.useState(false);
+  const [showDelete, setShowDelete] = React.useState(false);
+  const startX = React.useRef(0);
+  const THRESHOLD = -70;
 
-  if (compact) {
-    return (
-      <SwipeToDelete onDelete={onDelete}>
-        <div onClick={onEdit} style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-          cursor: 'pointer', flex: 1,
-        }}>
-          <div style={{
-            width: 26, height: 26, borderRadius: '50%', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', fontSize: '.8rem',
-            background: def.color, color: def.iconColor, flexShrink: 0,
-          }}>{def.icon}</div>
-          <div style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: '.76rem' }}>
-            {def.label}
-            {entry.mode === 'biberon' && entry.quantite
-              ? <span style={{ color: 'var(--primary-deep)', fontWeight: 400 }}> · {entry.quantite}ml</span>
-              : entry.type === 'couche' && entry.contenu
-              ? <span style={{ color: 'var(--text-soft)', fontWeight: 400 }}> · {entry.contenu}</span>
-              : null}
-          </div>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '.68rem', color: 'var(--text-faint)', flexShrink: 0 }}>
-            {entry.date ? new Date(entry.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
-          </span>
-        </div>
-      </SwipeToDelete>
-    );
-  }
+  const onTouchStart = (e) => {
+    startX.current = e.touches[0].clientX;
+    setSwiping(true);
+    setShowDelete(false);
+  };
+  const onTouchMove = (e) => {
+    if (!swiping) return;
+    const diff = e.touches[0].clientX - startX.current;
+    if (diff > 0) return; // pas de swipe droite
+    setDragX(Math.max(-88, diff));
+  };
+  const onTouchEnd = () => {
+    setSwiping(false);
+    if (dragX < THRESHOLD) {
+      setDragX(-88);
+      setShowDelete(true);
+    } else {
+      setDragX(0);
+      setShowDelete(false);
+    }
+  };
+  const cancelSwipe = () => { setDragX(0); setShowDelete(false); };
+
+  const subtitle = entrySubtitle(entry);
+  const timeStr = entry.date
+    ? new Date(entry.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : '';
 
   return (
-    <SwipeToDelete onDelete={onDelete}>
-      <div onClick={onEdit} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, cursor: 'pointer' }}>
-        <EntryIcon type={entry.type} />
-        <div className="entry-body">
-          <div className="entry-title">{def.label}</div>
-          {entrySubtitle(entry) && <div className="entry-sub">{entrySubtitle(entry)}</div>}
-        </div>
-        <div className="entry-time">{formatTimeFR(entry.date)}</div>
+    <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: compact ? 4 : 8 }}>
+      {/* Zone rouge derrière */}
+      <div style={{
+        position: 'absolute', inset: 0, background: 'var(--danger)',
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+        paddingRight: 16, gap: 8,
+      }}>
+        {showDelete ? (
+          <>
+            <button onClick={onDelete} style={{
+              background: 'rgba(255,255,255,.2)', border: '1.5px solid rgba(255,255,255,.5)',
+              color: '#fff', borderRadius: 'var(--radius-pill)', padding: '5px 14px',
+              fontWeight: 700, fontSize: '.8rem', cursor: 'pointer', fontFamily: 'inherit',
+            }}>🗑️ Supprimer</button>
+            <button onClick={cancelSwipe} style={{
+              background: 'none', border: 'none', color: 'rgba(255,255,255,.7)',
+              fontSize: '.78rem', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+            }}>Annuler</button>
+          </>
+        ) : (
+          <span style={{ color: 'rgba(255,255,255,.6)', fontSize: '1.2rem' }}>🗑️</span>
+        )}
       </div>
-    </SwipeToDelete>
+
+      {/* Contenu glissant */}
+      <div
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{
+          transform: `translateX(${dragX}px)`,
+          transition: swiping ? 'none' : 'transform 0.2s ease',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
+          display: 'flex', alignItems: 'center',
+          padding: compact ? '7px 10px' : '10px 12px',
+          gap: compact ? 8 : 12,
+          cursor: 'pointer',
+          position: 'relative', zIndex: 1,
+        }}
+        onClick={(e) => { if (dragX !== 0) { cancelSwipe(); return; } onEdit && onEdit(); }}
+      >
+        {compact ? (
+          // Mode compact : icône petite + label + sous-titre inline + heure
+          <>
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+              background: def.color, color: def.iconColor,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.85rem',
+            }}>{def.icon}</div>
+            <div style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: '.78rem' }}>
+              {def.label}
+              {subtitle && (
+                <span style={{ color: 'var(--text-soft)', fontWeight: 400 }}> · {subtitle}</span>
+              )}
+            </div>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '.7rem', color: 'var(--text-faint)', flexShrink: 0 }}>
+              {timeStr}
+            </span>
+          </>
+        ) : (
+          // Mode normal : icône grande + corps + heure
+          <>
+            <EntryIcon type={entry.type} />
+            <div className="entry-body" style={{ flex: 1, minWidth: 0 }}>
+              <div className="entry-title">{def.label}</div>
+              {subtitle && <div className="entry-sub">{subtitle}</div>}
+            </div>
+            <div className="entry-time">{timeStr}</div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
+
 
 // ----------------------------------------------------------------------
 // Main Journal tab
