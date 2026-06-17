@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StoreProvider, useStore, getActiveChild, filterByActiveChild } from './store.jsx';
-import { ToastProvider, useVitamineDuJour } from './utils.jsx';
+import { StoreProvider, useStore, getActiveChild, filterByActiveChild, formatAge } from './store.jsx';
+import { ToastProvider } from './utils.jsx';
 import { ModalStackProvider, useAndroidBack, Modal } from './Modal.jsx';
 import AuthGate, { avatarColor } from './Auth.jsx';
 import JournalTab from './Journal.jsx';
@@ -9,14 +9,12 @@ import DodoTab from './Dodo.jsx';
 import OutilsTab from './Outils.jsx';
 import ReglagesTab from './Reglages.jsx';
 import { APP_VERSION } from './version.js';
-import UrgenceTool from './tools/Urgence.jsx';
 
 const TABS = [
   { key: 'journal', label: 'Journal', icon: '📓' },
   { key: 'sante', label: 'Santé', icon: '📈' },
   { key: 'dodo', label: 'Dodo', icon: '🌙' },
   { key: 'outils', label: 'Outils', icon: '🛠️' },
-  { key: 'reglages', label: 'Réglages', icon: '⚙️' },
 ];
 
 // ----------------------------------------------------------------------
@@ -73,37 +71,6 @@ function ChildSwitcher({ open, onClose }) {
 // ----------------------------------------------------------------------
 // App shell content (after auth)
 // ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
-// Mode baby-sitter : fiche de garde accessible sans PIN
-// ----------------------------------------------------------------------
-function BabySitterSheet({ open, onClose }) {
-  if (!open) return null;
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 200,
-      background: 'rgba(0,0,0,.55)', display: 'flex', flexDirection: 'column',
-      justifyContent: 'flex-end',
-    }}>
-      <div style={{
-        background: 'var(--bg)', borderRadius: '20px 20px 0 0',
-        padding: '16px 16px 32px', maxHeight: '80vh', overflowY: 'auto',
-      }}>
-        <div style={{ width: 36, height: 4, background: 'var(--border)', borderRadius: 2, margin: '0 auto 14px' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem' }}>
-            🧑‍🍼 Fiche de garde
-          </div>
-          <button onClick={onClose} style={{ background: 'var(--surface-2)', border: 'none',
-            borderRadius: 'var(--radius-pill)', padding: '4px 12px', cursor: 'pointer', fontSize: '.8rem' }}>
-            ✕ Fermer
-          </button>
-        </div>
-        <UrgenceTool />
-      </div>
-    </div>
-  );
-}
-
 function AppShell() {
   const { store } = useStore();
   const [activeTab, setActiveTab] = useState('journal');
@@ -111,17 +78,8 @@ function AppShell() {
   const [openEntryForm, setOpenEntryForm] = useState(false);
   const [formPrefill, setFormPrefill] = useState(null);
   const [openToolKey, setOpenToolKey] = useState(null);
-  const [openDodoForm, setOpenDodoForm] = useState(false);
-  const [openFievreForm, setOpenFievreForm] = useState(false);
-  const [timerRunning, setTimerRunning] = useState(false);
 
   const activeChild = getActiveChild(store);
-  const childEntries = useMemo(
-    () => filterByActiveChild(store.entries, store.activeChildId),
-    [store.entries, store.activeChildId]
-  );
-  const vitDDonnee = useVitamineDuJour(childEntries, activeChild);
-
   const { showExitHint } = useAndroidBack({ activeTab, setActiveTab, defaultTab: 'journal' });
 
   // ---- Theme handling (manual or auto 21h-7h) ----
@@ -141,10 +99,12 @@ function AppShell() {
     return () => clearInterval(interval);
   }, [store.settings.dark]);
 
-  const openNewEntry = () => { setFormPrefill(null); setOpenEntryForm(true); };
+  const openNewEntry = () => {
+    setFormPrefill(null);
+    setOpenEntryForm(true);
+  };
 
   const handleTimerFinish = (prefill) => {
-    setTimerRunning(false);
     setFormPrefill(prefill);
     setActiveTab('journal');
     setOpenEntryForm(true);
@@ -164,14 +124,13 @@ function AppShell() {
       case 'sante':
         return <SanteTab />;
       case 'dodo':
-        return <DodoTab openFormExternal={openDodoForm} setOpenFormExternal={setOpenDodoForm} />;
+        return <DodoTab />;
       case 'outils':
         return (
           <OutilsTab
             openToolKey={openToolKey}
             setOpenToolKey={setOpenToolKey}
             onTimerFinish={handleTimerFinish}
-            onTimerStart={() => setTimerRunning(true)}
           />
         );
       case 'reglages':
@@ -181,21 +140,7 @@ function AppShell() {
     }
   };
 
-  // FAB contextuel selon l'onglet
-  const fabAction = activeTab === 'journal' ? openNewEntry
-    : activeTab === 'dodo' ? () => setOpenDodoForm(true)
-    : activeTab === 'outils' && openToolKey === 'fievre' ? () => setOpenFievreForm(true)
-    : null;
-
-  // Badge minuteur actif
-  const showTimerBadge = timerRunning;
-
-  // Reminder vitamine D : enfant < 24 mois + pas encore donnée aujourd'hui
-  const showVitDReminder = !vitDDonnee && (() => {
-    if (!activeChild?.birthdate) return false;
-    const ageM = Math.floor((new Date() - new Date(activeChild.birthdate)) / (1000 * 60 * 60 * 24 * 30.44));
-    return ageM < 24;
-  })();
+  const showFab = activeTab === 'journal';
 
   return (
     <div className="app-shell">
@@ -203,36 +148,39 @@ function AppShell() {
         <div className="app-topbar-left">
           <div>
             <div className="app-topbar-title">OmniBaby</div>
-            <div className="app-topbar-sub">Suivi bébé hors-ligne</div>
+            <div className="app-topbar-sub">
+              {activeChild
+                ? `${activeChild.emoji || '👶'} ${activeChild.nom}${activeChild.birthdate ? ' · ' + formatAge(activeChild.birthdate) : ''}`
+                : 'Suivi bébé hors-ligne'}
+            </div>
           </div>
         </div>
-        <div className="flex-row" style={{ gap: 6 }}>
-          {/* Reminder vitamine D */}
-          {showVitDReminder && (
-            <button
-              className="child-switcher"
-              style={{ background: 'var(--accent-sun)', color: '#fff', border: 'none', gap: 4 }}
-              onClick={() => { setFormPrefill({ type: 'biberon' }); setOpenEntryForm(true); setActiveTab('journal'); }}
-            >
-              <span>💊</span>
-              <span className="name" style={{ fontSize: '.7rem' }}>Vit. D</span>
-            </button>
-          )}
+        <div className="flex-row">
           {store.children.length > 1 && activeChild && (
             <button className="child-switcher" onClick={() => setChildSwitcherOpen(true)}>
               <span className="emoji">{activeChild.emoji || '👶'}</span>
               <span className="name">{activeChild.nom}</span>
             </button>
           )}
+          {/* Réglages dans la topbar */}
+          <button
+            onClick={() => setActiveTab('reglages')}
+            style={{
+              background: activeTab === 'reglages' ? 'rgba(255,255,255,.25)' : 'rgba(255,255,255,.12)',
+              border: 'none', borderRadius: 'var(--radius-md)', width: 34, height: 34,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1rem', cursor: 'pointer', flexShrink: 0,
+            }}
+            aria-label="Réglages"
+          >⚙️</button>
           <span className="app-version-badge">v{APP_VERSION}</span>
         </div>
       </div>
 
       <div className="app-content">{renderTab()}</div>
 
-      {/* FAB contextuel */}
-      {fabAction && (
-        <button className="fab" onClick={fabAction}>＋</button>
+      {showFab && (
+        <button className="fab" onClick={openNewEntry}>＋</button>
       )}
 
       <div className="app-tabbar">
@@ -241,24 +189,15 @@ function AppShell() {
             key={t.key}
             className={`tab-btn ${activeTab === t.key ? 'active' : ''}`}
             onClick={() => setActiveTab(t.key)}
-            style={{ position: 'relative' }}
           >
             <span className="tab-icon">{t.icon}</span>
             <span>{t.label}</span>
-            {/* Badge minuteur sur l'onglet Outils */}
-            {t.key === 'outils' && showTimerBadge && (
-              <span style={{
-                position: 'absolute', top: 4, right: 6,
-                width: 8, height: 8, borderRadius: '50%',
-                background: 'var(--primary)', border: '1.5px solid var(--surface)',
-                animation: 'pulse 1.5s infinite',
-              }} />
-            )}
           </button>
         ))}
       </div>
 
       <ChildSwitcher open={childSwitcherOpen} onClose={() => setChildSwitcherOpen(false)} />
+
       {showExitHint && <div className="exit-hint">Appuyez à nouveau pour quitter</div>}
     </div>
   );
