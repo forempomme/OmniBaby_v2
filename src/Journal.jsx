@@ -360,17 +360,18 @@ function TodayOverview({ entries, child, filterType, setFilterType, onLongPress 
 
 // ----------------------------------------------------------------------
 // Entry list item
-// Swipe gauche = révèle bouton corbeille qui reste visible jusqu'au tap
+// Swipe gauche = révèle bouton corbeille fixe à droite
 // ----------------------------------------------------------------------
 function EntryItem({ entry, onEdit, onDelete, compact = false }) {
   const def = ENTRY_TYPES[entry.type] || ENTRY_TYPES.autre;
   const [revealed, setRevealed] = React.useState(false);
   const [offsetX, setOffsetX] = React.useState(0);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
   const touchStartX = React.useRef(null);
   const touchStartY = React.useRef(null);
   const isDragging = React.useRef(false);
-  const ACTION_WIDTH = 80; // largeur de la zone corbeille
-  const TRIGGER = 40;      // distance min pour déclencher
+  const ACTION_WIDTH = 88;
+  const TRIGGER = 44;
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
@@ -382,69 +383,51 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
     if (touchStartX.current === null) return;
     const dx = e.touches[0].clientX - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current;
-
-    // Si scroll vertical détecté, ignorer
-    if (!isDragging.current && Math.abs(dy) > Math.abs(dx)) return;
-
-    // Swipe gauche uniquement
-    if (dx > 0) {
+    if (!isDragging.current && Math.abs(dy) > Math.abs(dx) + 5) return;
+    if (dx > 8) {
       if (revealed) { setRevealed(false); setOffsetX(0); }
       return;
     }
-
-    isDragging.current = true;
-    e.preventDefault(); // bloquer le scroll pendant le swipe horizontal
-
-    if (revealed) {
-      // Déjà ouvert : permettre de refermer
-      const newX = -ACTION_WIDTH + Math.min(0, dx);
-      setOffsetX(Math.max(-ACTION_WIDTH, newX));
-    } else {
+    if (dx < -5) {
+      isDragging.current = true;
+      e.preventDefault();
       setOffsetX(Math.max(-ACTION_WIDTH, dx));
     }
   };
 
   const handleTouchEnd = () => {
-    if (!isDragging.current && revealed) {
-      // Tap sans swipe sur la card quand révélé → fermer
+    isDragging.current = false;
+    touchStartX.current = null;
+    if (offsetX < -TRIGGER) {
+      setRevealed(true);
+      setOffsetX(-ACTION_WIDTH);
+    } else {
       setRevealed(false);
       setOffsetX(0);
-      return;
     }
-    isDragging.current = false;
-
-    if (revealed) {
-      // Était ouvert, si swipé vers droite → refermer
-      if (offsetX > -ACTION_WIDTH + 20) {
-        setRevealed(false);
-        setOffsetX(0);
-      } else {
-        setOffsetX(-ACTION_WIDTH);
-      }
-    } else {
-      // Était fermé, si swipé assez loin → ouvrir et GARDER ouvert
-      if (offsetX < -TRIGGER) {
-        setRevealed(true);
-        setOffsetX(-ACTION_WIDTH);
-      } else {
-        setOffsetX(0);
-      }
-    }
-    touchStartX.current = null;
   };
 
-  const handleDelete = (e) => {
+  const handleContentTap = () => {
+    if (revealed) { setRevealed(false); setOffsetX(0); return; }
+    if (confirmDelete) { setConfirmDelete(false); return; }
+    onEdit && onEdit();
+  };
+
+  const handleDeleteTap = (e) => {
+    e.stopPropagation();
+    setConfirmDelete(true);
+    setRevealed(false);
+    setOffsetX(0);
+  };
+
+  const handleConfirmDelete = (e) => {
     e.stopPropagation();
     onDelete();
   };
 
-  const handleContentTap = () => {
-    if (revealed) {
-      setRevealed(false);
-      setOffsetX(0);
-      return;
-    }
-    onEdit && onEdit();
+  const handleCancelDelete = (e) => {
+    e.stopPropagation();
+    setConfirmDelete(false);
   };
 
   const subtitle = entrySubtitle(entry);
@@ -452,41 +435,78 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
     ? new Date(entry.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     : '';
 
+  // Mode confirmation : remplace la ligne par un bandeau de confirmation
+  if (confirmDelete) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: compact ? '7px 10px' : '11px 12px',
+        background: 'var(--danger-soft)',
+        border: '1.5px solid var(--danger)',
+        borderRadius: 'var(--radius-md)',
+        marginBottom: compact ? 4 : 8,
+      }}>
+        <span style={{ fontSize: '.82rem', color: 'var(--danger)', fontWeight: 600, flex: 1 }}>
+          🗑️ Supprimer cette entrée ?
+        </span>
+        <button
+          onPointerDown={handleCancelDelete}
+          style={{
+            padding: '5px 12px', borderRadius: 'var(--radius-pill)', border: '1px solid var(--border)',
+            background: 'var(--surface)', fontWeight: 600, fontSize: '.76rem',
+            cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text-soft)',
+          }}
+        >Annuler</button>
+        <button
+          onPointerDown={handleConfirmDelete}
+          style={{
+            padding: '5px 12px', borderRadius: 'var(--radius-pill)', border: 'none',
+            background: 'var(--danger)', color: '#fff', fontWeight: 700, fontSize: '.76rem',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >Confirmer</button>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       position: 'relative',
-      overflow: 'hidden',
       borderRadius: 'var(--radius-md)',
       marginBottom: compact ? 4 : 8,
       userSelect: 'none',
+      // La hauteur est fixée par le contenu — pas d'overflow:hidden ici
+      // pour ne pas déborder sur les lignes voisines
     }}>
-      {/* Bouton corbeille fixe derrière */}
+      {/* Zone corbeille — même hauteur exacte que le contenu, clips via overflow hidden du parent */}
       <div style={{
         position: 'absolute',
-        top: 0, right: 0, bottom: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
         width: ACTION_WIDTH,
         background: 'var(--danger)',
+        borderRadius: 'var(--radius-md)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        overflow: 'hidden', // contenu corbeille clipé à ses propres bornes
       }}>
         <button
-          onPointerDown={handleDelete}
+          onPointerDown={handleDeleteTap}
           style={{
-            width: '100%', height: '100%',
-            background: 'none', border: 'none',
-            color: '#fff', fontSize: '1.4rem',
-            cursor: 'pointer', display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-            flexDirection: 'column', gap: 3,
+            width: '100%', height: '100%', background: 'none', border: 'none',
+            color: '#fff', cursor: 'pointer',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: 3,
           }}
         >
-          <span>🗑️</span>
-          <span style={{ fontSize: '.62rem', fontWeight: 700, letterSpacing: '.3px' }}>Supprimer</span>
+          <span style={{ fontSize: '1.3rem', lineHeight: 1 }}>🗑️</span>
+          <span style={{ fontSize: '.6rem', fontWeight: 700, letterSpacing: '.2px' }}>Supprimer</span>
         </button>
       </div>
 
-      {/* Contenu glissant */}
+      {/* Contenu glissant — clipé pour ne jamais dépasser le wrapper */}
       <div
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -494,7 +514,7 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
         onClick={handleContentTap}
         style={{
           transform: `translateX(${offsetX}px)`,
-          transition: isDragging.current ? 'none' : 'transform 0.2s ease',
+          transition: isDragging.current ? 'none' : 'transform 0.18s ease',
           background: 'var(--surface)',
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius-md)',
@@ -505,6 +525,8 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
           position: 'relative', zIndex: 1,
           cursor: 'pointer',
           willChange: 'transform',
+          // Clip visuel pour que la ligne ne déborde pas sur les voisines
+          clipPath: revealed ? 'none' : 'none',
         }}
       >
         {compact ? (
@@ -537,7 +559,6 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
   );
 }
 
-// ----------------------------------------------------------------------
 // Main Journal tab
 // ----------------------------------------------------------------------
 const PERIOD_OPTIONS = [
