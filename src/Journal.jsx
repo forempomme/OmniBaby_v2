@@ -359,40 +359,93 @@ function TodayOverview({ entries, child, filterType, setFilterType, onLongPress 
 }
 
 // ----------------------------------------------------------------------
-// Entry list item — swipe natif intégré (gauche → corbeille)
+// Entry list item
+// Swipe gauche = révèle bouton corbeille qui reste visible jusqu'au tap
 // ----------------------------------------------------------------------
 function EntryItem({ entry, onEdit, onDelete, compact = false }) {
   const def = ENTRY_TYPES[entry.type] || ENTRY_TYPES.autre;
-  const [dragX, setDragX] = React.useState(0);
-  const [swiping, setSwiping] = React.useState(false);
-  const [showDelete, setShowDelete] = React.useState(false);
-  const startX = React.useRef(0);
-  const THRESHOLD = -70;
+  const [revealed, setRevealed] = React.useState(false);
+  const [offsetX, setOffsetX] = React.useState(0);
+  const touchStartX = React.useRef(null);
+  const touchStartY = React.useRef(null);
+  const isDragging = React.useRef(false);
+  const ACTION_WIDTH = 80; // largeur de la zone corbeille
+  const TRIGGER = 40;      // distance min pour déclencher
 
-  const onTouchStart = (e) => {
-    // Si le bouton supprimer est visible, ne pas interférer
-    if (showDelete) return;
-    startX.current = e.touches[0].clientX;
-    setSwiping(true);
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    isDragging.current = false;
   };
-  const onTouchMove = (e) => {
-    if (!swiping || showDelete) return;
-    const diff = e.touches[0].clientX - startX.current;
-    if (diff > 0) return;
-    setDragX(Math.max(-88, diff));
-  };
-  const onTouchEnd = () => {
-    if (showDelete) return; // boutons visibles → ne pas masquer
-    setSwiping(false);
-    if (dragX < THRESHOLD) {
-      setDragX(-88);
-      setShowDelete(true);
+
+  const handleTouchMove = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+
+    // Si scroll vertical détecté, ignorer
+    if (!isDragging.current && Math.abs(dy) > Math.abs(dx)) return;
+
+    // Swipe gauche uniquement
+    if (dx > 0) {
+      if (revealed) { setRevealed(false); setOffsetX(0); }
+      return;
+    }
+
+    isDragging.current = true;
+    e.preventDefault(); // bloquer le scroll pendant le swipe horizontal
+
+    if (revealed) {
+      // Déjà ouvert : permettre de refermer
+      const newX = -ACTION_WIDTH + Math.min(0, dx);
+      setOffsetX(Math.max(-ACTION_WIDTH, newX));
     } else {
-      // Délai court avant retour pour laisser le tap se propager
-      setTimeout(() => setDragX(0), 50);
+      setOffsetX(Math.max(-ACTION_WIDTH, dx));
     }
   };
-  const cancelSwipe = () => { setDragX(0); setShowDelete(false); };
+
+  const handleTouchEnd = () => {
+    if (!isDragging.current && revealed) {
+      // Tap sans swipe sur la card quand révélé → fermer
+      setRevealed(false);
+      setOffsetX(0);
+      return;
+    }
+    isDragging.current = false;
+
+    if (revealed) {
+      // Était ouvert, si swipé vers droite → refermer
+      if (offsetX > -ACTION_WIDTH + 20) {
+        setRevealed(false);
+        setOffsetX(0);
+      } else {
+        setOffsetX(-ACTION_WIDTH);
+      }
+    } else {
+      // Était fermé, si swipé assez loin → ouvrir et GARDER ouvert
+      if (offsetX < -TRIGGER) {
+        setRevealed(true);
+        setOffsetX(-ACTION_WIDTH);
+      } else {
+        setOffsetX(0);
+      }
+    }
+    touchStartX.current = null;
+  };
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    onDelete();
+  };
+
+  const handleContentTap = () => {
+    if (revealed) {
+      setRevealed(false);
+      setOffsetX(0);
+      return;
+    }
+    onEdit && onEdit();
+  };
 
   const subtitle = entrySubtitle(entry);
   const timeStr = entry.date
@@ -400,68 +453,61 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
     : '';
 
   return (
-    <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: compact ? 4 : 8 }}>
-      {/* Zone rouge derrière — stoppe les touch pour ne pas fermer au tap */}
-      <div
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchEnd={(e) => e.stopPropagation()}
-        style={{
-          position: 'absolute', inset: 0, background: 'var(--danger)',
-          display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-          paddingRight: 16, gap: 8,
-        }}
-      >
-        {showDelete ? (
-          <>
-            <button
-              onPointerDown={(e) => { e.stopPropagation(); onDelete(); }}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                background: 'rgba(255,255,255,.2)', border: '1.5px solid rgba(255,255,255,.5)',
-                color: '#fff', borderRadius: 'var(--radius-pill)', padding: '10px 18px',
-                fontWeight: 700, fontSize: '.85rem', cursor: 'pointer', fontFamily: 'inherit',
-                minWidth: 110, minHeight: 44, touchAction: 'manipulation',
-              }}
-            >🗑️ Supprimer</button>
-            <button
-              onPointerDown={(e) => { e.stopPropagation(); cancelSwipe(); }}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                background: 'none', border: 'none', color: 'rgba(255,255,255,.8)',
-                fontSize: '.78rem', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
-                padding: '10px 8px', minHeight: 44, touchAction: 'manipulation',
-              }}
-            >Annuler</button>
-          </>
-        ) : (
-          <span style={{ color: 'rgba(255,255,255,.6)', fontSize: '1.2rem' }}>🗑️</span>
-        )}
+    <div style={{
+      position: 'relative',
+      overflow: 'hidden',
+      borderRadius: 'var(--radius-md)',
+      marginBottom: compact ? 4 : 8,
+      userSelect: 'none',
+    }}>
+      {/* Bouton corbeille fixe derrière */}
+      <div style={{
+        position: 'absolute',
+        top: 0, right: 0, bottom: 0,
+        width: ACTION_WIDTH,
+        background: 'var(--danger)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <button
+          onPointerDown={handleDelete}
+          style={{
+            width: '100%', height: '100%',
+            background: 'none', border: 'none',
+            color: '#fff', fontSize: '1.4rem',
+            cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            flexDirection: 'column', gap: 3,
+          }}
+        >
+          <span>🗑️</span>
+          <span style={{ fontSize: '.62rem', fontWeight: 700, letterSpacing: '.3px' }}>Supprimer</span>
+        </button>
       </div>
 
       {/* Contenu glissant */}
       <div
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={handleContentTap}
         style={{
-          transform: `translateX(${dragX}px)`,
-          transition: swiping ? 'none' : 'transform 0.2s ease',
+          transform: `translateX(${offsetX}px)`,
+          transition: isDragging.current ? 'none' : 'transform 0.2s ease',
           background: 'var(--surface)',
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius-md)',
-          display: 'flex', alignItems: 'center',
-          padding: compact ? '7px 10px' : '10px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          padding: compact ? '7px 10px' : '11px 12px',
           gap: compact ? 8 : 12,
-          cursor: 'pointer',
           position: 'relative', zIndex: 1,
-          // Désactiver les interactions quand le bouton Supprimer est visible
-          // pour ne pas capter le touch destiné aux boutons derrière
-          pointerEvents: showDelete ? 'none' : 'auto',
+          cursor: 'pointer',
+          willChange: 'transform',
         }}
-        onClick={(e) => { if (dragX !== 0) return; onEdit && onEdit(); }}
       >
         {compact ? (
-          // Mode compact : icône petite + label + sous-titre inline + heure
           <>
             <div style={{
               width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
@@ -470,16 +516,13 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
             }}>{def.icon}</div>
             <div style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: '.78rem' }}>
               {def.label}
-              {subtitle && (
-                <span style={{ color: 'var(--text-soft)', fontWeight: 400 }}> · {subtitle}</span>
-              )}
+              {subtitle && <span style={{ color: 'var(--text-soft)', fontWeight: 400 }}> · {subtitle}</span>}
             </div>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '.7rem', color: 'var(--text-faint)', flexShrink: 0 }}>
               {timeStr}
             </span>
           </>
         ) : (
-          // Mode normal : icône grande + corps + heure
           <>
             <EntryIcon type={entry.type} />
             <div className="entry-body" style={{ flex: 1, minWidth: 0 }}>
@@ -493,7 +536,6 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
     </div>
   );
 }
-
 
 // ----------------------------------------------------------------------
 // Main Journal tab
