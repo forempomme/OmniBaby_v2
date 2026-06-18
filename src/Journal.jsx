@@ -370,24 +370,26 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
   const THRESHOLD = -70;
 
   const onTouchStart = (e) => {
+    // Si le bouton supprimer est visible, ne pas interférer
+    if (showDelete) return;
     startX.current = e.touches[0].clientX;
     setSwiping(true);
-    setShowDelete(false);
   };
   const onTouchMove = (e) => {
-    if (!swiping) return;
+    if (!swiping || showDelete) return;
     const diff = e.touches[0].clientX - startX.current;
-    if (diff > 0) return; // pas de swipe droite
+    if (diff > 0) return;
     setDragX(Math.max(-88, diff));
   };
   const onTouchEnd = () => {
+    if (showDelete) return; // boutons visibles → ne pas masquer
     setSwiping(false);
     if (dragX < THRESHOLD) {
       setDragX(-88);
       setShowDelete(true);
     } else {
-      setDragX(0);
-      setShowDelete(false);
+      // Délai court avant retour pour laisser le tap se propager
+      setTimeout(() => setDragX(0), 50);
     }
   };
   const cancelSwipe = () => { setDragX(0); setShowDelete(false); };
@@ -399,23 +401,37 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
 
   return (
     <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: compact ? 4 : 8 }}>
-      {/* Zone rouge derrière */}
-      <div style={{
-        position: 'absolute', inset: 0, background: 'var(--danger)',
-        display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-        paddingRight: 16, gap: 8,
-      }}>
+      {/* Zone rouge derrière — stoppe les touch pour ne pas fermer au tap */}
+      <div
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
+        style={{
+          position: 'absolute', inset: 0, background: 'var(--danger)',
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+          paddingRight: 16, gap: 8,
+        }}
+      >
         {showDelete ? (
           <>
-            <button onClick={onDelete} style={{
-              background: 'rgba(255,255,255,.2)', border: '1.5px solid rgba(255,255,255,.5)',
-              color: '#fff', borderRadius: 'var(--radius-pill)', padding: '5px 14px',
-              fontWeight: 700, fontSize: '.8rem', cursor: 'pointer', fontFamily: 'inherit',
-            }}>🗑️ Supprimer</button>
-            <button onClick={cancelSwipe} style={{
-              background: 'none', border: 'none', color: 'rgba(255,255,255,.7)',
-              fontSize: '.78rem', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
-            }}>Annuler</button>
+            <button
+              onPointerDown={(e) => { e.stopPropagation(); onDelete(); }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'rgba(255,255,255,.2)', border: '1.5px solid rgba(255,255,255,.5)',
+                color: '#fff', borderRadius: 'var(--radius-pill)', padding: '10px 18px',
+                fontWeight: 700, fontSize: '.85rem', cursor: 'pointer', fontFamily: 'inherit',
+                minWidth: 110, minHeight: 44, touchAction: 'manipulation',
+              }}
+            >🗑️ Supprimer</button>
+            <button
+              onPointerDown={(e) => { e.stopPropagation(); cancelSwipe(); }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'none', border: 'none', color: 'rgba(255,255,255,.8)',
+                fontSize: '.78rem', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+                padding: '10px 8px', minHeight: 44, touchAction: 'manipulation',
+              }}
+            >Annuler</button>
           </>
         ) : (
           <span style={{ color: 'rgba(255,255,255,.6)', fontSize: '1.2rem' }}>🗑️</span>
@@ -438,8 +454,11 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
           gap: compact ? 8 : 12,
           cursor: 'pointer',
           position: 'relative', zIndex: 1,
+          // Désactiver les interactions quand le bouton Supprimer est visible
+          // pour ne pas capter le touch destiné aux boutons derrière
+          pointerEvents: showDelete ? 'none' : 'auto',
         }}
-        onClick={(e) => { if (dragX !== 0) { cancelSwipe(); return; } onEdit && onEdit(); }}
+        onClick={(e) => { if (dragX !== 0) return; onEdit && onEdit(); }}
       >
         {compact ? (
           // Mode compact : icône petite + label + sous-titre inline + heure
