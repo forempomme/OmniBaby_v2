@@ -72,7 +72,7 @@ function ChildSwitcher({ open, onClose }) {
 // App shell content (after auth)
 // ----------------------------------------------------------------------
 function AppShell() {
-  const { store } = useStore();
+  const { store, firebaseUser, syncStatus } = useStore();
   const [activeTab, setActiveTab] = useState('journal');
   const [childSwitcherOpen, setChildSwitcherOpen] = useState(false);
   const [openEntryForm, setOpenEntryForm] = useState(false);
@@ -155,14 +155,60 @@ function AppShell() {
             </div>
           </div>
         </div>
-        <div className="flex-row">
+        <div className="flex-row" style={{ gap: 6 }}>
+
+          {/* Reminder vitamine D */}
+          {showVitDReminder && (
+            <button
+              className="child-switcher"
+              style={{ background: 'var(--accent-sun)', color: '#fff', border: 'none', gap: 4 }}
+              onClick={() => { setFormPrefill({ type: 'biberon' }); setOpenEntryForm(true); setActiveTab('journal'); }}
+            >
+              <span>💊</span>
+              <span className="name" style={{ fontSize: '.7rem' }}>Vit. D</span>
+            </button>
+          )}
+
+          {/* Indicateur parent connecté */}
+          {firebaseUser && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: 'rgba(255,255,255,.15)',
+              borderRadius: 'var(--radius-pill)',
+              padding: '3px 8px 3px 4px',
+            }}>
+              {/* Avatar initiales */}
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%',
+                background: 'rgba(255,255,255,.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '.65rem', fontWeight: 700, color: '#fff', flexShrink: 0,
+              }}>
+                {(firebaseUser.displayName || firebaseUser.email || '?').slice(0, 2).toUpperCase()}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+                <span style={{ fontSize: '.68rem', fontWeight: 700, color: '#fff', maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {firebaseUser.displayName || firebaseUser.email?.split('@')[0]}
+                </span>
+                <span style={{ fontSize: '.58rem', color: 'rgba(255,255,255,.7)', display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <span style={{
+                    width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                    background: syncStatus === 'synced' ? '#4CAF50' : syncStatus === 'syncing' ? '#FFC107' : syncStatus === 'error' ? '#f44336' : 'rgba(255,255,255,.4)',
+                  }} />
+                  {syncStatus === 'synced' ? 'Synchronisé' : syncStatus === 'syncing' ? 'Sync...' : syncStatus === 'error' ? 'Erreur' : 'Hors-ligne'}
+                </span>
+              </div>
+            </div>
+          )}
+
           {store.children.length > 1 && activeChild && (
             <button className="child-switcher" onClick={() => setChildSwitcherOpen(true)}>
               <span className="emoji">{activeChild.emoji || '👶'}</span>
               <span className="name">{activeChild.nom}</span>
             </button>
           )}
-          {/* Réglages dans la topbar */}
+
+          {/* Réglages */}
           <button
             onClick={() => setActiveTab('reglages')}
             style={{

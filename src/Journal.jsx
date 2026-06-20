@@ -114,7 +114,15 @@ function EntryForm({ open, onClose, prefill, onSaved }) {
 
   const handleSubmit = () => {
     const id = nextId();
-    const base = { id, childId: activeChild?.id, type, date: datetime };
+    const base = {
+      id,
+      childId: activeChild?.id,
+      type,
+      date: datetime,
+      createdBy: firebaseUser?.uid || null,
+      createdByName: firebaseUser?.displayName || firebaseUser?.email?.split('@')[0] || null,
+      createdAt: new Date().toISOString(),
+    };
 
     let entry = { ...base };
     if (type === 'biberon') {
@@ -550,6 +558,12 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
             <div className="entry-body" style={{ flex: 1, minWidth: 0 }}>
               <div className="entry-title">{def.label}</div>
               {subtitle && <div className="entry-sub">{subtitle}</div>}
+              {(entry.createdByName || entry.updatedByName) && (
+                <div style={{ fontSize: '.62rem', color: 'var(--text-faint)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span>{entry.updatedByName ? '✏️' : '✍️'}</span>
+                  <span>{entry.updatedByName || entry.createdByName}</span>
+                </div>
+              )}
             </div>
             <div className="entry-time">{timeStr}</div>
           </>
@@ -573,7 +587,7 @@ const PERIOD_OPTIONS = [
 // ----------------------------------------------------------------------
 // Saisie rapide — biberon en 2 taps (heure auto + dernière quantité)
 // ----------------------------------------------------------------------
-function QuickEntryBar({ entries, onSaved }) {
+function QuickEntryBar({ entries, onSaved, firebaseUser }) {
   const { store, update, nextId } = useStore();
   const showToast = useToast();
   const activeChild = getActiveChild(store);
@@ -594,6 +608,9 @@ function QuickEntryBar({ entries, onSaved }) {
       childId: activeChild.id,
       type,
       date: new Date().toISOString(),
+      createdBy: firebaseUser?.uid || null,
+      createdByName: firebaseUser?.displayName || firebaseUser?.email?.split('@')[0] || null,
+      createdAt: new Date().toISOString(),
       ...extra,
     };
     update((draft) => { draft.entries.push(entry); return draft; });
@@ -786,7 +803,7 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
           </button>
         ))}
       </div>
-      {period === 'today' && <QuickEntryBar entries={todayEntries} onSaved={() => {}} />}
+      {period === 'today' && <QuickEntryBar entries={todayEntries} onSaved={() => {}} firebaseUser={firebaseUser} />}
       {period === '7days' && <WeekSummary entries={periodFiltered} />}
 
       {filterType !== 'tous' && (
@@ -858,7 +875,13 @@ function EditEntryModal({ entry, onClose }) {
     update((draft) => {
       const idx = draft.entries.findIndex((e) => e.id === entry.id);
       if (idx === -1) return draft;
-      const updated = { ...draft.entries[idx], date: datetime };
+      const updated = {
+        ...draft.entries[idx],
+        date: datetime,
+        updatedBy: firebaseUser?.uid || null,
+        updatedByName: firebaseUser?.displayName || firebaseUser?.email?.split('@')[0] || null,
+        updatedAt: new Date().toISOString(),
+      };
       if (entry.type === 'biberon') {
         updated.mode = mode;
         if (mode === 'biberon') updated.quantite = Number(quantite) || 0;
