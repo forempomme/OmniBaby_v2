@@ -314,10 +314,26 @@ function TodayOverview({ entries, child, filterType, setFilterType, onLongPress 
   const lastSommeil = lastOfType(entries, 'sommeil');
   const nextBiberon = estimateNextBiberon(entries);
 
+  // Cumuls journée
+  const todayBiberons = entries.filter((e) => e.type === 'biberon');
+  const totalLait = todayBiberons.filter((b) => b.mode === 'biberon').reduce((s, b) => s + (b.quantite || 0), 0);
+  const totalTetees = todayBiberons.filter((b) => b.mode === 'sein').reduce((s, b) => s + (b.duree || 0), 0);
+  const totalCouches = entries.filter((e) => e.type === 'couche').length;
+  const totalSommeilMin = entries.filter((e) => e.type === 'sommeil').reduce((s, e) => s + (e.duree || 0), 0);
+
+  const biberonDetail = todayBiberons.length > 0
+    ? totalLait > 0 ? `${todayBiberons.length}x · ${totalLait}ml`
+    : totalTetees > 0 ? `${todayBiberons.length}x · ${totalTetees}min`
+    : `${todayBiberons.length}x` : null;
+  const coucheDetail = totalCouches > 0 ? `${totalCouches} changes` : null;
+  const sommeilDetail = totalSommeilMin > 0
+    ? `${Math.floor(totalSommeilMin / 60)}h${String(totalSommeilMin % 60).padStart(2,'0')}`
+    : null;
+
   const stats = [
-    { key: 'biberon', icon: '🍼', label: 'Biberon', value: lastBiberon ? formatTimeFR(lastBiberon.date) : '—' },
-    { key: 'couche', icon: '🧷', label: 'Change', value: lastCouche ? formatTimeFR(lastCouche.date) : '—' },
-    { key: 'sommeil', icon: '🌙', label: 'Sommeil', value: lastSommeil ? formatTimeFR(lastSommeil.date) : '—' },
+    { key: 'biberon', icon: '🍼', label: 'Biberon', value: lastBiberon ? formatTimeFR(lastBiberon.date) : '—', detail: biberonDetail },
+    { key: 'couche', icon: '🧷', label: 'Change', value: lastCouche ? formatTimeFR(lastCouche.date) : '—', detail: coucheDetail },
+    { key: 'sommeil', icon: '🌙', label: 'Sommeil', value: lastSommeil ? formatTimeFR(lastSommeil.date) : '—', detail: sommeilDetail },
   ];
 
   const handleShare = async () => {
@@ -354,6 +370,7 @@ function TodayOverview({ entries, child, filterType, setFilterType, onLongPress 
             <span className="stamp-icon">{s.icon}</span>
             <span className="stamp-value">{s.value}</span>
             <span className="stamp-label">{s.label}</span>
+            {s.detail && <span className="stamp-detail">{s.detail}</span>}
           </button>
         ))}
       </div>
@@ -559,7 +576,7 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
               <div className="entry-title">{def.label}</div>
               {subtitle && <div className="entry-sub">{subtitle}</div>}
               {(entry.createdByName || entry.updatedByName) && (
-                <div style={{ fontSize: '.62rem', color: 'var(--text-faint)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                <div className="entry-author">
                   <span>{entry.updatedByName ? '✏️' : '✍️'}</span>
                   <span>{entry.updatedByName || entry.createdByName}</span>
                 </div>

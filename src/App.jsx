@@ -71,6 +71,32 @@ function ChildSwitcher({ open, onClose }) {
 // ----------------------------------------------------------------------
 // App shell content (after auth)
 // ----------------------------------------------------------------------
+
+// ----------------------------------------------------------------------
+// Skeleton loader — affiché pendant le chargement initial Firebase
+// ----------------------------------------------------------------------
+function SkeletonLoader() {
+  return (
+    <div className="skeleton-list">
+      {/* Stamps skeleton */}
+      <div className="skeleton-stamp-row">
+        {[1,2,3].map(i => <div key={i} className="skeleton skeleton-stamp" />)}
+      </div>
+      {/* Entrées skeleton */}
+      {[1,2,3,4].map(i => (
+        <div key={i} className="skeleton-entry">
+          <div className="skeleton skeleton-entry-icon" />
+          <div className="skeleton-entry-body">
+            <div className="skeleton skeleton-entry-title" />
+            <div className="skeleton skeleton-entry-sub" />
+          </div>
+          <div className="skeleton skeleton-entry-time" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AppShell() {
   const { store, firebaseUser, syncStatus } = useStore();
   const [activeTab, setActiveTab] = useState('journal');
@@ -80,6 +106,16 @@ function AppShell() {
   const [openToolKey, setOpenToolKey] = useState(null);
   const [openDodoForm, setOpenDodoForm] = useState(false);
   const [timerRunning, setTimerRunning] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+
+  // Masquer le skeleton après le premier cycle de sync Firebase
+  useEffect(() => {
+    if (syncStatus === 'synced' || syncStatus === 'offline') {
+      // Délai court pour laisser le rendu se stabiliser
+      const t = setTimeout(() => setIsFirstLoad(false), 300);
+      return () => clearTimeout(t);
+    }
+  }, [syncStatus]);
 
   const activeChild = getActiveChild(store);
   const { showExitHint } = useAndroidBack({ activeTab, setActiveTab, defaultTab: 'journal' });
@@ -241,11 +277,19 @@ function AppShell() {
             }}
             aria-label="Réglages"
           >⚙️</button>
-          <span className="app-version-badge">v{APP_VERSION}</span>
+
         </div>
       </div>
 
-      <div className="app-content">{renderTab()}</div>
+      <div className="app-content">
+        {isFirstLoad && store.familyId ? (
+          <SkeletonLoader />
+        ) : (
+          <div key={activeTab} className="tab-content-enter">
+            {renderTab()}
+          </div>
+        )}
+      </div>
 
       {fabAction && <button className="fab" onClick={fabAction}>＋</button>}
 

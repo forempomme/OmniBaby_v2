@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useStore, genId, ageInMonths, formatAge } from './store.jsx';
 import { toISODate, useToast, ConfirmInline, exportPDF, shareJSON } from './utils.jsx';
 import { Modal } from './Modal.jsx';
+import { APP_VERSION } from './version.js';
 import { auth, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js';
 import { generateFamilyCode } from './store.jsx';
 import { isBiometricAvailable } from './Auth.jsx';
@@ -621,6 +622,24 @@ export default function ReglagesTab({ onOpenFamille }) {
 
       <Accordion icon="💾" title="Données" defaultOpen={false}>
         <DataSection canEdit={canEdit} embedded />
+      </Accordion>
+
+      <Accordion icon="ℹ️" title="À propos" defaultOpen={false}>
+        <div style={{ padding: '4px 0' }}>
+          {[
+            { label: 'Application', val: 'OmniBaby' },
+            { label: 'Version', val: `v${APP_VERSION}` },
+            { label: 'Sources', val: 'OMS · PNNS4 · HCSP 2020' },
+            { label: 'Données', val: 'Locales + Firebase (chiffrées)' },
+            { label: 'Publicités', val: 'Aucune' },
+          ].map((r, i) => (
+            <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0',
+              borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
+              <span style={{ fontSize:'.84rem', color:'var(--text-soft)' }}>{r.label}</span>
+              <span style={{ fontSize:'.84rem', fontWeight:600 }}>{r.val}</span>
+            </div>
+          ))}
+        </div>
       </Accordion>
     </div>
   );
