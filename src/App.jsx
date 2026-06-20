@@ -78,15 +78,30 @@ function AppShell() {
   const [openEntryForm, setOpenEntryForm] = useState(false);
   const [formPrefill, setFormPrefill] = useState(null);
   const [openToolKey, setOpenToolKey] = useState(null);
+  const [openDodoForm, setOpenDodoForm] = useState(false);
+  const [timerRunning, setTimerRunning] = useState(false);
 
   const activeChild = getActiveChild(store);
   const { showExitHint } = useAndroidBack({ activeTab, setActiveTab, defaultTab: 'journal' });
 
-  // ---- Theme handling (manual or auto 21h-7h) ----
+  // Reminder vitamine D
+  const childEntries = useMemo(
+    () => filterByActiveChild(store.entries || [], store.activeChildId),
+    [store.entries, store.activeChildId]
+  );
+  const showVitDReminder = useMemo(() => {
+    if (!activeChild?.birthdate) return false;
+    const ageM = Math.floor((new Date() - new Date(activeChild.birthdate)) / (1000 * 60 * 60 * 24 * 30.44));
+    if (ageM >= 24) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    return !childEntries.some((e) => e.type === 'biberon' && e.vitamineD && e.date?.slice(0, 10) === today);
+  }, [childEntries, activeChild]);
+
+  // Thème auto
   useEffect(() => {
     const applyTheme = () => {
       let dark;
-      if (store.settings.dark === null || store.settings.dark === undefined) {
+      if (store.settings?.dark === null || store.settings?.dark === undefined) {
         const hour = new Date().getHours();
         dark = hour >= 21 || hour < 7;
       } else {
@@ -97,14 +112,12 @@ function AppShell() {
     applyTheme();
     const interval = setInterval(applyTheme, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [store.settings.dark]);
+  }, [store.settings?.dark]);
 
-  const openNewEntry = () => {
-    setFormPrefill(null);
-    setOpenEntryForm(true);
-  };
+  const openNewEntry = () => { setFormPrefill(null); setOpenEntryForm(true); };
 
   const handleTimerFinish = (prefill) => {
+    setTimerRunning(false);
     setFormPrefill(prefill);
     setActiveTab('journal');
     setOpenEntryForm(true);
@@ -121,26 +134,27 @@ function AppShell() {
             onTimerFinished={() => setFormPrefill(null)}
           />
         );
-      case 'sante':
-        return <SanteTab />;
-      case 'dodo':
-        return <DodoTab />;
+      case 'sante':  return <SanteTab />;
+      case 'dodo':   return <DodoTab openFormExternal={openDodoForm} setOpenFormExternal={setOpenDodoForm} />;
       case 'outils':
         return (
           <OutilsTab
             openToolKey={openToolKey}
             setOpenToolKey={setOpenToolKey}
             onTimerFinish={handleTimerFinish}
+            onTimerStart={() => setTimerRunning(true)}
           />
         );
       case 'reglages':
         return <ReglagesTab onOpenFamille={() => { setActiveTab('outils'); setOpenToolKey('famille'); }} />;
-      default:
-        return null;
+      default: return null;
     }
   };
 
-  const showFab = activeTab === 'journal';
+  // FAB contextuel selon l'onglet
+  const fabAction = activeTab === 'journal' ? openNewEntry
+    : activeTab === 'dodo' ? () => setOpenDodoForm(true)
+    : null;
 
   return (
     <div className="app-shell">
@@ -169,7 +183,7 @@ function AppShell() {
             </button>
           )}
 
-          {/* Indicateur parent connecté */}
+          {/* Indicateur parent connecté + statut sync */}
           {firebaseUser && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 5,
@@ -177,7 +191,6 @@ function AppShell() {
               borderRadius: 'var(--radius-pill)',
               padding: '3px 8px 3px 4px',
             }}>
-              {/* Avatar initiales */}
               <div style={{
                 width: 22, height: 22, borderRadius: '50%',
                 background: 'rgba(255,255,255,.3)',
@@ -187,15 +200,24 @@ function AppShell() {
                 {(firebaseUser.displayName || firebaseUser.email || '?').slice(0, 2).toUpperCase()}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-                <span style={{ fontSize: '.68rem', fontWeight: 700, color: '#fff', maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{
+                  fontSize: '.68rem', fontWeight: 700, color: '#fff',
+                  maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
                   {firebaseUser.displayName || firebaseUser.email?.split('@')[0]}
                 </span>
-                <span style={{ fontSize: '.58rem', color: 'rgba(255,255,255,.7)', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <span style={{ fontSize: '.58rem', color: 'rgba(255,255,255,.75)', display: 'flex', alignItems: 'center', gap: 2 }}>
                   <span style={{
                     width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
-                    background: syncStatus === 'synced' ? '#4CAF50' : syncStatus === 'syncing' ? '#FFC107' : syncStatus === 'error' ? '#f44336' : 'rgba(255,255,255,.4)',
+                    background: syncStatus === 'synced' ? '#4CAF50'
+                      : syncStatus === 'syncing' ? '#FFC107'
+                      : syncStatus === 'error' ? '#f44336'
+                      : 'rgba(255,255,255,.4)',
                   }} />
-                  {syncStatus === 'synced' ? 'Synchronisé' : syncStatus === 'syncing' ? 'Sync...' : syncStatus === 'error' ? 'Erreur' : 'Hors-ligne'}
+                  {syncStatus === 'synced' ? 'Synchronisé'
+                    : syncStatus === 'syncing' ? 'Sync...'
+                    : syncStatus === 'error' ? 'Erreur'
+                    : 'Hors-ligne'}
                 </span>
               </div>
             </div>
@@ -225,9 +247,7 @@ function AppShell() {
 
       <div className="app-content">{renderTab()}</div>
 
-      {showFab && (
-        <button className="fab" onClick={openNewEntry}>＋</button>
-      )}
+      {fabAction && <button className="fab" onClick={fabAction}>＋</button>}
 
       <div className="app-tabbar">
         {TABS.map((t) => (
@@ -235,23 +255,29 @@ function AppShell() {
             key={t.key}
             className={`tab-btn ${activeTab === t.key ? 'active' : ''}`}
             onClick={() => setActiveTab(t.key)}
+            style={{ position: 'relative' }}
           >
             <span className="tab-icon">{t.icon}</span>
             <span>{t.label}</span>
+            {t.key === 'outils' && timerRunning && (
+              <span style={{
+                position: 'absolute', top: 4, right: 6,
+                width: 8, height: 8, borderRadius: '50%',
+                background: 'var(--primary)', border: '1.5px solid var(--surface)',
+                animation: 'pulse 1.5s infinite',
+              }} />
+            )}
           </button>
         ))}
       </div>
 
       <ChildSwitcher open={childSwitcherOpen} onClose={() => setChildSwitcherOpen(false)} />
-
       {showExitHint && <div className="exit-hint">Appuyez à nouveau pour quitter</div>}
     </div>
   );
 }
 
-// ----------------------------------------------------------------------
-// Root component
-// ----------------------------------------------------------------------
+
 export default function App() {
   return (
     <StoreProvider>
