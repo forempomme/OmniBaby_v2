@@ -108,6 +108,80 @@ function PinPad({ onDigit, onDelete, onBiometric, showBiometric }) {
   );
 }
 
+
+// ----------------------------------------------------------------------
+// Onboarding — 3 écrans au premier lancement absolu
+// ----------------------------------------------------------------------
+const ONBOARDING_SLIDES = [
+  {
+    emoji: '🍼',
+    title: 'Bienvenue sur OmniBaby',
+    desc: "Suivez l'alimentation, le sommeil et la sante de votre bebe. Simple, rapide, toujours a portee de main.",
+  },
+  {
+    emoji: '👨‍👩‍👧',
+    title: "Partagez avec l'autre parent",
+    desc: "Synchronisation temps reel via Firebase. Papa enregistre un biberon, Maman le voit instantanement.",
+  },
+  {
+    emoji: '🔒',
+    title: 'Données sécurisées',
+    desc: 'Vos données restent privées. Protégées par un code PIN et optionnellement par empreinte digitale. Aucune publicité.',
+  },
+];
+
+function OnboardingScreen({ onDone }) {
+  const [slide, setSlide] = React.useState(0);
+  const current = ONBOARDING_SLIDES[slide];
+  const isLast = slide === ONBOARDING_SLIDES.length - 1;
+
+  return (
+    <div className="lock-screen" style={{ gap: 0, padding: '40px 28px' }}>
+      {/* Indicateurs de progression */}
+      <div style={{ display:'flex', gap:6, marginBottom:32 }}>
+        {ONBOARDING_SLIDES.map((_, i) => (
+          <div key={i} style={{
+            height: 4, borderRadius: 2, flex: 1,
+            background: i <= slide ? 'var(--primary)' : 'rgba(255,255,255,.3)',
+            transition: 'background .3s',
+          }} />
+        ))}
+      </div>
+
+      <div style={{ flex: 1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:20 }}>
+        <div style={{ fontSize:'4rem', lineHeight:1 }}>{current.emoji}</div>
+        <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:'1.3rem', color:'#fff', textAlign:'center' }}>
+          {current.title}
+        </div>
+        <div style={{ fontSize:'.9rem', color:'rgba(255,255,255,.8)', textAlign:'center', lineHeight:1.6, maxWidth:280 }}>
+          {current.desc}
+        </div>
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:10, width:'100%', maxWidth:300 }}>
+        <button
+          onClick={() => isLast ? onDone() : setSlide(s => s + 1)}
+          style={{
+            padding:'14px', borderRadius:'var(--radius-pill)',
+            background:'rgba(255,255,255,.95)', color:'var(--primary-deep)',
+            border:'none', fontWeight:700, fontSize:'.95rem', cursor:'pointer', fontFamily:'inherit',
+          }}
+        >
+          {isLast ? 'Commencer →' : 'Suivant →'}
+        </button>
+        {!isLast && (
+          <button onClick={onDone} style={{
+            background:'none', border:'none', color:'rgba(255,255,255,.6)',
+            fontSize:'.8rem', cursor:'pointer', fontFamily:'inherit',
+          }}>
+            Passer
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Écran de connexion Firebase ────────────────────────────────────────
 function FirebaseLoginScreen({ onDone }) {
   const { store, update } = useStore();
@@ -490,11 +564,23 @@ export default function AuthGate({ children }) {
   const { store, firebaseUser } = useStore();
   const [unlocked, setUnlocked] = useState(false);
   const [showFirebaseLogin, setShowFirebaseLogin] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(
+    () => !!localStorage.getItem('omnibaby_onboarding_done')
+  );
+
+  const completeOnboarding = () => {
+    localStorage.setItem('omnibaby_onboarding_done', '1');
+    setOnboardingDone(true);
+  };
+
+  // Onboarding au tout premier lancement (avant même la création de profil)
+  if (!onboardingDone) {
+    return <OnboardingScreen onDone={completeOnboarding} />;
+  }
 
   // Premier lancement : pas de profil local → créer
   if (store.users.length === 0) {
     return <FirstLaunch onCreated={() => {
-      // Proposer la synchro Firebase après création du profil
       setShowFirebaseLogin(true);
     }} />;
   }

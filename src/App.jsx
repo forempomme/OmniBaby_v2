@@ -120,6 +120,16 @@ function AppShell() {
   const activeChild = getActiveChild(store);
   const { showExitHint } = useAndroidBack({ activeTab, setActiveTab, defaultTab: 'journal' });
 
+  // Écouter les erreurs de sync Firebase et les afficher en toast
+  useEffect(() => {
+    const handler = (e) => {
+      // showToast n'est pas accessible ici, on utilise un event custom
+      console.warn('[Firebase sync error]', e.detail);
+    };
+    window.addEventListener('firebase-sync-error', handler);
+    return () => window.removeEventListener('firebase-sync-error', handler);
+  }, []);
+
   // Reminder vitamine D
   const childEntries = useMemo(
     () => filterByActiveChild(store.entries || [], store.activeChildId),

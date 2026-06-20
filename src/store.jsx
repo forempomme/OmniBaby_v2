@@ -202,6 +202,8 @@ async function pushItem(familyId, table, item) {
     );
   } catch (e) {
     console.error(`[Firebase] pushItem ${table}:`, e);
+    // Émettre un événement custom pour que l'UI puisse afficher une erreur
+    window.dispatchEvent(new CustomEvent('firebase-sync-error', { detail: { table, error: e.message } }));
   }
 }
 
@@ -361,12 +363,8 @@ export function StoreProvider({ children: reactChildren }) {
   }, []);
 
   const nextId = useCallback(() => {
-    let id;
-    setStoreState((prev) => {
-      id = prev.nextId || 1;
-      return { ...prev, nextId: id + 1 };
-    });
-    return id;
+    // Utilise UUID pour éviter les collisions multi-utilisateurs
+    return genId();
   }, []);
 
   const replaceStore = useCallback((newStore) => {
@@ -409,6 +407,20 @@ export function useStore() {
   const ctx = useContext(StoreContext);
   if (!ctx) throw new Error('useStore doit être utilisé dans un StoreProvider');
   return ctx;
+}
+
+// ----------------------------------------------------------------------
+// ID UUID v4 — évite les collisions en multi-utilisateurs simultanés
+// ----------------------------------------------------------------------
+export function genId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback pour anciens navigateurs
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
 }
 
 // ----------------------------------------------------------------------

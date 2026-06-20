@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore, getActiveChild } from '../store.jsx';
 import { toISODateTime, formatDateTimeFR, useToast, ConfirmInline } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
+import { scheduleNotif, cancelNotif, requestNotifPermission } from '../utils.jsx';
 import { VISITES_OBLIGATOIRES } from '../data/who-growth.js';
 
 const RECURRENCES = [
@@ -79,6 +80,22 @@ function RappelForm({ open, onClose, editing }) {
       }
       return draft;
     });
+
+    // Planifier la notification locale si date future
+    const notifDate = new Date(dateISO);
+    if (notifDate > new Date()) {
+      requestNotifPermission().then((granted) => {
+        if (!granted) return;
+        if (editing) cancelNotif(editing.id);
+        scheduleNotif({
+          id: editing ? editing.id : dateISO,
+          title: 'OmniBaby — Rappel',
+          body: form.titre.trim(),
+          at: dateISO,
+        });
+      });
+    }
+
     showToast(editing ? 'Rappel modifié' : 'Rappel ajouté', '✅');
     onClose();
   };
@@ -245,6 +262,7 @@ export default function RappelsTool() {
   const handleDelete = (id) => {
     update((draft) => {
       draft.rappels = draft.rappels.filter((r) => r.id !== id);
+      cancelNotif(id);
       return draft;
     });
     showToast('Rappel supprimé', '🗑️');

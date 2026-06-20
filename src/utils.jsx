@@ -602,3 +602,50 @@ export async function exportPDF(store, child) {
   const base64PDF = doc.output('datauristring').split(',')[1];
   await shareFileNative(pdfFilename, 'application/pdf', base64PDF);
 }
+
+// ----------------------------------------------------------------------
+// Notifications locales (@capacitor/local-notifications)
+// ----------------------------------------------------------------------
+export async function requestNotifPermission() {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const result = await LocalNotifications.requestPermissions();
+    return result.display === 'granted';
+  } catch (e) { return false; }
+}
+
+export async function scheduleNotif({ id, title, body, at }) {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    await LocalNotifications.schedule({
+      notifications: [{
+        id: typeof id === 'number' ? id : Math.abs(id.toString().split('').reduce((a,c) => a + c.charCodeAt(0), 0)) % 2147483647,
+        title,
+        body,
+        schedule: { at: new Date(at) },
+        sound: null,
+        smallIcon: 'ic_launcher',
+      }],
+    });
+    return true;
+  } catch (e) { console.error('[Notif]', e); return false; }
+}
+
+export async function cancelNotif(id) {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const numId = typeof id === 'number' ? id : Math.abs(id.toString().split('').reduce((a,c) => a + c.charCodeAt(0), 0)) % 2147483647;
+    await LocalNotifications.cancel({ notifications: [{ id: numId }] });
+  } catch (e) {}
+}
+
+export async function cancelAllNotifs() {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const pending = await LocalNotifications.getPending();
+    if (pending.notifications.length > 0) {
+      await LocalNotifications.cancel({ notifications: pending.notifications });
+    }
+  } catch (e) {}
+}
+

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
 import { formatDateFR, ConfirmInline, useToast } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
+import { scheduleNotif, cancelNotif, requestNotifPermission } from '../utils.jsx';
 
 // ----------------------------------------------------------------------
 // Helpers
@@ -82,6 +83,21 @@ function MedocForm({ open, onClose, child, editing }) {
       }
       return draft;
     });
+    // Si prochaineDose définie → planifier la notification
+    if (form.prochaineDose) {
+      const notifAt = new Date(form.prochaineDose);
+      if (notifAt > new Date()) {
+        requestNotifPermission().then((granted) => {
+          if (!granted) return;
+          scheduleNotif({
+            id: form.prochaineDose,
+            title: `Médicament — ${form.nom}`,
+            body: `Heure de la prochaine dose${form.dose ? ' : ' + form.dose : ''}`,
+            at: form.prochaineDose,
+          });
+        });
+      }
+    }
     showToast(editing ? 'Traitement modifié' : 'Traitement ajouté', '✅');
     onClose();
   };

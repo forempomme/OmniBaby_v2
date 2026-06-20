@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useStore, genId } from '../store.jsx';
 import { useToast, ConfirmInline } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
+import { db, doc, updateDoc } from '../firebase.js';
 import { avatarColor, AVATAR_COLOR_KEYS } from '../Auth.jsx';
 
 const ROLES = [
@@ -155,7 +156,7 @@ function UserForm({ open, onClose, editing, isLastUser }) {
 // Main Famille module
 // ----------------------------------------------------------------------
 export default function FamilleTool() {
-  const { store, update, session } = useStore();
+  const { store, update, session, firebaseUser } = useStore();
   const showToast = useToast();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -169,6 +170,22 @@ export default function FamilleTool() {
       return draft;
     });
     showToast('Membre supprimé', '🗑️');
+  };
+
+  const { firebaseUser } = useStore();
+
+  // Changer le rôle Firebase d'un membre
+  const handleFirebaseRoleChange = async (uid, newRole) => {
+    if (!store.familyId) return;
+    try {
+      await updateDoc(doc(db, 'families', store.familyId, 'members', uid), {
+        role: newRole,
+        _updatedAt: serverTimestamp(),
+      });
+      showToast('Rôle mis à jour', '✅');
+    } catch (e) {
+      showToast('Erreur : ' + e.message, '⚠️');
+    }
   };
 
   return (
@@ -222,6 +239,47 @@ export default function FamilleTool() {
         editing={editing}
         isLastUser={editing ? store.users.length === 1 : false}
       />
+
+      {store.familyId && (
+        <div className="card appear" style={{ marginTop: 8 }}>
+          <div className="section-title" style={{ marginBottom: 8 }}>☁️ Famille synchronisée</div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize:'.72rem', color:'var(--text-soft)', marginBottom: 4 }}>Code d'invitation</div>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:'1.3rem', fontWeight:700,
+              letterSpacing:6, color:'var(--primary-deep)', textAlign:'center',
+              background:'var(--primary-soft)', padding:'8px', borderRadius:'var(--radius-md)' }}>
+              {store.familyCode || '------'}
+            </div>
+          </div>
+          {firebaseUser && (
+            <div style={{ padding:'8px 0', borderTop:'1px solid var(--border)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ width:38, height:38, borderRadius:'50%', background:'var(--primary-soft)',
+                  color:'var(--primary-deep)', display:'flex', alignItems:'center',
+                  justifyContent:'center', fontWeight:700, fontSize:'.85rem' }}>
+                  {(firebaseUser.displayName || firebaseUser.email || '?').slice(0,2).toUpperCase()}
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:600, fontSize:'.85rem' }}>
+                    {firebaseUser.displayName || firebaseUser.email?.split('@')[0]}
+                  </div>
+                  <div style={{ fontSize:'.7rem', color:'var(--text-soft)' }}>
+                    {firebaseUser.email} · {isAdmin ? 'Administrateur' : 'Éditeur'}
+                  </div>
+                </div>
+                <span style={{ fontSize:'.65rem', background:isAdmin?'var(--primary)':'var(--sage-soft)',
+                  color:isAdmin?'#fff':'var(--sage)', padding:'2px 8px',
+                  borderRadius:'var(--radius-pill)', fontWeight:700 }}>
+                  {isAdmin ? '👑 Admin' : '✏️ Éditeur'}
+                </span>
+              </div>
+            </div>
+          )}
+          <div className="muted" style={{ fontSize:'.72rem', marginTop:10 }}>
+            Pour inviter le 2e parent : partage le code ci-dessus. Il devra installer OmniBaby et choisir "Rejoindre une famille".
+          </div>
+        </div>
+      )}
     </div>
   );
 }

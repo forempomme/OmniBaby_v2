@@ -102,7 +102,14 @@ function DiversificationSection({ child, etapesDiv, canEdit, embedded = false })
 
   const toggleStep = (stepId) => {
     const checked = !etapesDiv[stepId];
-    update((draft) => { draft.etapesDiv[stepId] = checked; return draft; });
+    update((draft) => {
+      if (checked) {
+        draft.etapesDiv[stepId] = new Date().toISOString().slice(0, 10); // date ISO
+      } else {
+        delete draft.etapesDiv[stepId];
+      }
+      return draft;
+    });
     if (checked) fireConfetti();
   };
 
@@ -152,6 +159,11 @@ function DiversificationSection({ child, etapesDiv, canEdit, embedded = false })
                       <div className="entry-title" style={{ fontSize: '0.82rem', textDecoration: checked ? 'line-through' : 'none' }}>
                         {step.label}
                       </div>
+                      {checked && typeof etapesDiv[step.id] === 'string' && etapesDiv[step.id].length === 10 && (
+                        <div style={{ fontSize:'.65rem', color:'var(--text-faint)', marginTop:1 }}>
+                          ✅ {new Date(etapesDiv[step.id]).toLocaleDateString('fr-FR')}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
