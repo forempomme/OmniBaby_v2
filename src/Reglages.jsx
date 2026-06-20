@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { useStore, genId, ageInMonths, formatAge } from './store.jsx';
 import { toISODate, useToast, ConfirmInline, exportPDF, shareJSON } from './utils.jsx';
 import { Modal } from './Modal.jsx';
+import { auth, db, doc, getDoc, updateDoc, serverTimestamp } from './firebase.js';
+import { generateFamilyCode } from './store.jsx';
 import { isBiometricAvailable } from './Auth.jsx';
 import { Accordion } from './utils.jsx';
 
@@ -255,6 +257,76 @@ function ChildrenSection({ canEdit, embedded = false }) {
   );
 }
 
+
+
+// ----------------------------------------------------------------------
+// Section compte Firebase + synchro famille
+// ----------------------------------------------------------------------
+function FamilySection() {
+  const { store, update, firebaseUser, syncStatus, logout } = useStore();
+  const showToast = useToast();
+  const [showCode, setShowCode] = React.useState(false);
+
+  const statusLabel = {
+    offline: { text: 'Hors-ligne', color: 'var(--text-faint)' },
+    syncing: { text: 'Synchronisation...', color: 'var(--accent-sun)' },
+    synced: { text: 'Synchronisé', color: 'var(--accent-sage)' },
+    error: { text: 'Erreur de sync', color: 'var(--danger)' },
+  }[syncStatus] || { text: '—', color: 'var(--text-faint)' };
+
+  if (!firebaseUser) {
+    return (
+      <div className={`card appear`}>
+        <div className="section-title" style={{ marginBottom: 8 }}>☁️ Synchronisation famille</div>
+        <div className="muted" style={{ fontSize: '.82rem', marginBottom: 12 }}>
+          Connecte-toi pour partager les données en temps réel avec le deuxième parent.
+        </div>
+        <button className="btn btn-primary btn-block"
+          onClick={() => window.__showFirebaseLogin?.()}>
+          Se connecter / Créer un compte
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`card appear`}>
+      <div className="section-title" style={{ marginBottom: 8 }}>☁️ Synchronisation famille</div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '.86rem' }}>{firebaseUser.displayName || firebaseUser.email}</div>
+          <div style={{ fontSize: '.72rem', color: statusLabel.color, marginTop: 2, fontWeight: 600 }}>
+            ● {statusLabel.text}
+          </div>
+        </div>
+        <button className="btn btn-secondary btn-sm" onClick={logout}>Déconnexion</button>
+      </div>
+
+      {store.familyCode && (
+        <div style={{ background: 'var(--primary-soft)', borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 10 }}>
+          <div style={{ fontSize: '.72rem', color: 'var(--primary-deep)', fontWeight: 700, marginBottom: 4 }}>
+            Code famille (à partager avec le 2e parent)
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: 700, letterSpacing: 6, color: 'var(--primary-deep)', textAlign: 'center' }}>
+            {showCode ? store.familyCode : '••••••'}
+          </div>
+          <button onClick={() => setShowCode(s => !s)} style={{
+            display: 'block', margin: '6px auto 0', background: 'none', border: 'none',
+            color: 'var(--primary-deep)', fontSize: '.72rem', cursor: 'pointer', fontFamily: 'inherit',
+          }}>
+            {showCode ? 'Masquer' : 'Afficher le code'}
+          </button>
+        </div>
+      )}
+
+      <div style={{ fontSize: '.72rem', color: 'var(--text-soft)' }}>
+        Les données sont synchronisées en temps réel entre tous les appareils de la famille.
+        Fonctionne aussi hors-ligne (sync au retour du réseau).
+      </div>
+    </div>
+  );
+}
 
 // ----------------------------------------------------------------------
 // Biometric section
