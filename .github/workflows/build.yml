@@ -86,6 +86,18 @@ jobs:
         run: npx cap sync android
 
       # ----------------------------------------------------------------
+      # Copier google-services.json requis par Firebase Android SDK
+      # ----------------------------------------------------------------
+      - name: Copy google-services.json
+        run: |
+          if [ -f "google-services.json" ]; then
+            cp google-services.json android/app/google-services.json
+            echo "✓ google-services.json copié"
+          else
+            echo "⚠ google-services.json absent — Firebase Android désactivé"
+          fi
+
+      # ----------------------------------------------------------------
       # Ajout permission biométrie dans AndroidManifest.xml
       # Requis par @capgo/capacitor-native-biometric pour que
       # isAvailable() retourne true sur Android
@@ -268,3 +280,4 @@ jobs:
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
