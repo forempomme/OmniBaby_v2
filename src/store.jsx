@@ -184,10 +184,7 @@ export function generateFamilyCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-// Générer un ID unique pour Firestore
-export function genId() {
-  return Date.now() * 1000 + Math.floor(Math.random() * 1000);
-}
+// genId → voir définition UUID plus bas
 
 // ----------------------------------------------------------------------
 // Push une entrée vers Firestore (upsert)
