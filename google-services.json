@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "222792679552",
+    "project_id": "omnibaby-76779",
+    "storage_bucket": "omnibaby-76779.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:222792679552:android:c03af379566142a6626665",
+        "android_client_info": {
+          "package_name": "com.omnibaby.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "222792679552-0trcejfmue6ncd1shpp5knvbud67l7ft.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACoNm2PJD_hY8Ru8-gXg0GW-1TtaYnOZ4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "222792679552-0trcejfmue6ncd1shpp5knvbud67l7ft.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
