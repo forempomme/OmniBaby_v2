@@ -384,14 +384,24 @@ function BehaviorSection({ embedded = false }) {
       <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>⚙️ Saisie</div>
       <div className="field">
         <label>Quantité par défaut biberon (ml)</label>
-        <div className="pill-group">
-          {[60, 90, 120, 150, 180].map(ml => (
-            <button key={ml} className={`pill-choice ${(s.defaultBiberonMl||120)===ml?'selected':''}`}
-              onClick={() => set('defaultBiberonMl', ml)}>{ml}</button>
-          ))}
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="10"
+            max="500"
+            step="10"
+            value={s.defaultBiberonMl || 120}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              if (!isNaN(val) && val >= 10 && val <= 500) set('defaultBiberonMl', val);
+            }}
+            style={{ width: 90, textAlign:'center', fontFamily:'var(--font-mono)', fontWeight:700, fontSize:'1rem' }}
+          />
+          <span style={{ fontSize:'.82rem', color:'var(--text-soft)' }}>ml</span>
         </div>
         <div className="muted" style={{ fontSize:'.72rem', marginTop:4 }}>
-          Pré-remplit le champ quantité lors d'un nouveau biberon
+          Pré-remplit le champ quantité lors d'un nouveau biberon (10–500 ml)
         </div>
       </div>
 
