@@ -4,7 +4,7 @@ import React, {
 import {
   auth, db,
   onAuthStateChanged, signOut,
-  doc, collection, getDoc, setDoc, updateDoc, onSnapshot,
+  doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
   serverTimestamp, writeBatch,
 } from './firebase.js';
 
@@ -208,7 +208,6 @@ async function pushItem(familyId, table, item) {
 async function deleteItem(familyId, table, id) {
   if (!familyId || !id) return;
   try {
-    const { deleteDoc } = await import('./firebase.js');
     await deleteDoc(familyDocRef(familyId, table, id));
   } catch (e) {
     console.error(`[Firebase] deleteItem ${table}:`, e);

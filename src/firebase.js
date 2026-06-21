@@ -11,6 +11,7 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
+  deleteUser,
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -24,6 +25,10 @@ import {
   serverTimestamp,
   writeBatch,
   enableIndexedDbPersistence,
+  deleteDoc,
+  getDocs,
+  query,
+  where,
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -55,6 +60,7 @@ export {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
+  deleteUser,
   doc,
   collection,
   getDoc,
@@ -64,4 +70,8 @@ export {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  getDocs,
+  query,
+  where,
+  deleteDoc,
 };

@@ -3,9 +3,8 @@ import { useStore, genId, formatAge } from './store.jsx';
 import { toISODate, useToast, ConfirmInline, exportPDF, shareJSON, Accordion } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import { APP_VERSION } from './version.js';
-import { auth, db, doc, updateDoc } from './firebase.js';
+import { auth, db, doc, updateDoc, deleteUser } from './firebase.js';
 import { isBiometricAvailable } from './Auth.jsx';
-import { deleteUser } from 'firebase/auth';
 
 const EMOJIS = ['👶', '👧', '👦', '🧒', '👼'];
 

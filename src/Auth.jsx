@@ -5,7 +5,8 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
   sendPasswordResetEmail,
-  doc, getDoc, setDoc, collection, serverTimestamp,
+  doc, getDoc, setDoc, updateDoc, collection, serverTimestamp,
+  getDocs, query, where,
 } from './firebase.js';
 import { useStore, genId, generateFamilyCode, familyRef, familyDocRef } from './store.jsx';
 import { useToast } from './utils.jsx';
@@ -279,7 +280,6 @@ function FirebaseLoginScreen({ onDone }) {
     setLoading(true); setError('');
     try {
       // Trouver la famille par code
-      const { getDocs, query, where } = await import('firebase/firestore');
       const q = query(collection(db, 'families'), where('familyCode', '==', familyCode.trim()));
       const snap = await getDocs(q);
       if (snap.empty) { setError('Code famille invalide.'); setLoading(false); return; }

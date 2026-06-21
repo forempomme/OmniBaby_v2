@@ -819,7 +819,7 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
 
   const typeFiltered = useMemo(() => {
     let result = filterType === 'tous' ? periodFiltered : periodFiltered.filter(e => e.type === filterType);
-    if (search.trim()) {
+    if (search && search.trim()) {
       const q = search.trim().toLowerCase();
       result = result.filter(e =>
         (e.note && e.note.toLowerCase().includes(q)) ||
