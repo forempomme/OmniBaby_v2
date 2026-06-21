@@ -414,7 +414,8 @@ function AppShell() {
       let dark;
       if (store.settings?.dark === null || store.settings?.dark === undefined) {
         const hour = new Date().getHours();
-        dark = hour >= 21 || hour < 7;
+        const darkHour = store.settings?.darkHour ?? 21;
+        dark = hour >= darkHour || hour < 7;
       } else {
         dark = !!store.settings.dark;
       }
