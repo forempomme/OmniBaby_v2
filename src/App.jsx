@@ -74,6 +74,270 @@ function ChildSwitcher({ open, onClose }) {
 
 // ----------------------------------------------------------------------
 // Skeleton loader — affiché pendant le chargement initial Firebase
+
+// ----------------------------------------------------------------------
+// Rapport d'activité parent — variante B : Stats + double filtre + timeline
+// ----------------------------------------------------------------------
+function ActivityReport({ open, onClose, firebaseUser, store }) {
+  const [filterType, setFilterType] = React.useState('tous');
+  const [filterWho, setFilterWho] = React.useState('tous');
+
+  if (!open) return null;
+
+  const userUid = firebaseUser?.uid;
+  const userName = firebaseUser?.displayName || firebaseUser?.email?.split('@')[0] || 'Moi';
+
+  // Construire la liste de toutes les actions tracées
+  const allItems = React.useMemo(() => {
+    const items = [];
+    const ICONS = { biberon:'🍼', couche:'🧷', sommeil:'🌙', autre:'📝' };
+
+    for (const e of store.entries || []) {
+      if (!e.createdBy && !e.updatedBy) continue;
+      const child = store.children.find(c => c.id === e.childId);
+      const isMe = e.createdBy === userUid || e.updatedBy === userUid;
+      items.push({
+        date: e.updatedAt || e.createdAt || e.date,
+        icon: ICONS[e.type] || '📝',
+        typeKey: e.type,
+        label: e.type === 'biberon' ? 'Biberon' : e.type === 'couche' ? 'Couche' : e.type === 'sommeil' ? 'Sommeil' : 'Note',
+        detail: e.mode === 'biberon' && e.quantite ? `${e.quantite} ml` : e.type === 'couche' && e.contenu ? e.contenu : '',
+        action: e.updatedBy ? 'edited' : 'added',
+        author: e.updatedByName || e.createdByName || userName,
+        isMe,
+        child: child?.nom,
+        childEmoji: child?.emoji || '👶',
+      });
+    }
+    for (const m of store.mesures || []) {
+      if (!m.createdBy) continue;
+      const child = store.children.find(c => c.id === m.childId);
+      items.push({
+        date: m.createdAt || m.date,
+        icon: m.type === 'poids' ? '⚖️' : m.type === 'taille' ? '📏' : '🧠',
+        typeKey: 'mesure',
+        label: m.type === 'poids' ? 'Poids' : m.type === 'taille' ? 'Taille' : 'Périmètre',
+        detail: m.valeur ? `${m.valeur} ${m.type === 'poids' ? 'kg' : 'cm'}` : '',
+        action: 'added',
+        author: m.createdByName || userName,
+        isMe: m.createdBy === userUid,
+        child: child?.nom,
+        childEmoji: child?.emoji || '👶',
+      });
+    }
+    for (const s of store.sommeils || []) {
+      if (!s.createdBy) continue;
+      const child = store.children.find(c => c.id === s.childId);
+      const dur = s.duree ? `${Math.floor(s.duree/60)}h${String(s.duree%60).padStart(2,'0')}` : '';
+      items.push({
+        date: s.createdAt || s.debut,
+        icon: s.type === 'nuit' ? '🌃' : '☀️',
+        typeKey: 'sommeil',
+        label: s.type === 'nuit' ? 'Nuit' : 'Sieste',
+        detail: dur,
+        action: 'added',
+        author: s.createdByName || userName,
+        isMe: s.createdBy === userUid,
+        child: child?.nom,
+        childEmoji: child?.emoji || '👶',
+      });
+    }
+    for (const t of store.temperatures || []) {
+      if (!t.createdBy) continue;
+      const child = store.children.find(c => c.id === t.childId);
+      items.push({
+        date: t.createdAt || t.date,
+        icon: '🌡️', typeKey: 'temperature', label: 'Température',
+        detail: t.valeur ? `${t.valeur}°C` : '',
+        action: 'added',
+        author: t.createdByName || userName,
+        isMe: t.createdBy === userUid,
+        child: child?.nom,
+        childEmoji: child?.emoji || '👶',
+      });
+    }
+
+    return items.filter(i => i.date).sort((a,b) => a.date < b.date ? 1 : -1);
+  }, [store, userUid, userName]);
+
+  const fmtDate = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const diffH = Math.floor((new Date() - d) / 3600000);
+    if (diffH < 1) return "< 1h";
+    if (diffH < 24) return `${diffH}h`;
+    if (diffH < 48) return 'Hier';
+    if (diffH < 168) return d.toLocaleDateString('fr-FR', { weekday:'short' });
+    return d.toLocaleDateString('fr-FR', { day:'numeric', month:'short' });
+  };
+
+  // Stats globales
+  const myItems = allItems.filter(i => i.isMe);
+  const otherItems = allItems.filter(i => !i.isMe);
+  const otherAuthors = [...new Set(otherItems.map(i => i.author))];
+
+  // Filtrage
+  const TYPE_FILTERS = [
+    { k:'tous', l:'Tout' },
+    { k:'biberon', l:'🍼 Biberons' },
+    { k:'couche', l:'🧷 Changes' },
+    { k:'sommeil', l:'🌙 Sommeil' },
+    { k:'mesure', l:'📏 Mesures' },
+    { k:'temperature', l:'🌡️ Fièvre' },
+  ];
+  const WHO_FILTERS = [
+    { k:'tous', l:'Tous' },
+    { k:'me', l:`👤 ${userName}` },
+    ...otherAuthors.map(a => ({ k: a, l: `👤 ${a}` })),
+  ];
+
+  const shown = allItems
+    .filter(i => filterType === 'tous' || i.typeKey === filterType)
+    .filter(i => filterWho === 'tous' || (filterWho === 'me' ? i.isMe : i.author === filterWho))
+    .slice(0, 60);
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 100,
+      background: 'rgba(0,0,0,.45)',
+      display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--bg)', borderRadius: '20px 20px 0 0',
+        maxHeight: '85%', display: 'flex', flexDirection: 'column',
+        animation: 'slide-up .25s cubic-bezier(.25,1,.5,1)',
+      }}>
+        {/* Handle */}
+        <div style={{ width:40, height:4, borderRadius:2, background:'var(--border)', margin:'10px auto 0', flexShrink:0 }} />
+
+        {/* Header fixe */}
+        <div style={{ padding:'10px 16px 8px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+            <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:'1rem' }}>
+              Activite — 7 derniers jours
+            </div>
+            <button onClick={onClose} style={{
+              width:30, height:30, borderRadius:'50%', background:'var(--surface-2)',
+              border:'none', fontSize:'.85rem', color:'var(--text-soft)', cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center',
+            }}>✕</button>
+          </div>
+
+          {/* Stats */}
+          <div style={{ display:'grid', gridTemplateColumns:`repeat(${2 + otherAuthors.length},1fr)`, gap:6, marginBottom:10 }}>
+            <div style={{ textAlign:'center', padding:'6px 4px', background:'var(--surface)', borderRadius:'var(--radius-md)', border:'1px solid var(--border)' }}>
+              <div style={{ fontFamily:'var(--font-mono)', fontWeight:700, fontSize:'1rem', color:'var(--primary-deep)' }}>{allItems.length}</div>
+              <div style={{ fontSize:'.58rem', color:'var(--text-soft)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.3px', marginTop:2 }}>Total</div>
+            </div>
+            <div style={{ textAlign:'center', padding:'6px 4px', background:'var(--accent-sage-soft)', borderRadius:'var(--radius-md)', border:'1px solid var(--accent-sage)' }}>
+              <div style={{ fontFamily:'var(--font-mono)', fontWeight:700, fontSize:'1rem', color:'var(--accent-sage)' }}>{myItems.length}</div>
+              <div style={{ fontSize:'.58rem', color:'var(--accent-sage)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.3px', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{userName}</div>
+            </div>
+            {otherAuthors.map((a, i) => (
+              <div key={i} style={{ textAlign:'center', padding:'6px 4px', background:'var(--accent-sky-soft)', borderRadius:'var(--radius-md)', border:'1px solid var(--accent-sky)' }}>
+                <div style={{ fontFamily:'var(--font-mono)', fontWeight:700, fontSize:'1rem', color:'var(--accent-sky)' }}>{otherItems.filter(x=>x.author===a).length}</div>
+                <div style={{ fontSize:'.58rem', color:'var(--accent-sky)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.3px', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Filtre type */}
+          <div style={{ display:'flex', gap:5, overflowX:'auto', paddingBottom:4, marginBottom:4 }}>
+            {TYPE_FILTERS.map(f => (
+              <button key={f.k} onClick={() => setFilterType(f.k)} style={{
+                flexShrink:0, padding:'4px 10px', borderRadius:'var(--radius-pill)', fontSize:'.68rem',
+                fontWeight:700, cursor:'pointer', fontFamily:'inherit', border:'1.5px solid',
+                background: filterType===f.k ? 'var(--primary)' : 'var(--surface)',
+                color: filterType===f.k ? '#fff' : 'var(--text-soft)',
+                borderColor: filterType===f.k ? 'var(--primary)' : 'var(--border)',
+              }}>{f.l}</button>
+            ))}
+          </div>
+
+          {/* Filtre parent */}
+          <div style={{ display:'flex', gap:5, overflowX:'auto', paddingBottom:2 }}>
+            {WHO_FILTERS.map(f => (
+              <button key={f.k} onClick={() => setFilterWho(f.k)} style={{
+                flexShrink:0, padding:'4px 10px', borderRadius:'var(--radius-pill)', fontSize:'.68rem',
+                fontWeight:700, cursor:'pointer', fontFamily:'inherit', border:'1.5px solid',
+                background: filterWho===f.k ? 'var(--primary-deep)' : 'var(--surface)',
+                color: filterWho===f.k ? '#fff' : 'var(--text-soft)',
+                borderColor: filterWho===f.k ? 'var(--primary-deep)' : 'var(--border)',
+              }}>{f.l}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Timeline scrollable */}
+        <div style={{ overflow:'auto', padding:'0 16px 24px' }}>
+          {shown.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'32px 0', color:'var(--text-soft)' }}>
+              <div style={{ fontSize:'2rem', marginBottom:8 }}>📋</div>
+              <div style={{ fontSize:'.85rem' }}>
+                {allItems.length === 0
+                  ? 'Aucune action tracee. Les nouvelles entrees apparaitront ici.'
+                  : 'Aucun resultat pour ce filtre.'}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize:'.62rem', fontWeight:700, textTransform:'uppercase',
+                letterSpacing:'.5px', color:'var(--text-faint)', padding:'10px 0 4px' }}>
+                {shown.length} action{shown.length > 1 ? 's' : ''}
+              </div>
+              {shown.map((item, i) => (
+                <div key={i} style={{
+                  display:'flex', alignItems:'flex-start', gap:10,
+                  padding:'8px 0', borderBottom:'1px solid var(--border)',
+                }}>
+                  {/* Icône colorée selon auteur */}
+                  <div style={{
+                    width:34, height:34, borderRadius:'50%', flexShrink:0,
+                    background: item.isMe ? 'var(--accent-sage-soft)' : 'var(--accent-sky-soft)',
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.9rem',
+                  }}>{item.icon}</div>
+
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:600, fontSize:'.82rem', display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
+                      {item.label}
+                      {item.child && (
+                        <span style={{
+                          display:'inline-flex', alignItems:'center', gap:3,
+                          padding:'1px 7px', borderRadius:'var(--radius-pill)',
+                          background:'var(--primary-soft)', color:'var(--primary-deep)',
+                          fontSize:'.62rem', fontWeight:700,
+                        }}>{item.childEmoji} {item.child}</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize:'.68rem', color:'var(--text-soft)', marginTop:2, display:'flex', alignItems:'center', gap:4, flexWrap:'wrap' }}>
+                      <span style={{
+                        padding:'1px 6px', borderRadius:'var(--radius-pill)', fontSize:'.62rem', fontWeight:700,
+                        background: item.action==='added' ? 'var(--accent-sage-soft)' : 'var(--accent-sun-soft)',
+                        color: item.action==='added' ? 'var(--accent-sage)' : 'var(--accent-sun)',
+                      }}>
+                        {item.action==='added' ? '✍️ Ajoute' : '✏️ Modifie'}
+                      </span>
+                      <span style={{ color: item.isMe ? 'var(--accent-sage)' : 'var(--accent-sky)', fontWeight:700 }}>
+                        {item.author}
+                      </span>
+                      {item.detail && <><span>·</span><span>{item.detail}</span></>}
+                    </div>
+                  </div>
+
+                  <div style={{ fontFamily:'var(--font-mono)', fontSize:'.68rem', color:'var(--text-faint)', flexShrink:0, marginTop:2 }}>
+                    {fmtDate(item.date)}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // ----------------------------------------------------------------------
 function SkeletonLoader() {
   return (
@@ -105,6 +369,7 @@ function AppShell() {
   const [formPrefill, setFormPrefill] = useState(null);
   const [openToolKey, setOpenToolKey] = useState(null);
   const [openDodoForm, setOpenDodoForm] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [timerRunning, setTimerRunning] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
 
@@ -229,14 +494,18 @@ function AppShell() {
             </button>
           )}
 
-          {/* Indicateur parent connecté + statut sync */}
+          {/* Indicateur parent connecté + statut sync — cliquable pour rapport d'activité */}
           {firebaseUser && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              background: 'rgba(255,255,255,.15)',
-              borderRadius: 'var(--radius-pill)',
-              padding: '3px 8px 3px 4px',
-            }}>
+            <div
+              onClick={() => setActivityOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                background: 'rgba(255,255,255,.15)',
+                borderRadius: 'var(--radius-pill)',
+                padding: '3px 8px 3px 4px',
+                cursor: 'pointer',
+                border: '1px solid rgba(255,255,255,.1)',
+              }}>
               <div style={{
                 width: 22, height: 22, borderRadius: '50%',
                 background: 'rgba(255,255,255,.3)',
@@ -326,6 +595,12 @@ function AppShell() {
       </div>
 
       <ChildSwitcher open={childSwitcherOpen} onClose={() => setChildSwitcherOpen(false)} />
+      <ActivityReport
+        open={activityOpen}
+        onClose={() => setActivityOpen(false)}
+        firebaseUser={firebaseUser}
+        store={store}
+      />
       {showExitHint && <div className="exit-hint">Appuyez à nouveau pour quitter</div>}
     </div>
   );
