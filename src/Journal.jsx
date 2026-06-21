@@ -76,7 +76,7 @@ function EntryForm({ open, onClose, prefill, onSaved }) {
   const [datetime, setDatetime] = useState(prefill?.datetime || toISODateTime());
   // Biberon / tétée
   const [mode, setMode] = useState(prefill?.mode || 'biberon');
-  const [quantite, setQuantite] = useState(prefill?.quantite || '');
+  const [quantite, setQuantite] = useState(prefill?.quantite || (prefill?.type === 'biberon' ? (store.settings?.defaultBiberonMl || '') : '') || '');
   const [cote, setCote] = useState(prefill?.cote || 'gauche');
   const [duree, setDuree] = useState(prefill?.duree || '');
   const [vitamineD, setVitamineD] = useState(prefill?.vitamineD || false);
@@ -388,6 +388,7 @@ function TodayOverview({ entries, child, filterType, setFilterType, onLongPress 
 // Swipe gauche = révèle bouton corbeille fixe à droite
 // ----------------------------------------------------------------------
 function EntryItem({ entry, onEdit, onDelete, compact = false }) {
+  const { store } = useStore();
   const def = ENTRY_TYPES[entry.type] || ENTRY_TYPES.autre;
   const [revealed, setRevealed] = React.useState(false);
   const [offsetX, setOffsetX] = React.useState(0);
@@ -398,14 +399,17 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
   const ACTION_WIDTH = 88;
   const TRIGGER = 44;
 
+  const swipeEnabled = store.settings?.swipeToDelete !== false;
+
   const handleTouchStart = (e) => {
+    if (!swipeEnabled) return;
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
     isDragging.current = false;
   };
 
   const handleTouchMove = (e) => {
-    if (touchStartX.current === null) return;
+    if (!swipeEnabled || touchStartX.current === null) return;
     const dx = e.touches[0].clientX - touchStartX.current;
     const dy = e.touches[0].clientY - touchStartY.current;
     if (!isDragging.current && Math.abs(dy) > Math.abs(dx) + 5) return;
@@ -421,6 +425,7 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
   };
 
   const handleTouchEnd = () => {
+    if (!swipeEnabled) return;
     isDragging.current = false;
     touchStartX.current = null;
     if (offsetX < -TRIGGER) {
@@ -440,6 +445,11 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
 
   const handleDeleteTap = (e) => {
     e.stopPropagation();
+    // Si l'option "Confirmer les suppressions" est désactivée → supprimer directement
+    if (store.settings?.confirmDelete === false) {
+      onDelete();
+      return;
+    }
     setConfirmDelete(true);
     setRevealed(false);
     setOffsetX(0);
@@ -612,10 +622,11 @@ function QuickEntryBar({ entries, onSaved, firebaseUser }) {
 
   // Dernière quantité utilisée
   const lastQty = React.useMemo(() => {
+    // Priorité : dernière quantité utilisée → réglage par défaut → 120ml
     const last = entries.filter((e) => e.type === 'biberon' && e.mode === 'biberon' && e.quantite)
       .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
-    return last?.quantite || 120;
-  }, [entries]);
+    return last?.quantite || store.settings?.defaultBiberonMl || 120;
+  }, [entries, store.settings?.defaultBiberonMl]);
 
   const quickSave = (type, extra = {}) => {
     if (!activeChild) return;
