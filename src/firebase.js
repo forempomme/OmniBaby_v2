@@ -1,7 +1,3 @@
-// ----------------------------------------------------------------------
-// Firebase — initialisation et exports
-// OmniBaby v3.0.0
-// ----------------------------------------------------------------------
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
@@ -18,6 +14,7 @@ import {
   doc,
   collection,
   getDoc,
+  getDocs,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -25,8 +22,6 @@ import {
   serverTimestamp,
   writeBatch,
   enableIndexedDbPersistence,
-  deleteDoc,
-  getDocs,
   query,
   where,
 } from 'firebase/firestore';
@@ -44,12 +39,11 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Activer la persistance offline (données disponibles sans réseau)
 enableIndexedDbPersistence(db).catch((e) => {
   if (e.code === 'failed-precondition') {
     console.warn('Persistance offline : plusieurs onglets ouverts');
   } else if (e.code === 'unimplemented') {
-    console.warn('Persistance offline non supportée sur ce navigateur');
+    console.warn('Persistance offline non supportée');
   }
 });
 
@@ -64,14 +58,13 @@ export {
   doc,
   collection,
   getDoc,
+  getDocs,
   setDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
   serverTimestamp,
   writeBatch,
-  getDocs,
   query,
   where,
-  deleteDoc,
 };
