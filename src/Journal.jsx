@@ -647,6 +647,16 @@ function QuickEntryBar({ entries, onSaved, firebaseUser }) {
     setTimeout(() => setSaving(null), 600);
   };
 
+  // Dernier côté utilisé pour la tétée
+  const lastCote = React.useMemo(() => {
+    const last = entries.filter(e => e.type === 'biberon' && e.mode === 'sein')
+      .sort((a,b) => a.date < b.date ? 1 : -1)[0];
+    // Alterner automatiquement le côté
+    if (!last?.cote || last.cote === 'droit') return 'gauche';
+    if (last.cote === 'gauche') return 'droit';
+    return 'gauche';
+  }, [entries]);
+
   const actions = [
     {
       key: 'biberon',
@@ -654,6 +664,13 @@ function QuickEntryBar({ entries, onSaved, firebaseUser }) {
       label: `Biberon · ${lastQty}ml`,
       sub: 'maintenant',
       onPress: () => quickSave('biberon', { mode: 'biberon', quantite: lastQty }),
+    },
+    {
+      key: 'tetee',
+      icon: '🤱',
+      label: `Tétée · ${lastCote}`,
+      sub: 'maintenant',
+      onPress: () => quickSave('biberon', { mode: 'sein', cote: lastCote }),
     },
     {
       key: 'couche_pipi',
@@ -668,6 +685,13 @@ function QuickEntryBar({ entries, onSaved, firebaseUser }) {
       label: 'Selles',
       sub: 'maintenant',
       onPress: () => quickSave('couche', { contenu: 'selles' }),
+    },
+    {
+      key: 'couche_mixte',
+      icon: '🔄',
+      label: 'Mixte',
+      sub: 'maintenant',
+      onPress: () => quickSave('couche', { contenu: 'mixte' }),
     },
   ];
 
@@ -705,17 +729,23 @@ function WeekSummary({ entries }) {
     const days = {};
     entries.forEach((e) => {
       const d = e.date.slice(0, 10);
-      if (!days[d]) days[d] = { biberons: 0, ml: 0, couches: 0 };
+      if (!days[d]) days[d] = { biberons: 0, ml: 0, couches: 0, sommeilMin: 0 };
       if (e.type === 'biberon') { days[d].biberons++; days[d].ml += (e.quantite || 0); }
       if (e.type === 'couche') days[d].couches++;
+      if (e.type === 'sommeil') days[d].sommeilMin += (e.duree || 0);
     });
     const ds = Object.values(days);
     if (!ds.length) return null;
     const n = ds.length;
+    const totalSommeilMin = ds.reduce((s, d) => s + d.sommeilMin, 0);
+    const avgSommeilMin = Math.round(totalSommeilMin / n);
     return {
       avgBib: (ds.reduce((s, d) => s + d.biberons, 0) / n).toFixed(1),
       avgMl: Math.round(ds.reduce((s, d) => s + d.ml, 0) / n),
       avgCouche: (ds.reduce((s, d) => s + d.couches, 0) / n).toFixed(1),
+      avgSommeil: avgSommeilMin > 0
+        ? `${Math.floor(avgSommeilMin/60)}h${String(avgSommeilMin%60).padStart(2,'0')}`
+        : null,
       days: n,
     };
   }, [entries]);
@@ -727,11 +757,12 @@ function WeekSummary({ entries }) {
       <div className="section-title" style={{ marginBottom: 8 }}>
         📊 Moyennes sur {stats.days} jour{stats.days > 1 ? 's' : ''}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${stats.avgSommeil ? 4 : 3}, 1fr)`, gap: 8 }}>
         {[
           { icon: '🍼', val: stats.avgBib, label: 'biberons/j' },
           { icon: '💧', val: stats.avgMl > 0 ? `${stats.avgMl}ml` : '—', label: 'lait moyen/j' },
           { icon: '🧷', val: stats.avgCouche, label: 'changes/j' },
+          ...(stats.avgSommeil ? [{ icon: '🌙', val: stats.avgSommeil, label: 'sommeil/j' }] : []),
         ].map((s, i) => (
           <div key={i} style={{ textAlign: 'center', padding: '6px 0' }}>
             <div style={{ fontSize: '1.1rem' }}>{s.icon}</div>
@@ -751,12 +782,13 @@ function WeekSummary({ entries }) {
 
 
 export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefill, onTimerFinished }) {
-  const { store, update, session } = useStore();
+  const { store, update, session, firebaseUser } = useStore();
   const showToast = useToast();
   const activeChild = getActiveChild(store);
   const [period, setPeriod] = useState('today');
   const [filterType, setFilterType] = useState('tous');
   const [editingEntry, setEditingEntry] = useState(null);
+  const [search, setSearch] = useState(null);
 
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role !== 'lecture';
@@ -786,9 +818,21 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
   }, [childEntries, period]);
 
   const typeFiltered = useMemo(() => {
-    if (filterType === 'tous') return periodFiltered;
-    return periodFiltered.filter((e) => e.type === filterType);
-  }, [periodFiltered, filterType]);
+    let result = filterType === 'tous' ? periodFiltered : periodFiltered.filter(e => e.type === filterType);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(e =>
+        (e.note && e.note.toLowerCase().includes(q)) ||
+        (e.type && e.type.toLowerCase().includes(q)) ||
+        (ENTRY_TYPES[e.type]?.label?.toLowerCase().includes(q)) ||
+        (e.quantite && String(e.quantite).includes(q)) ||
+        (e.contenu && e.contenu.toLowerCase().includes(q)) ||
+        (e.humeur && e.humeur.toLowerCase().includes(q)) ||
+        (e.createdByName && e.createdByName.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }, [periodFiltered, filterType, search]);
 
   const grouped = useMemo(() => groupByDay(typeFiltered, 'date'), [typeFiltered]);
 
@@ -818,19 +862,49 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
           filterType={filterType}
           setFilterType={setFilterType}
           onLongPress={(type) => {
-            if (type === 'biberon') { setOpenEntryForm(true); }
-            else if (type === 'couche') { setOpenEntryForm(true); }
-            else if (type === 'sommeil') { setOpenEntryForm(true); }
+            // Pré-remplir le formulaire avec le bon type
+            setOpenEntryForm(true);
           }}
         />
 
-      <div className="chip-row mt-16">
-        {PERIOD_OPTIONS.map((p) => (
-          <button key={p.key} className={`chip ${period === p.key ? 'active' : ''}`} onClick={() => setPeriod(p.key)}>
-            {p.label}
-          </button>
-        ))}
+      <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:16, marginBottom:0 }}>
+        <div style={{ display:'flex', gap:6, overflowX:'auto', flex:1 }}>
+          {PERIOD_OPTIONS.map((p) => (
+            <button key={p.key} className={`chip ${period === p.key ? 'active' : ''}`} onClick={() => setPeriod(p.key)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setSearch(s => s === null ? '' : null)}
+          style={{
+            flexShrink:0, width:32, height:32, borderRadius:'var(--radius-md)',
+            background: search !== null ? 'var(--primary-soft)' : 'var(--surface)',
+            border:`1.5px solid ${search !== null ? 'var(--primary)' : 'var(--border)'}`,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:'.9rem', cursor:'pointer',
+          }}
+          aria-label="Rechercher"
+        >🔍</button>
       </div>
+      {search !== null && (
+        <div style={{ marginTop:8, position:'relative' }}>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher dans le journal..."
+            autoFocus
+            style={{ width:'100%', paddingRight:32 }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} style={{
+              position:'absolute', right:8, top:'50%', transform:'translateY(-50%)',
+              background:'none', border:'none', cursor:'pointer', color:'var(--text-faint)', fontSize:'.8rem',
+            }}>✕</button>
+          )}
+        </div>
+      )}
       {period === 'today' && <QuickEntryBar entries={todayEntries} onSaved={() => {}} firebaseUser={firebaseUser} />}
       {period === '7days' && <WeekSummary entries={periodFiltered} />}
 
@@ -844,14 +918,36 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
 
       {grouped.length === 0 ? (
         <div className="empty-state">
-          <div className="emoji">📓</div>
-          <div className="title">Rien à afficher</div>
-          <div className="desc">Aucune entrée pour cette période. Touche le bouton + pour ajouter un biberon, une couche ou un événement.</div>
+          <div className="emoji">{filterType !== 'tous' ? (ENTRY_TYPES[filterType]?.icon || '🔍') : '📓'}</div>
+          <div className="title">
+            {filterType !== 'tous'
+              ? `Aucun(e) ${ENTRY_TYPES[filterType]?.label?.toLowerCase() || filterType}`
+              : 'Aucune entrée'}
+          </div>
+          <div className="desc">
+            {filterType !== 'tous'
+              ? `Aucune entrée de ce type pour cette période.`
+              : 'Touche le bouton + pour ajouter un biberon, une couche ou un événement.'}
+          </div>
+          {filterType !== 'tous' && (
+            <button onClick={() => setFilterType('tous')} style={{
+              marginTop: 12, padding: '7px 18px', borderRadius: 'var(--radius-pill)',
+              background: 'var(--primary)', color: '#fff', border: 'none',
+              fontWeight: 700, cursor: 'pointer', fontSize: '.82rem', fontFamily: 'inherit',
+            }}>
+              Voir toutes les entrées
+            </button>
+          )}
         </div>
       ) : (
         grouped.map(([day, items]) => (
           <div key={day}>
-            <div className="day-group-label">{dayLabel(day)}</div>
+            <div className="day-group-label" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span>{dayLabel(day)}</span>
+              <span style={{ fontSize:'.65rem', color:'var(--text-faint)', fontWeight:600, fontFamily:'var(--font-mono)' }}>
+                {items.length} entrée{items.length > 1 ? 's' : ''}
+              </span>
+            </div>
             <div className="entry-list">
               {items.map((entry) => (
                 <EntryItem
@@ -870,7 +966,7 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
       <EntryForm
         open={openEntryForm}
         onClose={() => setOpenEntryForm(false)}
-        prefill={formPrefill}
+        prefill={formPrefill || (filterType !== 'tous' ? { type: filterType } : null)}
         onSaved={onTimerFinished}
       />
 
@@ -885,11 +981,18 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
 // Edit existing entry (simplified — reuses the same field set via state)
 // ----------------------------------------------------------------------
 function EditEntryModal({ entry, onClose }) {
-  const { update } = useStore();
+  const { update, firebaseUser } = useStore();
   const showToast = useToast();
   const def = ENTRY_TYPES[entry.type] || ENTRY_TYPES.autre;
 
-  const [datetime, setDatetime] = useState(entry.date?.slice(0, 16) || toISODateTime());
+  // Convertir la date ISO en format datetime-local (YYYY-MM-DDTHH:MM) dans le fuseau local
+  const toLocalDT = (iso) => {
+    if (!iso) return toISODateTime();
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const [datetime, setDatetime] = useState(toLocalDT(entry.date));
   const [quantite, setQuantite] = useState(entry.quantite ?? '');
   const [duree, setDuree] = useState(entry.duree ?? '');
   const [cote, setCote] = useState(entry.cote || 'gauche');
