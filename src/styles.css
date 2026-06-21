@@ -68,6 +68,16 @@
   color-scheme: light;
 }
 
+
+/* ── Topbar : textes toujours blancs (fond fixe foncé) ── */
+.app-topbar-title,
+.app-topbar-sub,
+.app-topbar .child-switcher,
+.app-topbar .app-version-badge {
+  color: #FFFFFF !important;
+}
+.app-topbar-sub { opacity: 0.82; }
+
 [data-theme='dark'] {
   --bg: #1B1411;
   --bg-soft: #241A16;
@@ -170,8 +180,9 @@ a { color: var(--primary-deep); }
 
 .app-topbar {
   padding: calc(var(--safe-top) + 14px) 18px 12px;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%);
-  color: var(--on-primary);
+  /* Gradient fixe : même rendu en mode clair et sombre */
+  background: linear-gradient(135deg, #C96F4A 0%, #7A4530 100%);
+  color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -762,7 +773,8 @@ a { color: var(--primary-deep); }
   height: 100%;
   padding: 40px 28px;
   text-align: center;
-  background: linear-gradient(160deg, var(--bg) 0%, var(--bg-soft) 100%);
+  /* Fond foncé fixe : lisible dans les deux modes */
+  background: linear-gradient(160deg, #3D1F10 0%, #2A1208 100%);
 }
 
 .lock-logo {
@@ -774,13 +786,13 @@ a { color: var(--primary-deep); }
   font-family: var(--font-display);
   font-size: 1.6rem;
   font-weight: 700;
-  color: var(--primary-deep);
+  color: #FFFFFF;
   margin-bottom: 4px;
 }
 
 .lock-sub {
   font-size: 0.85rem;
-  color: var(--text-soft);
+  color: rgba(255, 255, 255, 0.75);
   margin-bottom: 28px;
 }
 
@@ -1034,4 +1046,85 @@ a { color: var(--primary-deep); }
 .skeleton-entry-time { width: 34px; height: 11px; border-radius: 4px; flex-shrink: 0; }
 .skeleton-stamp-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
 .skeleton-stamp { height: 80px; border-radius: var(--radius-lg); }
+
+
+[data-theme='dark'] .numpad button {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+[data-theme='dark'] .pin-dot {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+[data-theme='dark'] .pin-dot.filled {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+[data-theme='dark'] .biometric-btn {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+[data-theme='dark'] .profile-avatar .avatar-circle {
+  color: #fff;
+}
+[data-theme='dark'] .profile-avatar span {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme='dark'] .card {
+  background: var(--surface);
+  border-color: var(--border);
+}
+[data-theme='dark'] .accordion-body,
+[data-theme='dark'] .modal-panel {
+  background: var(--bg);
+}
+
+/* ── Inputs dans lock-screen (fond foncé fixe) ── */
+.lock-screen input,
+.lock-screen select,
+.lock-screen textarea {
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.lock-screen input::placeholder,
+.lock-screen textarea::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+.lock-screen input:focus {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.18);
+}
+.lock-screen .field label {
+  color: rgba(255, 255, 255, 0.8);
+}
+.lock-screen .btn-primary {
+  background: #C96F4A;
+  color: #FFFFFF;
+}
+.lock-screen .pill-choice {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.lock-screen .pill-choice.selected {
+  background: rgba(201, 111, 74, 0.8);
+  color: #FFFFFF;
+  border-color: #C96F4A;
+}
+.lock-screen .chip {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.lock-screen .chip.active {
+  background: #C96F4A;
+  color: #FFFFFF;
+  border-color: #C96F4A;
+}
+.lock-screen .muted,
+.lock-screen a {
+  color: rgba(255, 255, 255, 0.55);
+}
 

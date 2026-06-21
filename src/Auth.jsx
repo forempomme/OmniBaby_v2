@@ -136,13 +136,17 @@ function OnboardingScreen({ onDone }) {
   const isLast = slide === ONBOARDING_SLIDES.length - 1;
 
   return (
-    <div className="lock-screen" style={{ gap: 0, padding: '40px 28px' }}>
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      height: '100%', padding: '40px 28px', textAlign: 'center',
+      background: 'linear-gradient(160deg, #3D1F10 0%, #2A1208 100%)',
+    }}>
       {/* Indicateurs de progression */}
       <div style={{ display:'flex', gap:6, marginBottom:32 }}>
         {ONBOARDING_SLIDES.map((_, i) => (
           <div key={i} style={{
             height: 4, borderRadius: 2, flex: 1,
-            background: i <= slide ? 'var(--primary)' : 'rgba(255,255,255,.3)',
+            background: i <= slide ? '#E8A07A' : 'rgba(255,255,255,.2)',
             transition: 'background .3s',
           }} />
         ))}
@@ -150,10 +154,10 @@ function OnboardingScreen({ onDone }) {
 
       <div style={{ flex: 1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:20 }}>
         <div style={{ fontSize:'4rem', lineHeight:1 }}>{current.emoji}</div>
-        <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:'1.3rem', color:'#fff', textAlign:'center' }}>
+        <div style={{ fontFamily:'var(--font-display)', fontWeight:700, fontSize:'1.3rem', color:'#FFFFFF', textAlign:'center' }}>
           {current.title}
         </div>
-        <div style={{ fontSize:'.9rem', color:'rgba(255,255,255,.8)', textAlign:'center', lineHeight:1.6, maxWidth:280 }}>
+        <div style={{ fontSize:'.9rem', color:'rgba(255,255,255,.82)', textAlign:'center', lineHeight:1.6, maxWidth:280 }}>
           {current.desc}
         </div>
       </div>
@@ -163,7 +167,7 @@ function OnboardingScreen({ onDone }) {
           onClick={() => isLast ? onDone() : setSlide(s => s + 1)}
           style={{
             padding:'14px', borderRadius:'var(--radius-pill)',
-            background:'rgba(255,255,255,.95)', color:'var(--primary-deep)',
+            background:'rgba(255,255,255,.95)', color:'#7A4530',
             border:'none', fontWeight:700, fontSize:'.95rem', cursor:'pointer', fontFamily:'inherit',
           }}
         >
@@ -171,7 +175,7 @@ function OnboardingScreen({ onDone }) {
         </button>
         {!isLast && (
           <button onClick={onDone} style={{
-            background:'none', border:'none', color:'rgba(255,255,255,.6)',
+            background:'none', border:'none', color:'rgba(255,255,255,.55)',
             fontSize:'.8rem', cursor:'pointer', fontFamily:'inherit',
           }}>
             Passer
