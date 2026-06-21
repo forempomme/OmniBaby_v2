@@ -390,11 +390,22 @@ function BehaviorSection({ embedded = false }) {
             inputMode="numeric"
             min="10"
             max="500"
-            step="10"
-            value={s.defaultBiberonMl || 120}
+            value={s.defaultBiberonMl ?? 120}
             onChange={(e) => {
+              // Permettre la saisie libre (champ vide, valeur partielle)
+              const raw = e.target.value;
+              if (raw === '' || raw === '0') {
+                set('defaultBiberonMl', '');
+                return;
+              }
+              set('defaultBiberonMl', raw);
+            }}
+            onBlur={(e) => {
+              // Valider uniquement quand on quitte le champ
               const val = parseInt(e.target.value, 10);
-              if (!isNaN(val) && val >= 10 && val <= 500) set('defaultBiberonMl', val);
+              if (isNaN(val) || val < 10) set('defaultBiberonMl', 10);
+              else if (val > 500) set('defaultBiberonMl', 500);
+              else set('defaultBiberonMl', val);
             }}
             style={{ width: 90, textAlign:'center', fontFamily:'var(--font-mono)', fontWeight:700, fontSize:'1rem' }}
           />
