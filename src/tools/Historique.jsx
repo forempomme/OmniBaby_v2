@@ -48,19 +48,8 @@ function buildHistory(store) {
     });
   }
 
-  for (const s of filterByActiveChild(store.sommeils, activeChildId)) {
-    items.push({
-      source: 'sommeil',
-      table: 'sommeils',
-      id: s.id,
-      icon: '🌙',
-      bg: SOURCE_DEFS.sommeil.color,
-      iconColor: SOURCE_DEFS.sommeil.iconColor,
-      title: s.type === 'nuit' ? 'Nuit' : 'Sieste',
-      subtitle: s.duree ? `${Math.floor(s.duree / 60)}h${String(s.duree % 60).padStart(2, '0')}` : '',
-      date: s.debut,
-    });
-  }
+  // Sommeils désormais dans store.entries (type === 'sommeil') — inclus automatiquement
+  
 
   for (const m of filterByActiveChild(store.mesures, activeChildId)) {
     items.push({
