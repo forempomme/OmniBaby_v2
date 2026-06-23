@@ -341,21 +341,55 @@ function AppearanceSection({ embedded = false }) {
         </div>
       </div>
 
-      {/* Heure bascule automatique */}
-      {s.dark == null && (
-        <div className="field">
-          <label>Heure de passage en mode sombre</label>
-          <div className="pill-group">
-            {[{h:20,l:'20h'},{h:21,l:'21h'},{h:22,l:'22h'},{h:23,l:'23h'}].map(o => (
-              <button key={o.h} className={`pill-choice ${(s.darkHour||21)===o.h?'selected':''}`}
-                onClick={() => set('darkHour', o.h)}>{o.l}</button>
-            ))}
-          </div>
-          <div className="muted" style={{ fontSize:'.72rem', marginTop:4 }}>
-            Retour en mode clair à 7h dans tous les cas
-          </div>
-        </div>
-      )}
+       {/* Heure bascule automatique sombre */}
+       {s.dark == null && (
+         <div className="field">
+           <label>Heure de passage en mode sombre</label>
+           <div className="pill-group">
+             {[{h:20,l:'20h'},{h:21,l:'21h'},{h:22,l:'22h'},{h:23,l:'23h'}].map(o => (
+               <button key={o.h} className={`pill-choice ${(s.darkHour||21)===o.h?'selected':''}`}
+                 onClick={() => set('darkHour', o.h)}>{o.l}</button>
+             ))}
+           </div>
+           <div className="muted" style={{ fontSize:'.72rem', marginTop:4 }}>
+             Retour en mode clair à 7h
+           </div>
+         </div>
+       )}
+
+       {/* Mode nuit */}
+       <div style={{ borderTop:'1px solid var(--border)', paddingTop:12, marginTop:8 }}>
+         <div style={{ fontWeight:700, fontSize:'.88rem', marginBottom:2 }}>🌙 Mode nuit</div>
+         <div className="muted" style={{ fontSize:'.72rem', marginBottom:10 }}>
+           Fond quasi-noir et texte agrandi — idéal pour les tétées nocturnes sans allumer la lumière.
+         </div>
+         <div className="field">
+           <label>Activation</label>
+           <div className="pill-group">
+             <button className={`pill-choice ${s.nightMode===false?'selected':''}`}
+               onClick={() => set('nightMode', false)}>Désactivé</button>
+             <button className={`pill-choice ${(s.nightMode===null||s.nightMode===undefined)?'selected':''}`}
+               onClick={() => set('nightMode', null)}>🌗 Auto</button>
+             <button className={`pill-choice ${s.nightMode===true?'selected':''}`}
+               onClick={() => set('nightMode', true)}>🌙 Toujours</button>
+           </div>
+         </div>
+         {(s.nightMode === null || s.nightMode === undefined) && (
+           <div className="field">
+             <label>Heure d'activation automatique</label>
+             <div className="pill-group">
+               {[{h:21,l:'21h'},{h:22,l:'22h'},{h:23,l:'23h'}].map(o => (
+                 <button key={o.h} className={`pill-choice ${(s.nightHour||22)===o.h?'selected':''}`}
+                   onClick={() => set('nightHour', o.h)}>{o.l}</button>
+               ))}
+             </div>
+             <div className="muted" style={{ fontSize:'.72rem', marginTop:4 }}>
+               Retour au thème précédent à 7h · Badge "🌙 Nuit" dans la topbar pour désactiver
+             </div>
+           </div>
+         )}
+       </div>
+
 
       {/* Vue compacte */}
       <div className="flex-between" style={{ padding:'10px 0', borderTop:'1px solid var(--border)', marginTop:4 }}>

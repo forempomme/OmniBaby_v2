@@ -1128,3 +1128,144 @@ a { color: var(--primary-deep); }
   color: rgba(255, 255, 255, 0.55);
 }
 
+
+/* ======================================================================
+   MODE NUIT — ultra-sombre, texte agrandi, confort maximal dans le noir
+   Déclenché manuellement ou automatiquement (22h-7h par défaut)
+   ====================================================================== */
+
+[data-theme='night'] {
+  /* Fond quasi-noir absolu */
+  --bg: #0A0705;
+  --bg-soft: #0F0B08;
+  --surface: #141009;
+  --surface-2: #1A150E;
+  --border: #2A2018;
+  --text: #F0E4D8;
+  --text-soft: #B89E90;
+  --text-faint: #6A5848;
+
+  /* Couleurs atténuées pour ne pas agresser les yeux */
+  --primary: #C06840;
+  --primary-soft: #2A1E14;
+  --primary-deep: #D4926C;
+  --on-primary: #0A0705;
+
+  --accent-sage: #7A9E8A;
+  --accent-sage-soft: #1A2820;
+  --accent-sun: #C8A060;
+  --accent-sun-soft: #2A2210;
+  --accent-sky: #7AAAB8;
+  --accent-sky-soft: #141E24;
+  --danger: #B86858;
+  --danger-soft: #2A1410;
+
+  --shadow: 0 8px 28px -8px rgba(0, 0, 0, 0.8);
+  --shadow-sm: 0 2px 10px -2px rgba(0, 0, 0, 0.7);
+
+  color-scheme: dark;
+
+  /* Texte agrandi globalement */
+  font-size: 18px;
+}
+
+/* Luminosité globale réduite (écran moins agressif) */
+[data-theme='night'] .app-shell {
+  filter: brightness(0.88);
+}
+
+/* Topbar encore plus sombre */
+[data-theme='night'] .app-topbar {
+  background: linear-gradient(135deg, #8A3A20, #3A1A08) !important;
+}
+
+/* Cards avec fond encore plus sombre */
+[data-theme='night'] .card,
+[data-theme='night'] .swipe-content,
+[data-theme='night'] .entry-item {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+/* Inputs */
+[data-theme='night'] input,
+[data-theme='night'] textarea,
+[data-theme='night'] select {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* Bouton FAB moins lumineux */
+[data-theme='night'] .fab {
+  background: var(--primary);
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.7);
+}
+
+/* Tabbar */
+[data-theme='night'] .app-tabbar {
+  background: var(--bg-soft);
+  border-color: var(--border);
+}
+
+/* Badge nuit visible dans la topbar */
+.night-mode-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  font-size: .7rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  animation: night-pulse 3s ease infinite;
+}
+@keyframes night-pulse {
+  0%, 100% { background: rgba(255,255,255,.12); }
+  50%       { background: rgba(255,255,255,.22); }
+}
+
+/* Lock screen en mode nuit */
+[data-theme='night'] .lock-screen {
+  background: linear-gradient(160deg, #1A0A04, #0A0502) !important;
+}
+
+/* Modals et overlays */
+[data-theme='night'] .modal-panel {
+  background: var(--bg-soft);
+}
+[data-theme='night'] .modal-backdrop {
+  background: rgba(0,0,0,.75);
+}
+
+/* Accordéons */
+[data-theme='night'] .acc-h {
+  background: var(--surface);
+}
+[data-theme='night'] .acc-h.open {
+  background: var(--surface-2);
+}
+[data-theme='night'] .acc-body {
+  background: var(--surface);
+}
+
+/* Chips */
+[data-theme='night'] .chip {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-soft);
+}
+[data-theme='night'] .chip.active {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* Stamps */
+[data-theme='night'] .stamp {
+  background: var(--surface);
+  border-color: var(--border);
+}
+

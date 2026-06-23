@@ -371,6 +371,16 @@ function AppShell() {
   const [openDodoForm, setOpenDodoForm] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [timerRunning, setTimerRunning] = useState(false);
+  const [currentTheme, setCurrentTheme] = React.useState('light');
+
+  // Suivre le thème actuel pour le badge nuit dans la topbar
+  React.useEffect(() => {
+    const sync = () => setCurrentTheme(document.documentElement.getAttribute('data-theme') || 'light');
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => obs.disconnect();
+  }, []);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   // Masquer le skeleton après le premier cycle de sync Firebase
@@ -409,22 +419,38 @@ function AppShell() {
   }, [childEntries, activeChild]);
 
   // Thème auto
+  // Calculer le thème actuel : 'light' | 'dark' | 'night'
+  const computeTheme = React.useCallback(() => {
+    const { dark, darkHour, nightMode, nightHour } = store.settings || {};
+    const hour = new Date().getHours();
+
+    // Mode nuit forcé manuellement
+    if (nightMode === true) return 'night';
+
+    // Mode nuit automatique
+    if (nightMode === null || nightMode === undefined) {
+      const nh = nightHour ?? 22;
+      if (hour >= nh || hour < 7) return 'night';
+    }
+
+    // Mode sombre
+    if (dark === null || dark === undefined) {
+      const dh = darkHour ?? 21;
+      if (hour >= dh || hour < 7) return 'dark';
+      return 'light';
+    }
+    return dark ? 'dark' : 'light';
+  }, [store.settings]);
+
   useEffect(() => {
     const applyTheme = () => {
-      let dark;
-      if (store.settings?.dark === null || store.settings?.dark === undefined) {
-        const hour = new Date().getHours();
-        const darkHour = store.settings?.darkHour ?? 21;
-        dark = hour >= darkHour || hour < 7;
-      } else {
-        dark = !!store.settings.dark;
-      }
-      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      const theme = computeTheme();
+      document.documentElement.setAttribute('data-theme', theme);
     };
     applyTheme();
-    const interval = setInterval(applyTheme, 5 * 60 * 1000);
+    const interval = setInterval(applyTheme, 60 * 1000); // check toutes les minutes
     return () => clearInterval(interval);
-  }, [store.settings?.dark]);
+  }, [computeTheme]);
 
   const openNewEntry = () => { setFormPrefill(null); setOpenEntryForm(true); };
 
@@ -543,6 +569,20 @@ function AppShell() {
             <button className="child-switcher" onClick={() => setChildSwitcherOpen(true)}>
               <span className="emoji">{activeChild.emoji || '👶'}</span>
               <span className="name">{activeChild.nom}</span>
+            </button>
+          )}
+
+          {/* Badge mode nuit — cliquable pour activer/désactiver */}
+          {currentTheme === 'night' && (
+            <button
+              className="night-mode-badge"
+              onClick={() => update(d => {
+                d.settings.nightMode = d.settings.nightMode === true ? false : true;
+                return d;
+              })}
+              title="Mode nuit actif — tap pour désactiver"
+            >
+              🌙 Nuit
             </button>
           )}
 
