@@ -3,7 +3,7 @@ import { useStore, genId, formatAge } from './store.jsx';
 import { toISODate, useToast, ConfirmInline, exportPDF, shareJSON, Accordion } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import { APP_VERSION } from './version.js';
-import { auth, db, doc, updateDoc, deleteUser } from './firebase.js';
+import { auth, deleteUser } from './firebase.js';
 import { isBiometricAvailable } from './Auth.jsx';
 
 const EMOJIS = ['👶', '👧', '👦', '🧒', '👼'];
@@ -219,9 +219,9 @@ function SyncSection({ embedded = false }) {
         <div className="muted" style={{ fontSize:'.82rem', marginBottom:12 }}>
           Connecte-toi pour partager les données en temps réel avec le deuxième parent.
         </div>
-        <button className="btn btn-primary btn-block" onClick={() => window.__showFirebaseLogin?.()}>
-          Se connecter / Créer un compte
-        </button>
+        <div className="muted" style={{ fontSize:'.8rem' }}>
+          Va dans Réglages → Synchronisation pour te connecter au prochain lancement.
+        </div>
       </div>
     );
   }

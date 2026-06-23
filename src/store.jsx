@@ -5,7 +5,7 @@ import {
   auth, db,
   onAuthStateChanged, signOut,
   doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
-  serverTimestamp, writeBatch,
+  serverTimestamp,
 } from './firebase.js';
 
 const STORE_KEY = 'omnibaby_store_v3';
@@ -15,7 +15,7 @@ const SESSION_KEY = 'omnibaby_session_v3';
 // Tables synchronisées avec Firestore
 // ----------------------------------------------------------------------
 const SYNC_TABLES = [
-  'entries', 'mesures', 'vaccins', 'sommeils', 'medicaments',
+  'entries', 'mesures', 'vaccins', 'medicaments',  // sommeils fusionné dans entries v3.3.0
   'temperatures', 'aliments', 'journal', 'rappels',
 ];
 
@@ -99,6 +99,24 @@ export function migrateStore(raw) {
   }
   if (typeof store.etapesDiv !== 'object' || store.etapesDiv === null) {
     store.etapesDiv = {};
+  }
+
+  // Migration sommeils → entries (v3.3.0)
+  // Copier store.sommeils dans store.entries si pas encore fait
+  if (Array.isArray(store.sommeils) && store.sommeils.length > 0) {
+    const existingIds = new Set((store.entries || []).map(e => String(e.id)));
+    const toMigrate = store.sommeils.filter(s => !existingIds.has(String(s.id)));
+    if (toMigrate.length > 0) {
+      store.entries = (store.entries || []).concat(toMigrate.map(s => ({
+        ...s,
+        type: 'sommeil',
+        sousType: s.type || 'sieste',
+        date: s.debut,
+        enCours: !s.fin,
+      })));
+      console.log(`[Migration] ${toMigrate.length} sommeils migrés vers entries`);
+    }
+    store.sommeils = []; // Vider après migration
   }
 
   store.settings = {

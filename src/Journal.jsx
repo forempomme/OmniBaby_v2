@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, genId, filterByActiveChild, getActiveChild, ageInMonths } from './store.jsx';
+import { useStore, filterByActiveChild, getActiveChild, ageInMonths } from './store.jsx';
 import {
   toISODateTime,
   formatTimeFR,
@@ -12,6 +12,7 @@ import {
   useToast,
 } from './utils.jsx';
 import { Modal } from './Modal.jsx';
+import { SommeilForm, formatDuration } from './Dodo.jsx';
 
 // ----------------------------------------------------------------------
 // Entry type definitions
@@ -583,7 +584,19 @@ function EntryItem({ entry, onEdit, onDelete, compact = false }) {
           <>
             <EntryIcon type={entry.type} />
             <div className="entry-body" style={{ flex: 1, minWidth: 0 }}>
-              <div className="entry-title">{def.label}</div>
+              <div className="entry-title" style={{ display:'flex', alignItems:'center', gap:6 }}>
+                {def.label}
+                {entry.type === 'sommeil' && entry.enCours && (
+                  <span style={{ fontSize:'.65rem', background:'var(--accent-sky-soft)', color:'var(--accent-sky)', padding:'1px 6px', borderRadius:'var(--radius-pill)', fontWeight:700 }}>
+                    En cours
+                  </span>
+                )}
+                {entry.type === 'sommeil' && entry.duree && (
+                  <span style={{ color:'var(--accent-sky)', fontFamily:'var(--font-mono)', fontSize:'.78rem', fontWeight:700 }}>
+                    {formatDuration(entry.duree)}
+                  </span>
+                )}
+              </div>
               {subtitle && <div className="entry-sub">{subtitle}</div>}
               {(entry.createdByName || entry.updatedByName) && (
                 <div className="entry-author">
@@ -788,6 +801,8 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
   const [period, setPeriod] = useState('today');
   const [filterType, setFilterType] = useState('tous');
   const [editingEntry, setEditingEntry] = useState(null);
+  const [sommeilFormOpen, setSommeilFormOpen] = useState(false);
+  const [sommeilEditing, setSommeilEditing] = useState(null);
   const [search, setSearch] = useState(null);
 
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
@@ -862,8 +877,11 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
           filterType={filterType}
           setFilterType={setFilterType}
           onLongPress={(type) => {
-            // Pré-remplir le formulaire avec le bon type
-            setOpenEntryForm(true);
+            if (type === 'sommeil') {
+              setSommeilFormOpen(true);
+            } else {
+              setOpenEntryForm(true);
+            }
           }}
         />
 
@@ -954,7 +972,15 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
                   key={entry.id}
                   entry={entry}
                   compact={compact}
-                  onEdit={() => canEdit && setEditingEntry(entry)}
+                  onEdit={() => {
+                    if (!canEdit) return;
+                    if (entry.type === 'sommeil') {
+                      setSommeilEditing(entry);
+                      setSommeilFormOpen(true);
+                    } else {
+                      setEditingEntry(entry);
+                    }
+                  }}
                   onDelete={() => canEdit && handleDelete(entry.id)}
                 />
               ))}
@@ -964,10 +990,23 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
       )}
 
       <EntryForm
-        open={openEntryForm}
+        open={openEntryForm && (!formPrefill || formPrefill?.type !== 'sommeil') && filterType !== 'sommeil'}
         onClose={() => setOpenEntryForm(false)}
-        prefill={formPrefill || (filterType !== 'tous' ? { type: filterType } : null)}
+        prefill={formPrefill || (filterType !== 'tous' && filterType !== 'sommeil' ? { type: filterType } : null)}
         onSaved={onTimerFinished}
+      />
+
+      {/* Formulaire sommeil — partagé avec Dodo */}
+      <SommeilForm
+        open={sommeilFormOpen || (openEntryForm && (formPrefill?.type === 'sommeil' || filterType === 'sommeil'))}
+        onClose={() => {
+          setSommeilFormOpen(false);
+          setSommeilEditing(null);
+          setOpenEntryForm(false);
+        }}
+        child={activeChild}
+        editing={sommeilEditing}
+        onSaved={() => { setSommeilEditing(null); onTimerFinished && onTimerFinished(); }}
       />
 
       {editingEntry && (

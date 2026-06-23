@@ -102,8 +102,8 @@ export default function StatistiquesTool() {
     [store.entries, store.activeChildId]
   );
   const childSommeils = useMemo(
-    () => filterByActiveChild(store.sommeils, store.activeChildId),
-    [store.sommeils, store.activeChildId]
+    () => filterByActiveChild(store.entries || [], store.activeChildId).filter(e => e.type === 'sommeil'),
+    [store.entries, store.activeChildId]
   );
 
   const biberonSeries = useMemo(
