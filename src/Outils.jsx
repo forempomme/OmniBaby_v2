@@ -9,7 +9,9 @@ import RappelsTool from './tools/Rappels.jsx';
 import FamilleTool from './tools/Famille.jsx';
 import UrgenceTool from './tools/Urgence.jsx';
 import RechercheTool from './tools/Recherche.jsx';
+import DeveloppementTool from './tools/Developpement.jsx';
 import HistoriqueTool from './tools/Historique.jsx';
+import JournalBordTool from './tools/JournalBord.jsx';
 import JournalBordTool from './tools/JournalBord.jsx';
 
 // ----------------------------------------------------------------------
@@ -81,18 +83,22 @@ export default function OutilsTab({ openToolKey, setOpenToolKey, onTimerFinish }
         return <AlimentationTool />;
       case 'statistiques':
         return <StatistiquesTool />;
-      case 'journalbord':
-        return <JournalBordTool />;
       case 'rappels':
         return <RappelsTool />;
-      case 'historique':
-        return <HistoriqueTool />;
       case 'famille':
         return <FamilleTool />;
       case 'urgence':
         return <UrgenceTool />;
       case 'recherche':
         return <RechercheTool />;
+      case 'developpement':
+        return <DeveloppementTool />;
+      case 'historique':
+        return <HistoriqueTool />;
+      case 'journalbord':
+        return <JournalBordTool />;
+      case 'journalbord':
+        return <JournalBordTool />;
       default:
         return <ToolPlaceholder icon={activeTool.icon} name={activeTool.name} />;
     }
