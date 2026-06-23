@@ -10,7 +10,6 @@ import {
   SwipeToDelete,
   useToast,
 } from './utils.jsx';
-import { Accordion } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import {
   WEIGHT_LMS,
@@ -291,7 +290,7 @@ function GrowthChart({ type, child, mesures }) {
 // ----------------------------------------------------------------------
 // Measure section: chart + history list
 // ----------------------------------------------------------------------
-function MesureSection({ type, child, mesures, canEdit, embedded = false }) {
+function MesureSection({ type, child, mesures, canEdit }) {
   const { update } = useStore();
   const showToast = useToast();
   const def = MESURE_TYPES[type];
@@ -312,7 +311,7 @@ function MesureSection({ type, child, mesures, canEdit, embedded = false }) {
   };
 
   return (
-    <div className={embedded ? '' : 'card appear'}>
+    <div className="card appear">
       <div className="flex-between">
         <div className="section-title" style={{ marginBottom: 0 }}>{def.icon} {def.label}</div>
         {canEdit && (
@@ -356,13 +355,41 @@ function MesureSection({ type, child, mesures, canEdit, embedded = false }) {
 // ----------------------------------------------------------------------
 // Vaccination record
 // ----------------------------------------------------------------------
-function VaccinSection({ child, vaccins, canEdit, embedded = false }) {
+function VaccinSection({ child, vaccins, canEdit }) {
   const { update, nextId } = useStore();
   const showToast = useToast();
   const [showAll, setShowAll] = useState(false);
   const ageM = ageInMonths(child.birthdate) ?? 0;
 
   const statusFor = (vaccinId) => vaccins.find((v) => v.vaccinId === vaccinId);
+
+  const { firebaseUser } = useStore();
+
+  const scheduleNextVaccin = async (child, vaccins) => {
+    if (!child?.birthdate) return;
+    const granted = await requestNotifPermission();
+    if (!granted) return;
+    const ageM = Math.floor((new Date() - new Date(child.birthdate)) / (1000 * 60 * 60 * 24 * 30.44));
+    const doneIds = new Set(vaccins.filter(v => v.status === 'done').map(v => v.vaccinId));
+    const next = VACCINS_CALENDRIER
+      .filter(v => !doneIds.has(v.id) && v.ageMonths > ageM)
+      .sort((a, b) => a.ageMonths - b.ageMonths)[0];
+    if (!next) return;
+    // Calculer la date du prochain vaccin
+    const birthDate = new Date(child.birthdate);
+    const notifDate = new Date(birthDate);
+    notifDate.setMonth(notifDate.getMonth() + next.ageMonths);
+    // Notifier 7 jours avant
+    notifDate.setDate(notifDate.getDate() - 7);
+    if (notifDate > new Date()) {
+      await scheduleNotif({
+        id: `vaccin_next_${child.id}`,
+        title: `Vaccin à prévoir — ${child.nom}`,
+        body: `${next.nom} prévu vers ${next.age}. Pensez à prendre rendez-vous.`,
+        at: notifDate.toISOString(),
+      });
+    }
+  };
 
   const toggleDone = (vaccinDef) => {
     const existing = statusFor(vaccinDef.id);
@@ -389,9 +416,9 @@ function VaccinSection({ child, vaccins, canEdit, embedded = false }) {
     : VACCINS_CALENDRIER.filter((v) => statusFor(v.id) || v.ageMonths <= ageM + 2);
 
   return (
-    <div className={embedded ? '' : 'card appear'}>
+    <div className="card appear">
       <div className="flex-between">
-        <div className="section-title" style={{ marginBottom: 0, display: embedded ? 'none' : 'flex' }}>💉 Carnet de vaccination</div>
+        <div className="section-title" style={{ marginBottom: 0 }}>💉 Carnet de vaccination</div>
         <button className="btn btn-ghost btn-sm" onClick={() => setShowAll((s) => !s)}>
           {showAll ? 'Recommandés' : 'Tout afficher'}
         </button>
@@ -447,35 +474,14 @@ export default function SanteTab() {
     );
   }
 
-  const ageM = ageInMonths(activeChild.birthdate) ?? 0;
-
   return (
     <div>
-      <Accordion icon="💊" title="Vitamine D & Alimentation" defaultOpen={true}>
-        <VitaminDCard child={activeChild} canEdit={canEdit} />
-        <FeedingAdviceCard child={activeChild} />
-      </Accordion>
-      <Accordion icon="⚖️" title="Poids"
-        badge={childMesures.filter(m=>m.type==='poids').length || null}
-        defaultOpen={true}>
-        <MesureSection type="poids" child={activeChild} mesures={childMesures} canEdit={canEdit} embedded />
-      </Accordion>
-      <Accordion icon="📏" title="Taille"
-        badge={childMesures.filter(m=>m.type==='taille').length || null}
-        defaultOpen={false}>
-        <MesureSection type="taille" child={activeChild} mesures={childMesures} canEdit={canEdit} embedded />
-      </Accordion>
-      <Accordion icon="🧠" title="Périmètre crânien"
-        badge={childMesures.filter(m=>m.type==='perimetre').length || null}
-        defaultOpen={false}>
-        <MesureSection type="perimetre" child={activeChild} mesures={childMesures} canEdit={canEdit} embedded />
-      </Accordion>
-      <Accordion icon="💉" title="Carnet de vaccination"
-        badge={childVaccins.length || null}
-        badgeColor="var(--accent-sage)"
-        defaultOpen={false}>
-        <VaccinSection child={activeChild} vaccins={childVaccins} canEdit={canEdit} embedded />
-      </Accordion>
+      <VitaminDCard child={activeChild} canEdit={canEdit} />
+      <FeedingAdviceCard child={activeChild} />
+      <MesureSection type="poids" child={activeChild} mesures={childMesures} canEdit={canEdit} />
+      <MesureSection type="taille" child={activeChild} mesures={childMesures} canEdit={canEdit} />
+      <MesureSection type="perimetre" child={activeChild} mesures={childMesures} canEdit={canEdit} />
+      <VaccinSection child={activeChild} vaccins={childVaccins} canEdit={canEdit} />
     </div>
   );
 }

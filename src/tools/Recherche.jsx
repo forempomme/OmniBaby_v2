@@ -18,8 +18,10 @@ function matches(query, ...fields) {
 
 const SOURCE_DEFS = {
   journal: { label: 'Journal', icon: '📓' },
+  sommeil: { label: 'Sommeil', icon: '🌙' },
   aliment: { label: 'Aliments', icon: '🥦' },
   vaccin: { label: 'Vaccins', icon: '💉' },
+  temperature: { label: 'Températures', icon: '🌡️' },
   medicament: { label: 'Médicaments', icon: '💊' },
   rappel: { label: 'Rappels', icon: '🎯' },
   journalbord: { label: 'Journal de bord', icon: '📸' },
@@ -28,18 +30,43 @@ const SOURCE_DEFS = {
 // ----------------------------------------------------------------------
 // Result item
 // ----------------------------------------------------------------------
-function ResultItem({ source, title, subtitle, time }) {
-  const def = SOURCE_DEFS[source];
+function highlight(text, query) {
+  if (!text || !query) return text;
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+  return parts.map((p, i) =>
+    i % 2 === 1
+      ? <mark key={i} style={{ background:'var(--accent-sun-soft)', color:'var(--text)', borderRadius:2, padding:'0 2px' }}>{p}</mark>
+      : p
+  );
+}
+
+function ResultItem({ source, title, subtitle, time, query }) {
+  const def = SOURCE_DEFS[source] || { label: source, icon: '📄' };
+  const COLORS = {
+    journal: 'var(--primary-soft)', sommeil: 'var(--accent-sky-soft)',
+    aliment: 'var(--accent-sage-soft)', vaccin: 'var(--accent-sun-soft)',
+    temperature: 'var(--danger-soft)', medicament: 'var(--primary-soft)',
+    rappel: 'var(--accent-sky-soft)', journalbord: 'var(--accent-sage-soft)',
+  };
+  const ICON_COLORS = {
+    journal: 'var(--primary-deep)', sommeil: 'var(--accent-sky)',
+    aliment: 'var(--accent-sage)', vaccin: 'var(--accent-sun)',
+    temperature: 'var(--danger)', medicament: 'var(--primary-deep)',
+    rappel: 'var(--accent-sky)', journalbord: 'var(--accent-sage)',
+  };
   return (
     <div className="swipe-content" style={{ cursor: 'default' }}>
-      <div className="entry-icon" style={{ background: 'var(--primary-soft)', color: 'var(--primary-deep)' }}>
+      <div className="entry-icon" style={{ background: COLORS[source] || 'var(--primary-soft)', color: ICON_COLORS[source] || 'var(--primary-deep)' }}>
         {def.icon}
       </div>
       <div className="entry-body">
-        <div className="entry-title">{title}</div>
-        <div className="entry-sub">{def.label}{subtitle ? ` · ${subtitle}` : ''}</div>
+        <div className="entry-title">{highlight(title, query)}</div>
+        <div className="entry-sub">
+          <span style={{ fontWeight:600 }}>{def.label}</span>
+          {subtitle ? <span> · {highlight(subtitle, query)}</span> : null}
+        </div>
       </div>
-      {time && <div className="entry-time">{time}</div>}
+      {time && <div className="entry-time" style={{ fontSize:'.65rem' }}>{time}</div>}
     </div>
   );
 }
@@ -134,6 +161,39 @@ export default function RechercheTool() {
       }
     }
 
+    if (activeSources.includes('sommeil')) {
+      for (const e of filterByActiveChild(store.entries || [], store.activeChildId).filter(e => e.type === 'sommeil')) {
+        const label = e.sousType === 'nuit' ? 'Nuit' : 'Sieste';
+        if (matches(query, label, e.note, e.qualite, e.humeurReveil)) {
+          out.push({
+            source: 'sommeil',
+            title: label,
+            subtitle: [
+              e.duree ? `${Math.floor(e.duree/60)}h${String(e.duree%60).padStart(2,'0')}` : null,
+              e.qualite,
+              e.note,
+            ].filter(Boolean).join(' · '),
+            time: e.date ? formatDateTimeFR(e.date) : undefined,
+            date: e.date,
+          });
+        }
+      }
+    }
+
+    if (activeSources.includes('temperature')) {
+      for (const t of filterByActiveChild(store.temperatures || [], store.activeChildId)) {
+        if (matches(query, String(t.valeur), t.notes)) {
+          out.push({
+            source: 'temperature',
+            title: `${t.valeur}°C`,
+            subtitle: t.notes || undefined,
+            time: t.date ? formatDateTimeFR(t.date) : undefined,
+            date: t.date,
+          });
+        }
+      }
+    }
+
     if (activeSources.includes('journalbord')) {
       for (const j of filterByActiveChild(store.journal, store.activeChildId)) {
         if (matches(query, j.titre, j.note, j.tag)) {
@@ -189,11 +249,16 @@ export default function RechercheTool() {
           <div className="desc">Aucune correspondance pour "{query}". Essaie un autre mot-clé ou active d'autres catégories.</div>
         </div>
       ) : (
-        <div className="entry-list">
-          {results.map((r, i) => (
-            <ResultItem key={i} {...r} />
+        <>
+          <div style={{ fontSize:'.72rem', color:'var(--text-faint)', marginBottom:8, fontWeight:600 }}>
+            {results.length} résultat{results.length > 1 ? 's' : ''} pour "{query}"
+          </div>
+          <div className="entry-list">
+            {results.map((r, i) => (
+            <ResultItem key={i} {...r} query={query} />
           ))}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

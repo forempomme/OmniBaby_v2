@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toISODateTime } from '../utils.jsx';
+import { useStore, getActiveChild, genId } from '../store.jsx';
+import { useToast } from '../utils.jsx';
 
 const STORAGE_KEY = 'omnibaby_minuteur_v1';
 
@@ -119,6 +121,11 @@ export default function MinuteurTool({ onFinish }) {
     persist(null);
   };
 
+  const { store, update } = useStore();
+  const showToast = useToast();
+  const activeChild = getActiveChild(store);
+  const [lastEntry, setLastEntry] = React.useState(null);
+
   const handleFinish = () => {
     let finalState = state;
     if (state && state.running) {
@@ -127,27 +134,31 @@ export default function MinuteurTool({ onFinish }) {
       if (state.currentSide === 'gauche') finalState.elapsedGauche += delta;
       else finalState.elapsedDroit += delta;
     }
-
     if (!finalState) return;
 
     const totalSeconds = finalState.elapsedGauche + finalState.elapsedDroit;
     const totalMinutes = Math.max(1, Math.round(totalSeconds / 60));
-
     let cote;
     if (finalState.elapsedGauche > 0 && finalState.elapsedDroit > 0) cote = 'deux';
     else if (finalState.elapsedDroit > finalState.elapsedGauche) cote = 'droit';
     else cote = 'gauche';
 
-    const prefill = {
+    const entry = {
+      id: genId(),
+      childId: activeChild?.id,
       type: 'biberon',
       mode: 'sein',
-      datetime: toISODateTime(),
+      date: toISODateTime(),
       cote,
       duree: totalMinutes,
+      createdAt: new Date().toISOString(),
     };
 
+    update((draft) => { draft.entries.push(entry); return draft; });
+    setLastEntry(entry);
     reset();
-    onFinish && onFinish(prefill);
+    showToast(`Tétée enregistrée — ${totalMinutes} min · ${cote}`, '✅');
+    onFinish && onFinish(entry);
   };
 
   const hasSession = !!state;
@@ -227,11 +238,42 @@ export default function MinuteurTool({ onFinish }) {
       )}
 
       {!hasSession && (
-        <div className="empty-state">
-          <div className="emoji">🤱</div>
-          <div className="title">Prêt à démarrer</div>
-          <div className="desc">Touche "Gauche" ou "Droit" pour lancer le chrono de la tétée.</div>
-        </div>
+        <>
+          {/* Résumé dernière tétée */}
+          {lastEntry && (
+            <div style={{
+              background: 'var(--accent-sage-soft)', borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--accent-sage)', padding: '12px 14px', marginBottom: 12,
+            }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div>
+                  <div style={{ fontWeight:700, fontSize:'.85rem', color:'var(--accent-sage)' }}>
+                    ✅ Dernière tétée enregistrée
+                  </div>
+                  <div style={{ fontSize:'.78rem', color:'var(--text-soft)', marginTop:3 }}>
+                    {lastEntry.duree} min · Côté {lastEntry.cote}
+                  </div>
+                </div>
+                <button
+                  onClick={() => { onFinish && onFinish({ ...lastEntry, edit: true }); setLastEntry(null); }}
+                  style={{
+                    padding:'5px 12px', borderRadius:'var(--radius-pill)',
+                    background:'var(--accent-sage)', color:'#fff',
+                    border:'none', fontWeight:700, fontSize:'.75rem',
+                    cursor:'pointer', fontFamily:'inherit',
+                  }}
+                >
+                  ✏️ Modifier
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="empty-state">
+            <div className="emoji">🤱</div>
+            <div className="title">Prêt à démarrer</div>
+            <div className="desc">Touche "Gauche" ou "Droit" pour lancer le chrono de la tétée.</div>
+          </div>
+        </>
       )}
     </div>
   );
