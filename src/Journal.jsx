@@ -736,7 +736,7 @@ function QuickEntryBar({ entries, onSaved, firebaseUser }) {
 // ----------------------------------------------------------------------
 // Résumé hebdomadaire (moyennes 7 jours pour le pédiatre)
 // ----------------------------------------------------------------------
-function WeekSummary({ entries }) {
+function WeekSummary({ entries, store, child }) {
   const stats = React.useMemo(() => {
     if (!entries.length) return null;
     const days = {};
@@ -786,8 +786,23 @@ function WeekSummary({ entries }) {
           </div>
         ))}
       </div>
-      <div style={{ fontSize: '.7rem', color: 'var(--text-faint)', marginTop: 6 }}>
-        Résumé utile pour le pédiatre · Données Journal uniquement
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:8 }}>
+        <div style={{ fontSize:'.7rem', color:'var(--text-faint)' }}>
+          Pour le pediatre · Journal uniquement
+        </div>
+        <button
+          onClick={async () => {
+            if (!store || !child) return;
+            try {
+              const { exportPDF } = await import('./utils.jsx');
+              await exportPDF(store, child);
+            } catch(e) { console.error(e); }
+          }}
+          style={{ padding:'4px 10px', borderRadius:'var(--radius-pill)', border:'none',
+            background:'var(--primary)', color:'#fff', fontWeight:700,
+            fontSize:'.65rem', cursor:'pointer', fontFamily:'inherit' }}>
+          PDF
+        </button>
       </div>
     </div>
   );
@@ -924,7 +939,7 @@ export default function JournalTab({ openEntryForm, setOpenEntryForm, formPrefil
         </div>
       )}
       {period === 'today' && <QuickEntryBar entries={todayEntries} onSaved={() => {}} firebaseUser={firebaseUser} />}
-      {period === '7days' && <WeekSummary entries={periodFiltered} />}
+      {period === '7days' && <WeekSummary entries={periodFiltered} store={store} child={activeChild} />}
 
       {filterType !== 'tous' && (
         <div className="chip-row" style={{ marginTop: -6 }}>
