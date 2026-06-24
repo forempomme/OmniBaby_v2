@@ -408,6 +408,7 @@ function VaccinSection({ child, vaccins, canEdit }) {
       }
       return draft;
     });
+    if (!existing) fireConfetti();
     showToast(existing ? 'Marqué non fait' : 'Vaccin enregistré ✓', existing ? '↩️' : '💉');
   };
 
@@ -474,8 +475,18 @@ export default function SanteTab() {
     );
   }
 
+  const showToastSante = useToast();
+  const handlePDF = async () => {
+    if (!activeChild) { showToastSante('Aucun enfant actif', '⚠️'); return; }
+    try { await exportPDF(store, activeChild); showToastSante('PDF genere', '📄'); }
+    catch(e) { showToastSante('Erreur : '+e.message, '⚠️'); }
+  };
+
   return (
     <div>
+      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
+        <button className="btn btn-secondary btn-sm" onClick={handlePDF}>📄 Resume pediatre</button>
+      </div>
       <VitaminDCard child={activeChild} canEdit={canEdit} />
       <FeedingAdviceCard child={activeChild} />
       <MesureSection type="poids" child={activeChild} mesures={childMesures} canEdit={canEdit} />
