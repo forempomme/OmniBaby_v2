@@ -1,0 +1,102 @@
+import { describe, it, expect } from 'vitest';
+
+// Fonctions pures testables sans DOM
+function dayLabel(isoDay) {
+  const today = new Date().toISOString().slice(0,10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+  if (isoDay === today) return "Aujourd'hui";
+  if (isoDay === yesterday) return 'Hier';
+  const now = new Date();
+  const day = new Date(isoDay + 'T12:00:00');
+  const diffDays = Math.round((now - day) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 7) {
+    const jours = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+    return `${jours[day.getDay()]} dernier (il y a ${diffDays} jours)`;
+  }
+  return day.toLocaleDateString('fr-FR');
+}
+
+function groupByDay(items, dateField) {
+  const groups = {};
+  for (const item of items) {
+    const key = typeof dateField === 'function' ? dateField(item) : item[dateField];
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+  }
+  return Object.entries(groups).sort(([a],[b]) => a < b ? 1 : -1);
+}
+
+function formatDuration(minutes) {
+  if (!minutes && minutes !== 0) return '—';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} h`;
+  return `${h} h ${m} min`;
+}
+
+// ----------------------------------------------------------------------
+describe('dayLabel', () => {
+  it('retourne Aujourd\'hui pour aujourd\'hui', () => {
+    const today = new Date().toISOString().slice(0,10);
+    expect(dayLabel(today)).toBe("Aujourd'hui");
+  });
+
+  it('retourne Hier pour hier', () => {
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+    expect(dayLabel(yesterday)).toBe('Hier');
+  });
+
+  it('retourne un label relatif pour < 7 jours', () => {
+    const d3 = new Date(Date.now() - 3 * 86400000).toISOString().slice(0,10);
+    const label = dayLabel(d3);
+    expect(label).toMatch(/il y a 3 jours/);
+  });
+});
+
+describe('groupByDay', () => {
+  const items = [
+    { date: '2024-01-03', val: 'a' },
+    { date: '2024-01-03', val: 'b' },
+    { date: '2024-01-01', val: 'c' },
+  ];
+
+  it('groupe les items par date', () => {
+    const groups = groupByDay(items, 'date');
+    expect(groups).toHaveLength(2);
+  });
+
+  it('trie par date décroissante', () => {
+    const groups = groupByDay(items, 'date');
+    expect(groups[0][0]).toBe('2024-01-03');
+    expect(groups[1][0]).toBe('2024-01-01');
+  });
+
+  it('groupe correctement les items du même jour', () => {
+    const groups = groupByDay(items, 'date');
+    expect(groups[0][1]).toHaveLength(2);
+  });
+});
+
+describe('formatDuration', () => {
+  it('formate les minutes seules', () => {
+    expect(formatDuration(45)).toBe('45 min');
+  });
+
+  it('formate les heures seules', () => {
+    expect(formatDuration(120)).toBe('2 h');
+  });
+
+  it('formate heures et minutes', () => {
+    expect(formatDuration(90)).toBe('1 h 30 min');
+  });
+
+  it('retourne — pour null/undefined', () => {
+    expect(formatDuration(null)).toBe('—');
+    expect(formatDuration(undefined)).toBe('—');
+  });
+
+  it('retourne 0 min pour 0', () => {
+    expect(formatDuration(0)).toBe('0 min');
+  });
+});
