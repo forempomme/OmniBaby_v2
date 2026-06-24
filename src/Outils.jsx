@@ -12,7 +12,6 @@ import RechercheTool from './tools/Recherche.jsx';
 import DeveloppementTool from './tools/Developpement.jsx';
 import HistoriqueTool from './tools/Historique.jsx';
 import JournalBordTool from './tools/JournalBord.jsx';
-import JournalBordTool from './tools/JournalBord.jsx';
 
 // ----------------------------------------------------------------------
 // Tool definitions
