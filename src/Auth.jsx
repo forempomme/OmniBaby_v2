@@ -265,6 +265,7 @@ function FirebaseLoginScreen({ onDone }) {
         }
       }
 
+      await callSetFamilyClaim(familyId, 'admin');
       update((draft) => { draft.familyId = familyId; draft.familyCode = code; return draft; });
       showToast('Compte créé ! Données migrées.', '✅');
       onDone();
@@ -306,6 +307,7 @@ function FirebaseLoginScreen({ onDone }) {
 
       await setDoc(doc(db, 'users', cred.user.uid), { familyId, displayName, email });
 
+      await callSetFamilyClaim(familyId, 'editeur');
       update((draft) => { draft.familyId = familyId; return draft; });
       showToast('Famille rejointe !', '✅');
       onDone();
@@ -392,6 +394,24 @@ function FirebaseLoginScreen({ onDone }) {
       </div>
     </div>
   );
+}
+
+
+// ----------------------------------------------------------------------
+// Appeler la Cloud Function setFamilyClaim pour définir le Custom Claim
+// ----------------------------------------------------------------------
+async function callSetFamilyClaim(familyId, role) {
+  try {
+    const { getFunctions, httpsCallable } = await import('firebase/functions');
+    const functions = getFunctions();
+    const setFamilyClaim = httpsCallable(functions, 'setFamilyClaim');
+    await setFamilyClaim({ familyId, role });
+    // Forcer le refresh du token pour que le claim soit disponible immédiatement
+    await auth.currentUser?.getIdToken(true);
+  } catch (e) {
+    console.warn('[Auth] setFamilyClaim failed (non bloquant):', e.message);
+    // Non bloquant — l'app fonctionne sans Custom Claims (fallback sur rules Firestore)
+  }
 }
 
 function firebaseError(code) {
