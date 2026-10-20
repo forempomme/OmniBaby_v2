@@ -1,22 +1,24 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, genId, filterByActiveChild, getActiveChild, ageInMonths, ageInDays } from './store.jsx';
+import { useStore, filterByActiveChild, getActiveChild, ageInMonths, authorFields } from './store.jsx';
 import {
   toISODate,
   formatDateFR,
-  formatDateLongFR,
-  groupByDay,
-  dayLabel,
-  isToday,
   SwipeToDelete,
   useToast,
+  Accordion,
+  fireConfetti,
+  exportPDF,
+  scheduleNotif,
+  requestNotifPermission,
 } from './utils.jsx';
 import { Modal } from './Modal.jsx';
+import NoChildState from './NoChildState.jsx';
+import { Icon } from './icons.jsx';
 import {
   WEIGHT_LMS,
   HEIGHT_LMS,
   HEAD_LMS,
   PERCENTILE_Z,
-  PERCENTILE_LABELS,
   getLMS,
   lmsValue,
   estimatePercentile,
@@ -69,8 +71,8 @@ function VitaminDCard({ child, canEdit }) {
   };
 
   return (
-    <div className="card appear">
-      <div className="section-title" style={{ marginBottom: 6 }}>💊 Vitamine D</div>
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontWeight: 700, fontSize: '.9rem', marginBottom: 4 }}>Vitamine D</div>
       <div className="muted" style={{ fontSize: '0.85rem', marginBottom: 10 }}>
         Recommandée jusqu'à 24 mois (OMS / Santé publique France).
       </div>
@@ -78,7 +80,7 @@ function VitaminDCard({ child, canEdit }) {
         <span style={{ color: statusColor, fontWeight: 600, fontSize: '0.88rem' }}>{statusText}</span>
         {canEdit && !givenToday && (
           <button className="btn btn-secondary btn-sm" onClick={handleManualGive}>
-            ✓ Donnée aujourd'hui
+            Donnée aujourd'hui
           </button>
         )}
       </div>
@@ -109,11 +111,11 @@ function FeedingAdviceCard({ child }) {
   const typeLaitLabels = { maternel: 'Lait maternel', '1er_age': 'Lait 1er âge', '2e_age': 'Lait 2e âge', croissance: 'Lait de croissance' };
 
   return (
-    <div className="card appear">
-      <div className="section-title" style={{ marginBottom: 6 }}>🍼 Alimentation</div>
-      <div className="flex-row mt-8" style={{ flexWrap: 'wrap', gap: 6 }}>
+    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+      <div style={{ fontWeight: 700, fontSize: '.9rem', marginBottom: 4 }}>Alimentation</div>
+      <div className="flex-row" style={{ flexWrap: 'wrap', gap: 6 }}>
         <span className="chip active" style={{ cursor: 'default' }}>
-          {child.alimentation === 'allaitement' ? '🤱 Allaitement' : child.alimentation === 'mixte' ? '🤱🍼 Mixte' : '🍼 Lait infantile'}
+          {child.alimentation === 'allaitement' ? 'Allaitement' : child.alimentation === 'mixte' ? 'Mixte' : 'Lait infantile'}
         </span>
         {child.typeLait && (
           <span className="chip" style={{ cursor: 'default' }}>{typeLaitLabels[child.typeLait] || child.typeLait}</span>
@@ -128,7 +130,7 @@ function FeedingAdviceCard({ child }) {
 // Add measure modal
 // ----------------------------------------------------------------------
 function MesureForm({ open, onClose, type, child }) {
-  const { update, nextId } = useStore();
+  const { update, nextId, firebaseUser } = useStore();
   const showToast = useToast();
   const def = MESURE_TYPES[type];
   const [date, setDate] = useState(toISODate());
@@ -149,7 +151,7 @@ function MesureForm({ open, onClose, type, child }) {
     }
     const id = nextId();
     update((draft) => {
-      draft.mesures.push({ id, childId: child.id, type, date, valeur: v });
+      draft.mesures.push({ id, childId: child.id, type, date, valeur: v, ...authorFields(firebaseUser, 'created') });
       return draft;
     });
     showToast('Mesure enregistrée', '✅');
@@ -311,17 +313,18 @@ function MesureSection({ type, child, mesures, canEdit }) {
   };
 
   return (
-    <div className="card appear">
-      <div className="flex-between">
-        <div className="section-title" style={{ marginBottom: 0 }}>{def.icon} {def.label}</div>
-        {canEdit && (
+    <div>
+      {canEdit && (
+        <div className="flex-between">
+          <span className="muted" style={{ fontSize: '.8rem' }}>
+            {typeMesures[0] ? `Dernière : ${typeMesures[0].valeur} ${def.unit} le ${formatDateFR(typeMesures[0].date)}` : ''}
+          </span>
           <button className="btn btn-secondary btn-sm" onClick={() => setFormOpen(true)}>＋ Ajouter</button>
-        )}
-      </div>
+        </div>
+      )}
 
       {typeMesures.length === 0 ? (
         <div className="empty-state" style={{ padding: '24px 12px' }}>
-          <div className="emoji">{def.icon}</div>
           <div className="desc">Aucune mesure enregistrée. Ajoute la première pour voir la courbe.</div>
         </div>
       ) : (
@@ -356,23 +359,23 @@ function MesureSection({ type, child, mesures, canEdit }) {
 // Vaccination record
 // ----------------------------------------------------------------------
 function VaccinSection({ child, vaccins, canEdit }) {
-  const { update, nextId } = useStore();
+  const { store, update, nextId } = useStore();
   const showToast = useToast();
   const [showAll, setShowAll] = useState(false);
+  const notifsOn = store.settings?.notifs?.vaccin !== false;
   const ageM = ageInMonths(child.birthdate) ?? 0;
 
   const statusFor = (vaccinId) => vaccins.find((v) => v.vaccinId === vaccinId);
 
-  const { firebaseUser } = useStore();
-
+  // Rappel 7 jours avant le prochain vaccin du calendrier
   const scheduleNextVaccin = async (child, vaccins) => {
     if (!child?.birthdate) return;
     const granted = await requestNotifPermission();
     if (!granted) return;
-    const ageM = Math.floor((new Date() - new Date(child.birthdate)) / (1000 * 60 * 60 * 24 * 30.44));
+    const ageNow = ageInMonths(child.birthdate) ?? 0;
     const doneIds = new Set(vaccins.filter(v => v.status === 'done').map(v => v.vaccinId));
     const next = VACCINS_CALENDRIER
-      .filter(v => !doneIds.has(v.id) && v.ageMonths > ageM)
+      .filter(v => !doneIds.has(v.id) && v.ageMonths > ageNow)
       .sort((a, b) => a.ageMonths - b.ageMonths)[0];
     if (!next) return;
     // Calculer la date du prochain vaccin
@@ -393,23 +396,24 @@ function VaccinSection({ child, vaccins, canEdit }) {
 
   const toggleDone = (vaccinDef) => {
     const existing = statusFor(vaccinDef.id);
+    const record = existing ? null : {
+      id: nextId(),
+      childId: child.id,
+      vaccinId: vaccinDef.id,
+      name: vaccinDef.nom,
+      status: 'done',
+      date: toISODate(),
+    };
     update((draft) => {
-      if (existing) {
-        draft.vaccins = draft.vaccins.filter((v) => v.id !== existing.id);
-      } else {
-        draft.vaccins.push({
-          id: nextId(),
-          childId: child.id,
-          vaccinId: vaccinDef.id,
-          name: vaccinDef.nom,
-          status: 'done',
-          date: toISODate(),
-        });
-      }
+      if (existing) draft.vaccins = draft.vaccins.filter((v) => v.id !== existing.id);
+      else draft.vaccins.push(record);
       return draft;
     });
-    if (!existing) fireConfetti();
-    showToast(existing ? 'Marqué non fait' : 'Vaccin enregistré ✓', existing ? '↩️' : '💉');
+    if (!existing) {
+      fireConfetti();
+      if (notifsOn) scheduleNextVaccin(child, vaccins.concat(record));
+    }
+    showToast(existing ? 'Marqué non fait' : 'Vaccin enregistré', existing ? '↩️' : '💉');
   };
 
   const visibleVaccins = showAll
@@ -417,9 +421,8 @@ function VaccinSection({ child, vaccins, canEdit }) {
     : VACCINS_CALENDRIER.filter((v) => statusFor(v.id) || v.ageMonths <= ageM + 2);
 
   return (
-    <div className="card appear">
-      <div className="flex-between">
-        <div className="section-title" style={{ marginBottom: 0 }}>💉 Carnet de vaccination</div>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button className="btn btn-ghost btn-sm" onClick={() => setShowAll((s) => !s)}>
           {showAll ? 'Recommandés' : 'Tout afficher'}
         </button>
@@ -433,7 +436,7 @@ function VaccinSection({ child, vaccins, canEdit }) {
           return (
             <div key={v.id} className="swipe-content" style={{ cursor: canEdit ? 'pointer' : 'default' }} onClick={() => canEdit && toggleDone(v)}>
               <div className="entry-icon" style={{ background: done ? 'var(--accent-sage-soft)' : 'var(--surface-2)', color: done ? 'var(--accent-sage)' : 'var(--text-faint)' }}>
-                {done ? '✅' : '💉'}
+                <Icon name={done ? 'check' : 'plus'} size={done ? 20 : 18} />
               </div>
               <div className="entry-body">
                 <div className="entry-title" style={{ fontSize: '0.85rem' }}>{v.nom}</div>
@@ -452,6 +455,7 @@ function VaccinSection({ child, vaccins, canEdit }) {
 // ----------------------------------------------------------------------
 export default function SanteTab() {
   const { store, session } = useStore();
+  const showToast = useToast();
   const activeChild = getActiveChild(store);
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role !== 'lecture';
@@ -465,34 +469,38 @@ export default function SanteTab() {
     [store.vaccins, store.activeChildId]
   );
 
-  if (!activeChild) {
-    return (
-      <div className="empty-state">
-        <div className="emoji">👶</div>
-        <div className="title">Aucun profil enfant</div>
-        <div className="desc">Ajoute un profil enfant dans Réglages pour suivre sa croissance et ses vaccins.</div>
-      </div>
-    );
-  }
+  if (!activeChild) return <NoChildState />;
 
-  const showToastSante = useToast();
+  const count = (type) => childMesures.filter((m) => m.type === type).length || null;
+  const ageM = ageInMonths(activeChild.birthdate);
+
   const handlePDF = async () => {
-    if (!activeChild) { showToastSante('Aucun enfant actif', '⚠️'); return; }
-    try { await exportPDF(store, activeChild); showToastSante('PDF genere', '📄'); }
-    catch(e) { showToastSante('Erreur : '+e.message, '⚠️'); }
+    try { await exportPDF(store, activeChild); }
+    catch (e) { showToast('Erreur PDF : ' + e.message, '⚠️'); }
   };
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
-        <button className="btn btn-secondary btn-sm" onClick={handlePDF}>📄 Resume pediatre</button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <button className="btn btn-secondary btn-sm" onClick={handlePDF}>Résumé PDF pour le pédiatre</button>
       </div>
-      <VitaminDCard child={activeChild} canEdit={canEdit} />
-      <FeedingAdviceCard child={activeChild} />
-      <MesureSection type="poids" child={activeChild} mesures={childMesures} canEdit={canEdit} />
-      <MesureSection type="taille" child={activeChild} mesures={childMesures} canEdit={canEdit} />
-      <MesureSection type="perimetre" child={activeChild} mesures={childMesures} canEdit={canEdit} />
-      <VaccinSection child={activeChild} vaccins={childVaccins} canEdit={canEdit} />
+      <Accordion icon="💊" title={ageM != null && ageM >= 24 ? 'Alimentation' : 'Vitamine D & alimentation'} defaultOpen stateKey="sante.vitd">
+        <VitaminDCard child={activeChild} canEdit={canEdit} />
+        <FeedingAdviceCard child={activeChild} />
+      </Accordion>
+      <Accordion icon="⚖️" title="Poids" badge={count('poids')} defaultOpen stateKey="sante.poids">
+        <MesureSection type="poids" child={activeChild} mesures={childMesures} canEdit={canEdit} />
+      </Accordion>
+      <Accordion icon="📏" title="Taille" badge={count('taille')} stateKey="sante.taille">
+        <MesureSection type="taille" child={activeChild} mesures={childMesures} canEdit={canEdit} />
+      </Accordion>
+      <Accordion icon="🧠" title="Périmètre crânien" badge={count('perimetre')} stateKey="sante.perimetre">
+        <MesureSection type="perimetre" child={activeChild} mesures={childMesures} canEdit={canEdit} />
+      </Accordion>
+      <Accordion icon="💉" title="Carnet de vaccination" badge={childVaccins.length || null}
+        badgeColor="var(--accent-sage)" stateKey="sante.vaccins">
+        <VaccinSection child={activeChild} vaccins={childVaccins} canEdit={canEdit} />
+      </Accordion>
     </div>
   );
 }
