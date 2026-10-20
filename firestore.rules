@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ───────────────────────────────────────────────────────
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function familyPath(familyId) {
+      return /databases/$(database)/documents/families/$(familyId);
+    }
+
+    // Membre de la famille (1 lecture du document famille par requête)
+    function isMemberWrite(familyId) {
+      return signedIn()
+        && request.auth.uid in get(familyPath(familyId)).data.memberIds;
+    }
+
+    function isAdmin(familyId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Un nouveau parent s'ajoute lui-même à memberIds.
+    // Condition : il a d'abord créé son document members/{uid}, ce qui
+    // n'est possible qu'avec le bon code d'invitation (voir plus bas).
+    function isSelfJoin(familyId) {
+      return signedIn()
+        && !(request.auth.uid in resource.data.memberIds)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds'])
+        && request.resource.data.memberIds.hasAll(resource.data.memberIds)
+        && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
+        && request.auth.uid in request.resource.data.memberIds
+        && exists(/databases/$(database)/documents/families/$(familyId)/members/$(request.auth.uid));
+    }
+
+    // ── Familles ──────────────────────────────────────────────────────
+    match /families/{familyId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.memberIds;
+
+      // Création : uniquement sa propre famille, avec soi-même comme seul membre
+      allow create: if signedIn()
+                    && familyId == 'family_' + request.auth.uid
+                    && request.resource.data.memberIds == [request.auth.uid];
+
+      // Mise à jour :
+      //  - admin : tout
+      //  - membre (éditeur) : métadonnées (enfants, réglages partagés…) sans toucher
+      //    aux membres ni au code d'invitation
+      //  - nouveau parent : s'ajouter à memberIds (après création de son doc members)
+      allow update: if isAdmin(familyId)
+                    || (isMemberWrite(familyId)
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['memberIds', 'familyCode']))
+                    || isSelfJoin(familyId);
+
+      allow delete: if isAdmin(familyId);
+
+      match /members/{userId} {
+        allow read: if isMemberWrite(familyId);
+
+        // Création de son propre profil membre :
+        //  - admin : seulement le créateur de la famille (family_<uid>)
+        //  - éditeur : seulement avec le code d'invitation exact
+        allow create: if signedIn() && request.auth.uid == userId && (
+                          (request.resource.data.role == 'admin' && familyId == 'family_' + request.auth.uid)
+                          || (request.resource.data.role == 'editeur'
+                              && request.resource.data.joinCode == get(familyPath(familyId)).data.familyCode)
+                        );
+
+        // Mise à jour de son propre profil : jamais le rôle ni le code
+        allow update: if (signedIn() && request.auth.uid == userId
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'email', 'lastSeenAt']))
+                      || isAdmin(familyId);
+
+        allow delete: if isAdmin(familyId);
+      }
+
+      match /entries/{id}      { allow read, write: if isMemberWrite(familyId); }
+      match /mesures/{id}      { allow read, write: if isMemberWrite(familyId); }
+      match /vaccins/{id}      { allow read, write: if isMemberWrite(familyId); }
+      match /medicaments/{id}  { allow read, write: if isMemberWrite(familyId); }
+      match /temperatures/{id} { allow read, write: if isMemberWrite(familyId); }
+      match /aliments/{id}     { allow read, write: if isMemberWrite(familyId); }
+      match /journal/{id}      { allow read, write: if isMemberWrite(familyId); }
+      match /rappels/{id}      { allow read, write: if isMemberWrite(familyId); }
+    }
+
+    // ── Index des codes d'invitation ──────────────────────────────────
+    // familyCodes/{code} = { familyId }. Lecture unitaire pour un compte
+    // connecté (rejoindre une famille), jamais de listing.
+    match /familyCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+                    && request.resource.data.keys().hasOnly(['familyId'])
+                    && request.auth.uid in get(familyPath(request.resource.data.familyId)).data.memberIds
+                    && get(familyPath(request.resource.data.familyId)).data.familyCode == code;
+      allow update: if false;
+      allow delete: if signedIn() && isAdmin(resource.data.familyId);
+    }
+
+    // ── Profils utilisateurs ──────────────────────────────────────────
+    match /users/{userId} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
+  }
+}
