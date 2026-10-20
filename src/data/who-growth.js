@@ -21,13 +21,6 @@ export const PERCENTILE_Z = {
   p97: 1.8808,
 };
 
-export const PERCENTILE_LABELS = {
-  p3: '3e',
-  p15: '15e',
-  p50: '50e',
-  p85: '85e',
-  p97: '97e',
-};
 
 // LMS coefficients: [L, M, S] per month (index = month, 0 to 36)
 
