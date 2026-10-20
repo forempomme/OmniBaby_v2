@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
-import { formatTimeFR, groupByDay, dayLabel, SwipeToDelete, useToast } from '../utils.jsx';
+import { formatTimeFR, groupByDay, dayLabel, SwipeToDelete, useToast, sortByDateDesc } from '../utils.jsx';
 import { ENTRY_TYPES } from '../Journal.jsx';
 import { ALIMENT_STATUTS } from '../data/diversification.js';
 
@@ -108,7 +108,7 @@ function buildHistory(store) {
     });
   }
 
-  return items.filter((i) => i.date).sort((a, b) => (a.date < b.date ? 1 : -1));
+  return sortByDateDesc(items.filter((i) => i.date));
 }
 
 // ----------------------------------------------------------------------
