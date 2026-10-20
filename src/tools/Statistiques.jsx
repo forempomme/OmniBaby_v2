@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild, ageInMonths } from '../store.jsx';
-import { toISODate, daysAgo, shareJSON } from '../utils.jsx';
+import { toISODate, daysAgo } from '../utils.jsx';
 import { useToast } from '../utils.jsx';
 import { estimatePercentile, WEIGHT_LMS, HEIGHT_LMS, HEAD_LMS } from '../data/who-growth.js';
 
