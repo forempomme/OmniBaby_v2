@@ -49,6 +49,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Static check (variables, imports, hooks)
+        run: npm run check
+
       - name: Build React app
         run: npm run build
 
@@ -266,7 +269,7 @@ jobs:
           name: OmniBaby v${{ steps.version.outputs.version }}
           body: |
             ## OmniBaby v${{ steps.version.outputs.version }}
-            Application Android de suivi bébé — 100% hors-ligne, multi-enfants, sans compte.
+            Application Android de suivi bébé — hors-ligne, multi-enfants, synchronisation entre parents.
             ### Installation
             1. Télécharger `OmniBaby-v${{ steps.version.outputs.version }}.apk`
             2. Ouvrir sur Android → autoriser sources inconnues → installer
@@ -280,4 +283,3 @@ jobs:
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
