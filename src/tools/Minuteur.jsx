@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { toISODateTime } from '../utils.jsx';
-import { useStore, getActiveChild, genId } from '../store.jsx';
+import { useStore, getActiveChild, genId, authorFields } from '../store.jsx';
 import { useToast } from '../utils.jsx';
 
 const STORAGE_KEY = 'omnibaby_minuteur_v1';
@@ -28,6 +27,7 @@ function saveTimerState(state) {
   } catch (e) {
     /* ignore */
   }
+  window.dispatchEvent(new CustomEvent('omnibaby-timer', { detail: { active: state !== null } }));
 }
 
 // state shape:
@@ -121,7 +121,7 @@ export default function MinuteurTool({ onFinish }) {
     persist(null);
   };
 
-  const { store, update } = useStore();
+  const { store, update, firebaseUser } = useStore();
   const showToast = useToast();
   const activeChild = getActiveChild(store);
   const [lastEntry, setLastEntry] = React.useState(null);
@@ -135,6 +135,7 @@ export default function MinuteurTool({ onFinish }) {
       else finalState.elapsedDroit += delta;
     }
     if (!finalState) return;
+    if (!activeChild) { showToast("Crée d'abord le profil de bébé", '⚠️'); return; }
 
     const totalSeconds = finalState.elapsedGauche + finalState.elapsedDroit;
     const totalMinutes = Math.max(1, Math.round(totalSeconds / 60));
@@ -143,22 +144,22 @@ export default function MinuteurTool({ onFinish }) {
     else if (finalState.elapsedDroit > finalState.elapsedGauche) cote = 'droit';
     else cote = 'gauche';
 
+    // Heure de la tétée = début de la séance (pas l'heure de fin)
     const entry = {
       id: genId(),
       childId: activeChild?.id,
       type: 'biberon',
       mode: 'sein',
-      date: toISODateTime(),
+      date: new Date(finalState.startedAt || Date.now()).toISOString(),
       cote,
       duree: totalMinutes,
-      createdAt: new Date().toISOString(),
+      ...authorFields(firebaseUser, 'created'),
     };
 
     update((draft) => { draft.entries.push(entry); return draft; });
     setLastEntry(entry);
     reset();
-    showToast(`Tétée enregistrée — ${totalMinutes} min · ${cote}`, '✅');
-    onFinish && onFinish(entry);
+    showToast(`Tétée enregistrée — ${totalMinutes} min · ${cote === 'deux' ? 'les deux côtés' : cote}`, '✅');
   };
 
   const hasSession = !!state;
