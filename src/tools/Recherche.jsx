@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
-import { formatDateFR, formatDateTimeFR } from '../utils.jsx';
+import { formatDateFR, formatDateTimeFR, toTime } from '../utils.jsx';
 import { ENTRY_TYPES } from '../Journal.jsx';
 import { ALIMENT_STATUTS, ALIMENT_CATEGORIES } from '../data/diversification.js';
 
@@ -212,7 +212,7 @@ export default function RechercheTool() {
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
-      return a.date < b.date ? 1 : -1;
+      return toTime(b.date) - toTime(a.date);
     });
   }, [query, activeSources, store]);
 
