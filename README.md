@@ -7,20 +7,22 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 ## Fonctionnalités
 
 ### 📓 Journal
-- Saisie rapide : biberon (sein/biberon, quantité, durée, côté), change, sommeil, autre
-- Saisie ultra-rapide en 1 tap : Biberon, Pipi, Selles (heure automatique)
-- Vitamine D : cochée lors du biberon, reminder automatique si non donnée (< 24 mois)
-- Stamps enrichis : dernière heure + cumul journée
-- Appui long sur un stamp → formulaire pré-rempli
+- Saisie rapide : biberon (sein/biberon, quantité, durée, côté), change, autre ; le sommeil ouvre son formulaire dédié (début / fin / en cours)
+- Saisie en 1 tap : Biberon (dernière quantité), Tétée (côté alterné), Pipi, Selles
+- Vitamine D : bandeau « Donnée » en 1 tap tant qu'elle n'est pas notée (< 24 mois)
+- Tampons « temps écoulé » : depuis le dernier repas / change, sommeil en cours avec bouton Réveil
+- Tap sur un tampon = filtre ; appui long = ajouter ce type d'entrée
 - Vue compacte (toggle dans Réglages → Apparence)
 - Résumé hebdomadaire : moyennes 7 jours pour le pédiatre
 - Swipe gauche → corbeille avec confirmation
-- Traçabilité multi-parents : ✍️ Maman / ✏️ Papa visible sur chaque entrée
+- Traçabilité multi-parents : « par Julien » / « modifié par Marie » sur chaque entrée
+- Icônes SVG (navigation, journal, réglages)
 
 ### 📈 Santé
+- Sections repliables : Vitamine D & alimentation, Poids, Taille, Périmètre crânien, Vaccins
 - Courbes de croissance OMS : poids, taille, périmètre crânien avec percentiles
-- Carnet de vaccination (calendrier France 2024)
-- Rappel vitamine D (< 24 mois)
+- Carnet de vaccination + notification 7 jours avant le prochain vaccin
+- PDF pédiatre (voir Réglages)
 
 ### 🌙 Dodo
 - Enregistrement nuits et siestes avec durée
@@ -36,22 +38,20 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 | 🌡️ Fièvre | Courbe de température, alerte 38.5°C |
 | 🥦 Alimentation | Diversification 0-3 ans avec dates, grille aliments testés |
 | 📊 Statistiques | Graphiques 7j / 30j / 3 mois |
-| 📸 Journal de bord | Souvenirs et étapes de développement |
+| 📸 Journal de bord | Souvenirs, premières fois, moments drôles |
+| 🧩 Développement | Repères moteurs, langage et éveil par âge |
 | 🎯 Rappels | RDV médicaux avec notifications locales |
 | 🗂️ Historique | Toutes les entrées, tri par date ou type |
-| 👨‍👩‍👧 Famille | Utilisateurs, rôles, code d'invitation famille |
+| 👨‍👩‍👧 Famille | Profils PIN de ce téléphone et leurs rôles |
 | 🆘 Urgence | Fiche baby-sitter (accessible sans PIN) |
 | 🔍 Recherche | Recherche globale dans toutes les données |
 
-### ⚙️ Réglages
-- Profils multi-enfants
-- Thème auto (sombre 21h–7h) ou manuel
-- Vue compacte du Journal
-- Biométrie (empreinte digitale)
-- Synchronisation famille Firebase (code à 6 chiffres)
-- Export / import JSON (partage natif Android)
-- Export PDF résumé pédiatre (partage natif Android)
-- À propos : version, sources médicales
+### ⚙️ Réglages (5 sections)
+- **Bébé** : profils multi-enfants
+- **Famille & synchro** : membres, code d'invitation (masqué + Partager), connexion / rejoindre, profils PIN
+- **Préférences** : thème, mode nuit (badge « Nuit » = arrêt jusqu'à 7 h), saisie, biométrie — propres à chaque téléphone
+- **Rappels & notifications**
+- **Sauvegarde & export** : JSON, PDF pédiatre (police Poppins embarquée, accents corrects), version
 
 ---
 
@@ -60,16 +60,26 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 ### Principe
 Les données sont synchronisées en temps réel entre tous les appareils de la famille via Firebase Firestore. L'app reste utilisable hors-ligne (cache local IndexedDB) et se synchronise au retour du réseau.
 
+### Premier lancement (4 étapes)
+1. Présentation (3 écrans)
+2. Ton profil : prénom + code PIN (stocké haché, SHA-256)
+3. Synchronisation : connexion, nouveau compte, rejoindre, ou « plus tard »
+4. Ton bébé : prénom, naissance, sexe, alimentation — ou « J'attends encore bébé »
+
 ### Flux Parent 1 (admin)
-1. Premier lancement → onboarding 3 écrans → créer profil PIN
-2. Connexion Firebase → "Créer un compte" (email + mot de passe)
-3. Les données locales sont migrées vers Firestore
-4. Réglages → Synchronisation → noter le **code famille à 6 chiffres**
+1. Étape 3 → « Nouveau compte » : la famille et son code à 6 chiffres sont créés, les données locales migrées
+2. Réglages → Famille & synchro → **Partager** le code d'invitation
 
 ### Flux Parent 2
-1. Installer l'APK → onboarding → créer profil PIN
-2. Connexion Firebase → "Rejoindre une famille" → entrer le code à 6 chiffres
-3. Toutes les données se synchronisent instantanément
+1. Étape 3 → « Rejoindre » → code à 6 chiffres + email/mot de passe
+2. Le code est vérifié via `familyCodes/{code}` ; sans le bon code, impossible de rejoindre (règles Firestore)
+
+### Règles Firestore
+`firestore.rules` doit être publié dans la console Firebase (Firestore → Règles). Depuis la v3.8.0 :
+- un éditeur peut modifier les enfants et réglages partagés (pas les membres ni le code) ;
+- rejoindre une famille exige le code d'invitation ;
+- `familyCodes/{code}` : lecture unitaire seulement, pas de listing ;
+- `users/{uid}` : lisible uniquement par son propriétaire.
 
 ### Statut de sync (topbar)
 - 🟢 Synchronisé
@@ -87,10 +97,10 @@ Les données sont synchronisées en temps réel entre tous les appareils de la f
 | Mobile | Capacitor 6 (Android) |
 | Base de données cloud | Firebase Firestore |
 | Authentification | Firebase Auth (email/mot de passe) |
-| Cache offline | IndexedDB (via Firebase SDK) + localStorage |
+| Cache offline | persistentLocalCache Firestore (IndexedDB) + localStorage |
 | Notifications | @capacitor/local-notifications |
 | Biométrie | @capgo/capacitor-native-biometric 6.x |
-| Export PDF | jsPDF |
+| Export PDF | jsPDF + police Poppins (OFL) chargée à la demande |
 | Partage fichiers | @capacitor/filesystem + @capacitor/share |
 | Stockage local | localStorage |
 | Polices | Fredoka (titres), Inter (corps), JetBrains Mono (chiffres) |
@@ -104,7 +114,12 @@ omnibaby/
 ├── src/
 │   ├── App.jsx              # Shell principal, navigation, skeleton loader
 │   ├── Auth.jsx             # Onboarding + écran PIN + biométrie + Firebase Auth
-│   ├── Journal.jsx          # Journal (saisie rapide, swipe, traçabilité)
+│   ├── Journal.jsx          # Onglet Journal (assemble src/journal/*)
+│   ├── journal/             # entryTypes, EntryForm, TodayOverview, EntryItem, QuickEntryBar, WeekSummary
+│   ├── NoChildState.jsx     # État vide « Créer le profil de bébé »
+│   ├── ChildForm.jsx        # Formulaire profil enfant
+│   ├── icons.jsx            # Icônes SVG
+│   ├── pdf.js               # PDF pédiatre + fiche de garde (chargé à la demande)
 │   ├── Sante.jsx            # Courbes croissance, vaccins
 │   ├── Dodo.jsx             # Sommeil, graphique
 │   ├── Outils.jsx           # Grille 11 modules
@@ -112,7 +127,8 @@ omnibaby/
 │   ├── Modal.jsx            # Bottom-sheet + abandon formulaire
 │   ├── store.jsx            # Store React Context + sync Firestore temps réel
 │   ├── firebase.js          # Init Firebase + exports
-│   ├── utils.jsx            # Helpers partagés (Accordion, notifications, PDF...)
+│   ├── utils.jsx            # Helpers partagés (dates, Accordion, partage, notifications)
+│   ├── assets/fonts/        # Poppins (PDF)
 │   ├── styles.css           # Design system Terracotta
 │   ├── version.js           # Version (générée par CI)
 │   ├── data/
@@ -120,7 +136,8 @@ omnibaby/
 │   │   └── diversification.js  # Étapes 0-3 ans + catégories aliments
 │   └── tools/               # 11 modules Outils
 ├── google-services.json     # Config Firebase Android (à la racine)
-├── firestore.rules          # Règles de sécurité Firestore
+├── firestore.rules          # Règles de sécurité Firestore (à publier dans la console)
+├── scripts/check-code.mjs   # Vérification statique lancée par la CI avant le build
 ├── assets/android-icons/    # Icônes par densité
 ├── public/icon.png          # Icône source ≥ 1024×1024px
 ├── .github/workflows/build.yml
@@ -153,6 +170,7 @@ omnibaby/
 | 3.0.1–3.0.2 | Corrections Firebase (écran blanc, topbar) |
 | 3.1.0 | Améliorations UI (stamps, modal handle, FAB, chips) |
 | 3.2.0 | Recherche, notifications, onboarding, IDs UUID, Famille Firebase |
+| **3.8.0** | Corrections (saisie, rapport d'activité, Santé, rejoindre une famille), premier lancement en 4 étapes, journal « temps écoulé » + icônes SVG, Réglages en 5 sections, nouveau PDF pédiatre, PIN haché, vérification statique en CI |
 
 ---
 
@@ -160,7 +178,7 @@ omnibaby/
 
 Le workflow `.github/workflows/build.yml` :
 1. Lit `version.properties`
-2. `npm install` + `npm run build` (Vite)
+2. `npm install` + `npm run check` (vérification statique : variables non définies, imports cassés, hooks React) + `npm run build` (Vite)
 3. Setup Java 17 + Android SDK
 4. `npx cap add android` + `npx cap sync android`
 5. Copie `google-services.json` → `android/app/`
