@@ -8,7 +8,7 @@ import { DIVERSIFICATION_STAGES, ALIMENT_CATEGORIES, ALIMENT_STATUTS } from '../
 // Aliments pré-remplis (seed au premier lancement pour un enfant)
 // Tous en statut "a_tester" — l'utilisateur met à jour au fil des essais
 // ----------------------------------------------------------------------
-export const ALIMENTS_SEED = [
+const ALIMENTS_SEED = [
   // Légumes
   { nom: 'Carotte', categorie: 'legume', icon: '🥕' },
   { nom: 'Courgette', categorie: 'legume', icon: '🥒' },
@@ -456,7 +456,7 @@ function AlimentsGrid({ child, aliments, canEdit, embedded = false }) {
 // Main Alimentation module
 // ----------------------------------------------------------------------
 export default function AlimentationTool() {
-  const { store, update, nextId, session } = useStore();
+  const { store, update, session } = useStore();
   const activeChild = getActiveChild(store);
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role !== 'lecture';
