@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, getActiveChild, ageInMonths, genId } from '../store.jsx';
-import { toISODate, useToast, scheduleNotif, requestNotifPermission, fireConfetti } from '../utils.jsx';
+import { useStore, getActiveChild, ageInMonths } from '../store.jsx';
+import { useToast, scheduleNotif, requestNotifPermission, fireConfetti } from '../utils.jsx';
 import { DEV_CATEGORIES, DEV_JALONS } from '../data/developpement.js';
 
 // ----------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------
-function formatAge(months) {
+function formatAgeMonths(months) {
   if (months < 12) return `${months} mois`;
   const y = Math.floor(months / 12), m = months % 12;
   return m > 0 ? `${y} an${y>1?'s':''} ${m} mois` : `${y} an${y>1?'s':''}`;
@@ -50,7 +50,7 @@ function JalonCard({ jalon, done, doneDate, onToggle, ageM }) {
           {jalon.label}
         </div>
         <div style={{ fontSize: '.68rem', color: 'var(--text-soft)', marginTop: 2, display: 'flex', gap: 6 }}>
-          <span>{formatAge(Math.round(jalon.ageMin/4))}–{formatAge(Math.round(jalon.ageMax/4))}</span>
+          <span>{formatAgeMonths(Math.round(jalon.ageMin/4))}–{formatAgeMonths(Math.round(jalon.ageMax/4))}</span>
           {done && doneDate && <span style={{ color:'var(--accent-sage)' }}>· {new Date(doneDate).toLocaleDateString('fr-FR')}</span>}
           {isLate && !done && <span style={{ color:'var(--danger)', fontWeight:700 }}>· À surveiller</span>}
           {isCurrentRange && !done && <span style={{ color:'var(--primary)', fontWeight:700 }}>· Attendu</span>}
