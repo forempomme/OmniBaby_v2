@@ -4,7 +4,7 @@ import React, {
 import {
   auth, db,
   onAuthStateChanged, signOut,
-  doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  doc, collection, getDoc, setDoc, deleteDoc, onSnapshot,
   serverTimestamp,
 } from './firebase.js';
 
@@ -14,10 +14,26 @@ const SESSION_KEY = 'omnibaby_session_v3';
 // ----------------------------------------------------------------------
 // Tables synchronisées avec Firestore
 // ----------------------------------------------------------------------
-const SYNC_TABLES = [
+export const SYNC_TABLES = [
   'entries', 'mesures', 'vaccins', 'medicaments',  // sommeils fusionné dans entries v3.3.0
   'temperatures', 'aliments', 'journal', 'rappels',
 ];
+
+// Réglages propres à chaque téléphone : jamais envoyés à l'autre parent,
+// jamais écrasés par lui (thème, mode nuit, biométrie, notifications…).
+const LOCAL_SETTING_KEYS = [
+  'dark', 'darkHour', 'nightMode', 'nightHour', 'nightSnoozeUntil',
+  'journalCompact', 'biometrie', 'swipeToDelete', 'confirmDelete',
+  'notifs', 'lastExportDate',
+];
+
+export function sharedSettings(settings) {
+  const out = {};
+  for (const [k, v] of Object.entries(settings || {})) {
+    if (!LOCAL_SETTING_KEYS.includes(k)) out[k] = v;
+  }
+  return out;
+}
 
 // ----------------------------------------------------------------------
 // Store local vide
@@ -27,6 +43,7 @@ export function emptyStore() {
     children: [],
     activeChildId: null,
     users: [],
+    members: [], // membres Firebase de la famille (lecture seule, depuis Firestore)
     entries: [],
     mesures: [],
     vaccins: [],
@@ -94,7 +111,7 @@ export function migrateStore(raw) {
     store.activeChildId = store.children[0].id;
   }
 
-  for (const key of SYNC_TABLES.concat(['users', 'children'])) {
+  for (const key of SYNC_TABLES.concat(['users', 'children', 'members'])) {
     if (!Array.isArray(store[key])) store[key] = [];
   }
   if (typeof store.etapesDiv !== 'object' || store.etapesDiv === null) {
@@ -102,7 +119,6 @@ export function migrateStore(raw) {
   }
 
   // Migration sommeils → entries (v3.3.0)
-  // Copier store.sommeils dans store.entries si pas encore fait
   if (Array.isArray(store.sommeils) && store.sommeils.length > 0) {
     const existingIds = new Set((store.entries || []).map(e => String(e.id)));
     const toMigrate = store.sommeils.filter(s => !existingIds.has(String(s.id)));
@@ -114,9 +130,8 @@ export function migrateStore(raw) {
         date: s.debut,
         enCours: !s.fin,
       })));
-      console.log(`[Migration] ${toMigrate.length} sommeils migrés vers entries`);
     }
-    store.sommeils = []; // Vider après migration
+    store.sommeils = [];
   }
 
   store.settings = {
@@ -157,9 +172,9 @@ export function migrateStore(raw) {
 }
 
 // ----------------------------------------------------------------------
-// Persistence locale
+// Persistance locale
 // ----------------------------------------------------------------------
-export function loadStore() {
+function loadStore() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return emptyStore();
@@ -168,16 +183,16 @@ export function loadStore() {
     return emptyStore();
   }
 }
-export function saveStore(store) {
+function saveStore(store) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
 }
-export function loadSession() {
+function loadSession() {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (e) { return null; }
 }
-export function saveSession(s) {
+function saveSession(s) {
   try {
     if (s === null) localStorage.removeItem(SESSION_KEY);
     else localStorage.setItem(SESSION_KEY, JSON.stringify(s));
@@ -187,65 +202,82 @@ export function saveSession(s) {
 // ----------------------------------------------------------------------
 // Helpers Firestore
 // ----------------------------------------------------------------------
-export function familyRef(familyId) {
+function familyRef(familyId) {
   return doc(db, 'families', familyId);
 }
-export function familyColRef(familyId, colName) {
-  return collection(db, 'families', familyId, colName);
-}
-export function familyDocRef(familyId, colName, docId) {
+function familyDocRef(familyId, colName, docId) {
   return doc(db, 'families', familyId, colName, String(docId));
 }
+export function familyCodeRef(code) {
+  return doc(db, 'familyCodes', String(code));
+}
 
-// Générer un code famille à 6 chiffres
+// Code famille à 6 chiffres
 export function generateFamilyCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-// genId → voir définition UUID plus bas
+function emitSyncError(table, e) {
+  console.error(`[Firebase] ${table}:`, e);
+  window.dispatchEvent(new CustomEvent('firebase-sync-error', { detail: { table, error: e?.message || String(e) } }));
+}
 
-// ----------------------------------------------------------------------
-// Push une entrée vers Firestore (upsert)
-// ----------------------------------------------------------------------
+// Firestore refuse les valeurs undefined : on les retire
+function clean(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) if (v !== undefined) out[k] = v;
+  return out;
+}
+
 async function pushItem(familyId, table, item) {
   if (!familyId || !item?.id) return;
   try {
-    await setDoc(
-      familyDocRef(familyId, table, item.id),
-      { ...item, _updatedAt: serverTimestamp() },
-      { merge: true }
-    );
-  } catch (e) {
-    console.error(`[Firebase] pushItem ${table}:`, e);
-    // Émettre un événement custom pour que l'UI puisse afficher une erreur
-    window.dispatchEvent(new CustomEvent('firebase-sync-error', { detail: { table, error: e.message } }));
-  }
+    await setDoc(familyDocRef(familyId, table, item.id), { ...clean(item), _updatedAt: serverTimestamp() });
+  } catch (e) { emitSyncError(table, e); }
 }
 
-// Supprimer une entrée dans Firestore
 async function deleteItem(familyId, table, id) {
   if (!familyId || !id) return;
   try {
     await deleteDoc(familyDocRef(familyId, table, id));
-  } catch (e) {
-    console.error(`[Firebase] deleteItem ${table}:`, e);
-  }
+  } catch (e) { emitSyncError(table, e); }
 }
 
-// Push le profil famille (children, settings, etapesDiv)
+// Métadonnées famille partagées (enfants, réglages partagés, étapes diversification)
 async function pushFamilyMeta(familyId, store) {
   if (!familyId) return;
   try {
     await setDoc(familyRef(familyId), {
       children: store.children,
       activeChildId: store.activeChildId,
-      settings: store.settings,
+      settings: sharedSettings(store.settings),
       etapesDiv: store.etapesDiv,
       _updatedAt: serverTimestamp(),
     }, { merge: true });
-  } catch (e) {
-    console.error('[Firebase] pushFamilyMeta:', e);
+  } catch (e) { emitSyncError('famille', e); }
+}
+
+// Pousse vers Firestore la différence entre deux états du store
+function pushDiff(prev, next, { deletions = true } = {}) {
+  const familyId = next.familyId;
+  if (!familyId || !auth.currentUser) return;
+  for (const table of SYNC_TABLES) {
+    const prevById = new Map((prev[table] || []).map((i) => [i.id, i]));
+    const nextIds = new Set();
+    for (const item of next[table] || []) {
+      nextIds.add(item.id);
+      const before = prevById.get(item.id);
+      if (!before || JSON.stringify(before) !== JSON.stringify(item)) pushItem(familyId, table, item);
+    }
+    if (deletions) {
+      for (const id of prevById.keys()) if (!nextIds.has(id)) deleteItem(familyId, table, id);
+    }
   }
+  const metaChanged =
+    JSON.stringify(prev.children) !== JSON.stringify(next.children) ||
+    JSON.stringify(sharedSettings(prev.settings)) !== JSON.stringify(sharedSettings(next.settings)) ||
+    JSON.stringify(prev.etapesDiv) !== JSON.stringify(next.etapesDiv);
+  if (metaChanged) pushFamilyMeta(familyId, next);
 }
 
 // ----------------------------------------------------------------------
@@ -258,9 +290,18 @@ export function StoreProvider({ children: reactChildren }) {
   const [session, setSessionState] = useState(() => loadSession());
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [syncStatus, setSyncStatus] = useState('offline'); // 'offline'|'syncing'|'synced'|'error'
+  // storeRef = source de vérité synchrone : deux update() successifs dans le
+  // même événement voient chacun l'état produit par le précédent.
   const storeRef = useRef(store);
-  storeRef.current = store;
   const unsubscribers = useRef([]);
+  const codeChecked = useRef(false);
+
+  const commit = useCallback((producer) => {
+    const next = producer(storeRef.current);
+    if (next === storeRef.current) return;
+    storeRef.current = next;
+    setStoreState(next);
+  }, []);
 
   // ── Persistance locale ────────────────────────────────────────────
   useEffect(() => { saveStore(store); }, [store]);
@@ -270,17 +311,23 @@ export function StoreProvider({ children: reactChildren }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
-      if (user) {
-        startSync(user);
-      } else {
-        stopSync();
-        setSyncStatus('offline');
-      }
+      if (user) startSync(user);
+      else { stopSync(); setSyncStatus('offline'); }
     });
-    return () => unsub();
+    return () => { unsub(); stopSync(); };
   }, []);
 
-  // ── Listeners temps réel ──────────────────────────────────────────
+  // Garantit que le code d'invitation de la famille est rejoignable
+  // (familles créées avant la v3.8.0 : pas encore de document familyCodes)
+  async function ensureFamilyCode(familyId, code) {
+    if (codeChecked.current || !code) return;
+    codeChecked.current = true;
+    try {
+      const snap = await getDoc(familyCodeRef(code));
+      if (!snap.exists()) await setDoc(familyCodeRef(code), { familyId });
+    } catch (e) { console.warn('[Firebase] familyCodes:', e?.message); }
+  }
+
   function startSync(user) {
     const familyId = storeRef.current.familyId;
     if (!familyId) { setSyncStatus('offline'); return; }
@@ -288,23 +335,49 @@ export function StoreProvider({ children: reactChildren }) {
     setSyncStatus('syncing');
     stopSync();
 
-    // 1. Listener sur les métadonnées famille (children, settings, etapesDiv)
+    // Présence : « vu il y a X min » dans Réglages → Famille
+    setDoc(doc(db, 'families', familyId, 'members', user.uid), { lastSeenAt: serverTimestamp() }, { merge: true })
+      .catch(() => {});
+
+    // 1. Métadonnées famille
     const unsubMeta = onSnapshot(familyRef(familyId), (snap) => {
       if (!snap.exists()) return;
       const data = snap.data();
-      setStoreState((prev) => ({
-        ...prev,
-        children: data.children || prev.children,
-        activeChildId: data.activeChildId || prev.activeChildId,
-        settings: { ...prev.settings, ...(data.settings || {}) },
-        etapesDiv: data.etapesDiv || prev.etapesDiv,
-      }));
+      commit((prev) => {
+        const children = data.children || prev.children;
+        const activeOk = children.some((c) => c.id === prev.activeChildId);
+        return {
+          ...prev,
+          children,
+          activeChildId: activeOk ? prev.activeChildId : (data.activeChildId || children[0]?.id || null),
+          // Les réglages locaux de ce téléphone ne sont jamais écrasés
+          settings: { ...prev.settings, ...sharedSettings(data.settings) },
+          etapesDiv: data.etapesDiv || prev.etapesDiv,
+          familyCode: data.familyCode || prev.familyCode,
+        };
+      });
+      ensureFamilyCode(familyId, data.familyCode);
       setSyncStatus('synced');
     }, (e) => { console.error('[Firebase] meta listener:', e); setSyncStatus('error'); });
-
     unsubscribers.current.push(unsubMeta);
 
-    // 2. Listeners sur chaque table de données
+    // 2. Membres (affichage uniquement)
+    const unsubMembers = onSnapshot(collection(db, 'families', familyId, 'members'), (snap) => {
+      const members = snap.docs.map((d) => {
+        const m = d.data();
+        return {
+          uid: d.id,
+          displayName: m.displayName || '',
+          email: m.email || '',
+          role: m.role || 'editeur',
+          lastSeenAt: m.lastSeenAt?.toMillis ? m.lastSeenAt.toMillis() : null,
+        };
+      });
+      commit((prev) => ({ ...prev, members }));
+    }, (e) => console.warn('[Firebase] members listener:', e?.message));
+    unsubscribers.current.push(unsubMembers);
+
+    // 3. Tables de données
     for (const table of SYNC_TABLES) {
       const unsub = onSnapshot(
         collection(db, 'families', familyId, table),
@@ -313,7 +386,7 @@ export function StoreProvider({ children: reactChildren }) {
             const { _updatedAt, ...rest } = d.data();
             return rest;
           });
-          setStoreState((prev) => ({ ...prev, [table]: items }));
+          commit((prev) => ({ ...prev, [table]: items }));
           setSyncStatus('synced');
         },
         (e) => { console.error(`[Firebase] ${table} listener:`, e); setSyncStatus('error'); }
@@ -329,64 +402,47 @@ export function StoreProvider({ children: reactChildren }) {
 
   // ── Relancer la sync si familyId change ───────────────────────────
   useEffect(() => {
-    if (firebaseUser && store.familyId) {
-      startSync(firebaseUser);
-    }
+    codeChecked.current = false;
+    if (auth.currentUser && store.familyId) startSync(auth.currentUser);
   }, [store.familyId]);
 
-  // ── Mutation helper ───────────────────────────────────────────────
-  // Détecte automatiquement les ajouts/modifs/suppressions et push vers Firestore
+  // ── Mutation ──────────────────────────────────────────────────────
+  // Calcule l'état suivant à partir de storeRef (pas dans un updater React,
+  // qui peut être rejoué en StrictMode → doubles écritures Firestore), puis
+  // pousse uniquement les différences.
   const update = useCallback((fn) => {
-    setStoreState((prev) => {
-      const draft = JSON.parse(JSON.stringify(prev));
-      const result = fn(draft);
-      const next = result || draft;
-      const familyId = next.familyId;
-
-      // Diff par table pour push uniquement ce qui a changé
-      if (familyId) {
-        for (const table of SYNC_TABLES) {
-          const prevIds = new Set((prev[table] || []).map((i) => i.id));
-          const nextIds = new Set((next[table] || []).map((i) => i.id));
-
-          // Ajouts et modifications
-          for (const item of next[table] || []) {
-            const prevItem = (prev[table] || []).find((i) => i.id === item.id);
-            if (!prevItem || JSON.stringify(prevItem) !== JSON.stringify(item)) {
-              pushItem(familyId, table, item);
-            }
-          }
-          // Suppressions
-          for (const id of prevIds) {
-            if (!nextIds.has(id)) {
-              deleteItem(familyId, table, id);
-            }
-          }
-        }
-        // Métadonnées (children, settings, etapesDiv, activeChildId)
-        const metaChanged =
-          JSON.stringify(prev.children) !== JSON.stringify(next.children) ||
-          JSON.stringify(prev.settings) !== JSON.stringify(next.settings) ||
-          JSON.stringify(prev.etapesDiv) !== JSON.stringify(next.etapesDiv) ||
-          prev.activeChildId !== next.activeChildId;
-        if (metaChanged) pushFamilyMeta(familyId, next);
-      }
-
-      return next;
-    });
+    const prev = storeRef.current;
+    const draft = JSON.parse(JSON.stringify(prev));
+    const next = fn(draft) || draft;
+    storeRef.current = next;
+    setStoreState(next);
+    pushDiff(prev, next);
   }, []);
 
-  const nextId = useCallback(() => {
-    // Utilise UUID pour éviter les collisions multi-utilisateurs
-    return genId();
-  }, []);
+  const nextId = useCallback(() => genId(), []);
 
+  // Import JSON : remplace les données locales ; si une famille est
+  // connectée, ajoute/modifie dans le cloud sans rien y supprimer.
   const replaceStore = useCallback((newStore) => {
-    setStoreState(migrateStore(newStore));
+    const prev = storeRef.current;
+    const migrated = migrateStore(newStore);
+    const next = {
+      ...migrated,
+      familyId: prev.familyId,
+      familyCode: prev.familyCode,
+      members: prev.members,
+      users: migrated.users.length ? migrated.users : prev.users,
+    };
+    storeRef.current = next;
+    setStoreState(next);
+    pushDiff(prev, next, { deletions: false });
   }, []);
 
   const resetStore = useCallback(() => {
-    setStoreState(emptyStore());
+    stopSync();
+    const next = emptyStore();
+    storeRef.current = next;
+    setStoreState(next);
     setSessionState(null);
   }, []);
 
@@ -400,7 +456,6 @@ export function StoreProvider({ children: reactChildren }) {
 
   const value = {
     store,
-    setStore: setStoreState,
     update,
     nextId,
     replaceStore,
@@ -430,11 +485,19 @@ export function genId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback pour anciens navigateurs
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   });
+}
+
+// Auteur d'une saisie (affiché « par Julien »)
+export function authorFields(firebaseUser, prefix = 'created') {
+  return {
+    [`${prefix}By`]: firebaseUser?.uid || null,
+    [`${prefix}ByName`]: firebaseUser?.displayName || firebaseUser?.email?.split('@')[0] || null,
+    [`${prefix}At`]: new Date().toISOString(),
+  };
 }
 
 // ----------------------------------------------------------------------
@@ -446,7 +509,7 @@ export function getActiveChild(store) {
 }
 
 export function filterByActiveChild(list, activeChildId) {
-  return list.filter((i) => i.childId == null || i.childId === activeChildId);
+  return (list || []).filter((i) => i.childId == null || i.childId === activeChildId);
 }
 
 export function ageInMonths(birthdate) {
