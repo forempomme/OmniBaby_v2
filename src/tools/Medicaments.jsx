@@ -1,15 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
-import { formatDateFR, ConfirmInline, useToast } from '../utils.jsx';
+import { formatDateFR, ConfirmInline, useToast, pad2, scheduleNotif, requestNotifPermission } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
-import { scheduleNotif, cancelNotif, requestNotifPermission } from '../utils.jsx';
 
 // ----------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------
-function pad2(n) {
-  return String(n).padStart(2, '0');
-}
 
 function nowHM() {
   const d = new Date();
