@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, filterByActiveChild, getActiveChild, ageInMonths, genId } from './store.jsx';
+import { useStore, filterByActiveChild, getActiveChild, ageInMonths, genId, authorFields } from './store.jsx';
 import {
-  toISODate, toISODateTime, formatTimeFR, formatDateFR,
+  toISODate, toISODateTime, toLocalDT, toTime, formatTimeFR,
   groupByDay, dayLabel, daysAgo, isToday, useToast,
 } from './utils.jsx';
 import { Modal } from './Modal.jsx';
+import NoChildState from './NoChildState.jsx';
 
 // ----------------------------------------------------------------------
 // Recommandations de sommeil OMS
@@ -32,7 +33,7 @@ const QUALITES = [
 
 const HUMEURS = ['Calme', 'Souriant', 'Grognon', 'Pleurs'];
 
-export function formatDuration(minutes) {
+function formatDuration(minutes) {
   if (!minutes && minutes !== 0) return '—';
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
@@ -46,21 +47,13 @@ function diffMinutes(start, end) {
   return Math.round(diff <= 0 ? diff + 24 * 60 : diff);
 }
 
-function toLocalDT(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 // ----------------------------------------------------------------------
 // Formulaire sommeil — partagé entre Dodo et Journal
 // Supporte "sommeil en cours" : début sans fin
 // ----------------------------------------------------------------------
 export function SommeilForm({ open, onClose, child, editing, onSaved }) {
-  const { update, store } = useStore();
+  const { update, firebaseUser } = useStore();
   const showToast = useToast();
-  const firebaseUser = store.users ? undefined : undefined; // sera lu via useStore
 
   const [type, setType] = useState('sieste');
   const [debut, setDebut] = useState('');
@@ -82,7 +75,7 @@ export function SommeilForm({ open, onClose, child, editing, onSaved }) {
       setNote(editing.note || '');
     } else {
       setType('sieste');
-      setDebut(toLocalDT(new Date().toISOString()));
+      setDebut(toISODateTime());
       setFin('');
       setEnCours(false);
       setQualite('bon');
@@ -99,25 +92,31 @@ export function SommeilForm({ open, onClose, child, editing, onSaved }) {
       showToast('La fin doit être après le début', '⚠️'); return;
     }
 
+    if (!enCours && !fin) { showToast("Indique l'heure de fin ou active « en cours »", '⚠️'); return; }
+    // Stockage en ISO UTC (comme le reste du journal)
+    const debutISO = new Date(debut).toISOString();
+    const finISO = !enCours && fin ? new Date(fin).toISOString() : null;
+    const base = editing?.id
+      ? { createdBy: editing.createdBy || null, createdByName: editing.createdByName || null, createdAt: editing.createdAt || null, ...authorFields(firebaseUser, 'updated') }
+      : authorFields(firebaseUser, 'created');
     const entry = {
+      ...base,
       id: editing?.id || genId(),
-      childId: child?.id,
+      childId: editing?.childId || child?.id,
       type: 'sommeil',
       sousType: type,          // 'nuit' | 'sieste'
-      date: debut,             // heure de début (= date pour le Journal)
-      debut,
-      fin: enCours ? null : (fin || null),
+      date: debutISO,          // heure de début (= date pour le Journal)
+      debut: debutISO,
+      fin: finISO,
       duree: enCours ? null : dureeCalc,
       enCours,                 // true = sommeil commencé mais pas encore terminé
       qualite,
       humeurReveil: enCours ? null : humeurReveil,
       note: note.trim() || null,
-      createdAt: editing ? (editing.createdAt || new Date().toISOString()) : new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     };
 
     update((draft) => {
-      if (editing) {
+      if (editing?.id) {
         const idx = draft.entries.findIndex((e) => e.id === editing.id);
         if (idx !== -1) draft.entries[idx] = entry;
         else draft.entries.push(entry);
@@ -128,7 +127,7 @@ export function SommeilForm({ open, onClose, child, editing, onSaved }) {
     });
 
     showToast(
-      enCours ? 'Sommeil démarré 🌙' : editing ? 'Sommeil modifié' : 'Sommeil enregistré',
+      enCours ? 'Sommeil démarré' : editing?.id ? 'Sommeil enregistré' : 'Sommeil ajouté',
       '✅'
     );
     onSaved && onSaved(entry);
@@ -399,7 +398,7 @@ function SommeilItemContent({ entry, qualDef, typeIcon, typeLabel, onEdit, onTer
     if (startX.current === null) return;
     const dx = e.touches[0].clientX - startX.current;
     if (dx > 8) { if (revealed) { setRevealed(false); setOffsetX(0); } return; }
-    if (dx < -5) { isDragging.current = true; e.preventDefault(); setOffsetX(Math.max(-ACTION_W, dx)); }
+    if (dx < -5) { isDragging.current = true; setOffsetX(Math.max(-ACTION_W, dx)); }
   };
   const onTouchEnd = () => {
     if (revealed) return;
@@ -491,7 +490,7 @@ export default function DodoTab({ openFormExternal, setOpenFormExternal }) {
   const childSleeps = useMemo(() =>
     filterByActiveChild(store.entries || [], store.activeChildId)
       .filter((e) => e.type === 'sommeil')
-      .sort((a, b) => ((a.debut||a.date) < (b.debut||b.date) ? 1 : -1)),
+      .sort((a, b) => toTime(b.debut || b.date) - toTime(a.debut || a.date)),
     [store.entries, store.activeChildId]
   );
 
@@ -506,7 +505,7 @@ export default function DodoTab({ openFormExternal, setOpenFormExternal }) {
 
   // Normaliser le champ date pour groupByDay (qui attend item[dateField])
   const normalizedPeriod = useMemo(() =>
-    periodFiltered.map(e => ({ ...e, _groupDate: (e.debut || e.date || '').slice(0, 10) })),
+    periodFiltered.map(e => ({ ...e, _groupDate: e.debut || e.date })),
     [periodFiltered]
   );
   const grouped = useMemo(() =>
@@ -523,21 +522,13 @@ export default function DodoTab({ openFormExternal, setOpenFormExternal }) {
   const handleTerminer = (entry) => {
     setEditing({
       ...entry,
-      fin: toLocalDT(new Date().toISOString()),
+      fin: toISODateTime(),
       enCours: false,
     });
     setFormOpen(true);
   };
 
-  if (!activeChild) {
-    return (
-      <div className="empty-state">
-        <div className="emoji">👶</div>
-        <div className="title">Aucun profil enfant</div>
-        <div className="desc">Ajoute un profil enfant dans Réglages pour suivre son sommeil.</div>
-      </div>
-    );
-  }
+  if (!activeChild) return <NoChildState />;
 
   return (
     <div>
