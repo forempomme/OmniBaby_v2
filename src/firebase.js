@@ -10,20 +10,18 @@ import {
   deleteUser,
 } from 'firebase/auth';
 import {
-  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   doc,
   collection,
   getDoc,
-  getDocs,
   setDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
   serverTimestamp,
-  writeBatch,
-  enableIndexedDbPersistence,
-  query,
-  where,
+  arrayUnion,
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -37,15 +35,20 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 
-enableIndexedDbPersistence(db).catch((e) => {
-  if (e.code === 'failed-precondition') {
-    console.warn('Persistance offline : plusieurs onglets ouverts');
-  } else if (e.code === 'unimplemented') {
-    console.warn('Persistance offline non supportée');
+// Cache hors-ligne persistant (remplace enableIndexedDbPersistence, déprécié
+// depuis Firebase 9.19 et qui échouait silencieusement avec plusieurs onglets).
+function createDb() {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch (e) {
+    console.warn('[Firebase] cache persistant indisponible, cache mémoire utilisé', e);
+    return initializeFirestore(app, {});
   }
-});
+}
+export const db = createDb();
 
 export {
   createUserWithEmailAndPassword,
@@ -58,13 +61,10 @@ export {
   doc,
   collection,
   getDoc,
-  getDocs,
   setDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
   serverTimestamp,
-  writeBatch,
-  query,
-  where,
+  arrayUnion,
 };
