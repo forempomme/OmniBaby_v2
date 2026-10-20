@@ -16,32 +16,20 @@ import JournalBordTool from './tools/JournalBord.jsx';
 // ----------------------------------------------------------------------
 // Tool definitions
 // ----------------------------------------------------------------------
-export const TOOLS = [
+const TOOLS = [
   { key: 'minuteur', icon: '⏱️', name: 'Minuteur', desc: 'Chrono de tétée par sein avec alternance' },
   { key: 'medicaments', icon: '💊', name: 'Médicaments', desc: 'Traitements en cours et alertes de dose' },
   { key: 'fievre', icon: '🌡️', name: 'Fièvre', desc: 'Courbe de température et alertes' },
   { key: 'alimentation', icon: '🥦', name: 'Alimentation', desc: 'Diversification, aliments testés, conseils lait' },
   { key: 'statistiques', icon: '📊', name: 'Statistiques', desc: 'Graphiques biberons, sommeil, couches' },
-  { key: 'journalbord', icon: '📸', name: 'Journal de bord', desc: 'Souvenirs et étapes de développement' },
+  { key: 'journalbord', icon: '📸', name: 'Journal de bord', desc: 'Souvenirs, premières fois, moments drôles' },
+  { key: 'developpement', icon: '🧩', name: 'Développement', desc: 'Repères moteurs, langage et éveil par âge' },
   { key: 'rappels', icon: '🎯', name: 'Rappels', desc: 'RDV, courses, visites médicales' },
   { key: 'historique', icon: '🗂️', name: 'Historique', desc: 'Toutes les entrées, chronologique' },
   { key: 'famille', icon: '👨‍👩‍👧', name: 'Famille', desc: 'Utilisateurs et rôles' },
   { key: 'urgence', icon: '🆘', name: 'Urgence', desc: 'Fiche allergies, médecin, contacts' },
   { key: 'recherche', icon: '🔍', name: 'Recherche', desc: "Recherche globale dans toute l'app" },
 ];
-
-// ----------------------------------------------------------------------
-// Placeholder for tools not yet implemented
-// ----------------------------------------------------------------------
-function ToolPlaceholder({ icon, name }) {
-  return (
-    <div className="empty-state">
-      <div className="emoji">{icon}</div>
-      <div className="title">{name}</div>
-      <div className="desc">Ce module arrive dans une prochaine étape.</div>
-    </div>
-  );
-}
 
 // ----------------------------------------------------------------------
 // Main Outils tab
@@ -96,16 +84,14 @@ export default function OutilsTab({ openToolKey, setOpenToolKey, onTimerFinish }
         return <HistoriqueTool />;
       case 'journalbord':
         return <JournalBordTool />;
-      case 'journalbord':
-        return <JournalBordTool />;
       default:
-        return <ToolPlaceholder icon={activeTool.icon} name={activeTool.name} />;
+        return null;
     }
   };
 
   return (
     <div>
-      <div className="section-title">🛠️ Outils</div>
+      <div className="section-title">Outils</div>
       <div className="tools-grid">
         {TOOLS.map((t) => (
           <button key={t.key} className="tool-card appear" onClick={() => open(t.key)}>
