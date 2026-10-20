@@ -1,7 +1,7 @@
 {
   "name": "omnibaby",
   "private": true,
-  "version": "3.2.0",
+  "version": "3.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "check": "node scripts/check-code.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.1",
@@ -32,6 +33,7 @@
     "@testing-library/react": "^15.0.0",
     "@testing-library/jest-dom": "^6.4.0",
     "jsdom": "^24.0.0",
-    "@vitest/coverage-v8": "^1.6.0"
+    "@vitest/coverage-v8": "^1.6.0",
+    "typescript": "^5.4.5"
   }
 }
