@@ -1,134 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { useStore, genId, formatAge } from './store.jsx';
-import { toISODate, useToast, ConfirmInline, exportPDF, shareJSON, Accordion } from './utils.jsx';
-import { Modal } from './Modal.jsx';
+import { useStore, formatAge } from './store.jsx';
+import { toISODate, useToast, ConfirmInline, exportPDF, shareJSON, shareText, formatElapsed, Accordion } from './utils.jsx';
 import { APP_VERSION } from './version.js';
 import { auth, deleteUser } from './firebase.js';
-import { isBiometricAvailable } from './Auth.jsx';
-
-const EMOJIS = ['👶', '👧', '👦', '🧒', '👼'];
-
-const ALIMENTATION_OPTIONS = [
-  { key: 'allaitement', label: '🤱 Allaitement' },
-  { key: 'mixte', label: '🤱🍼 Mixte' },
-  { key: 'lait_infantile', label: '🍼 Lait infantile' },
-];
-
-const TYPE_LAIT_OPTIONS = [
-  { key: '1er_age', label: '1er âge' },
-  { key: '2e_age', label: '2e âge' },
-  { key: 'croissance', label: 'Croissance' },
-];
+import { isBiometricAvailable, AuthOverlay, initials } from './Auth.jsx';
+import ChildForm from './ChildForm.jsx';
 
 // ----------------------------------------------------------------------
-// Formulaire enfant
+// Bébé : profils enfants
 // ----------------------------------------------------------------------
-function childDefaults() {
-  return {
-    nom: '', emoji: '👶', sexe: 'fille', birthdate: toISODate(),
-    alimentation: 'allaitement', typeLait: '1er_age',
-    allergies: '', groupeSanguin: '', medecinNom: '', medecinTel: '',
-    contactUrgenceNom: '', contactUrgenceTel: '', notesMedicales: '',
-  };
-}
-
-function ChildForm({ open, onClose, editing }) {
-  const { update } = useStore();
-  const showToast = useToast();
-  const [form, setForm] = useState(childDefaults());
-  const [tab, setTab] = useState('general');
-
-  React.useEffect(() => {
-    if (open) { setForm(editing ? { ...childDefaults(), ...editing } : childDefaults()); setTab('general'); }
-  }, [open, editing]);
-
-  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
-
-  const handleSubmit = () => {
-    if (!form.nom.trim()) { showToast('Entre un prénom', '⚠️'); return; }
-    update((draft) => {
-      if (editing) {
-        const idx = draft.children.findIndex((c) => c.id === editing.id);
-        if (idx !== -1) draft.children[idx] = { ...draft.children[idx], ...form, id: editing.id };
-      } else {
-        const id = genId();
-        draft.children.push({ ...childDefaults(), ...form, id, lastVitDDate: null });
-        if (!draft.activeChildId) draft.activeChildId = id;
-      }
-      return draft;
-    });
-    showToast(editing ? 'Profil modifié' : 'Profil créé', '✅');
-    onClose();
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} title={editing ? 'Modifier le profil' : 'Nouveau profil enfant'} icon="👶">
-      <div className="chip-row">
-        {['general','medical','urgence'].map(t => (
-          <button key={t} className={`chip ${tab===t?'active':''}`} onClick={() => setTab(t)}>
-            {t==='general'?'Général':t==='medical'?'Médical':'Urgence'}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'general' && <>
-        <div className="field"><label>Prénom</label>
-          <input type="text" value={form.nom} onChange={(e) => set('nom', e.target.value)} placeholder="Léa" autoFocus /></div>
-        <div className="field"><label>Emoji</label>
-          <div className="pill-group">{EMOJIS.map(e => (
-            <button key={e} className={`pill-choice ${form.emoji===e?'selected':''}`} onClick={() => set('emoji', e)} style={{ fontSize:'1.2rem' }}>{e}</button>
-          ))}</div></div>
-        <div className="field"><label>Sexe</label>
-          <div className="pill-group">
-            <button className={`pill-choice ${form.sexe==='fille'?'selected':''}`} onClick={() => set('sexe','fille')}>Fille</button>
-            <button className={`pill-choice ${form.sexe==='garcon'?'selected':''}`} onClick={() => set('sexe','garcon')}>Garçon</button>
-          </div></div>
-        <div className="field"><label>Date de naissance</label>
-          <input type="date" value={form.birthdate} onChange={(e) => set('birthdate', e.target.value)} /></div>
-        <div className="field"><label>Alimentation</label>
-          <div className="pill-group">{ALIMENTATION_OPTIONS.map(o => (
-            <button key={o.key} className={`pill-choice ${form.alimentation===o.key?'selected':''}`} onClick={() => set('alimentation', o.key)}>{o.label}</button>
-          ))}</div></div>
-        {form.alimentation !== 'allaitement' && (
-          <div className="field"><label>Type de lait</label>
-            <div className="pill-group">{TYPE_LAIT_OPTIONS.map(o => (
-              <button key={o.key} className={`pill-choice ${form.typeLait===o.key?'selected':''}`} onClick={() => set('typeLait', o.key)}>{o.label}</button>
-            ))}</div></div>
-        )}
-      </>}
-
-      {tab === 'medical' && <>
-        <div className="field"><label>Allergies</label>
-          <textarea rows={2} value={form.allergies} onChange={(e) => set('allergies', e.target.value)} placeholder="Aucune connue" /></div>
-        <div className="field"><label>Groupe sanguin</label>
-          <input type="text" value={form.groupeSanguin} onChange={(e) => set('groupeSanguin', e.target.value)} placeholder="Ex : O+" /></div>
-        <div className="field"><label>Médecin / pédiatre</label>
-          <input type="text" value={form.medecinNom} onChange={(e) => set('medecinNom', e.target.value)} placeholder="Dr Martin" /></div>
-        <div className="field"><label>Téléphone du médecin</label>
-          <input type="tel" value={form.medecinTel} onChange={(e) => set('medecinTel', e.target.value)} placeholder="06 00 00 00 00" /></div>
-        <div className="field"><label>Notes médicales</label>
-          <textarea rows={3} value={form.notesMedicales} onChange={(e) => set('notesMedicales', e.target.value)} placeholder="Traitements en cours, particularités..." /></div>
-      </>}
-
-      {tab === 'urgence' && <>
-        <div className="field"><label>Contact d'urgence — nom</label>
-          <input type="text" value={form.contactUrgenceNom} onChange={(e) => set('contactUrgenceNom', e.target.value)} placeholder="Mamie Jeanne" /></div>
-        <div className="field"><label>Contact d'urgence — téléphone</label>
-          <input type="tel" value={form.contactUrgenceTel} onChange={(e) => set('contactUrgenceTel', e.target.value)} placeholder="06 00 00 00 00" /></div>
-        <div className="muted" style={{ fontSize:'0.8rem' }}>Ces informations apparaissent dans la fiche Urgence pour une baby-sitter.</div>
-      </>}
-
-      <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>
-        {editing ? 'Enregistrer ✓' : 'Créer le profil ✓'}
-      </button>
-    </Modal>
-  );
-}
-
-// ----------------------------------------------------------------------
-// Section profils enfants
-// ----------------------------------------------------------------------
-function ChildrenSection({ canEdit, embedded = false }) {
+function ChildrenSection({ canEdit }) {
   const { store, update } = useStore();
   const showToast = useToast();
   const [formOpen, setFormOpen] = useState(false);
@@ -144,33 +25,25 @@ function ChildrenSection({ canEdit, embedded = false }) {
   };
 
   return (
-    <div className={embedded ? '' : 'card appear'}>
-      <div className="flex-between" style={{ marginBottom: 8 }}>
-        <div className="section-title" style={{ margin: 0, display: embedded ? 'none' : 'flex' }}>👶 Profils enfants</div>
-        {canEdit && <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}>＋ Ajouter</button>}
-      </div>
-
+    <div>
       {store.children.length === 0 ? (
-        <div className="empty-state" style={{ padding:'24px 12px' }}>
-          <div className="emoji">👶</div>
-          <div className="desc">Aucun profil enfant. Crée le premier profil pour commencer.</div>
-        </div>
+        <div className="muted" style={{ fontSize: '.85rem', padding: '4px 0 10px' }}>Aucun profil enfant pour l'instant.</div>
       ) : (
         <div className="entry-list">
           {store.children.map((c) => (
-            <div key={c.id} className="swipe-content" style={{ cursor:'pointer' }}
-              onClick={() => canEdit && (setEditing(c), setFormOpen(true))}>
-              <div className="entry-icon" style={{ background:'var(--primary-soft)', color:'var(--primary-deep)', fontSize:'1.2rem' }}>{c.emoji||'👶'}</div>
+            <div key={c.id} className="swipe-content" style={{ cursor: canEdit ? 'pointer' : 'default' }}
+              onClick={() => { if (canEdit) { setEditing(c); setFormOpen(true); } }}>
+              <div className="entry-icon" style={{ background: 'var(--primary-soft)', color: 'var(--primary-deep)', fontSize: '1.2rem' }}>{c.emoji || '👶'}</div>
               <div className="entry-body">
                 <div className="entry-title">{c.nom}
-                  {c.id === store.activeChildId && <span style={{ color:'var(--primary)', fontWeight:700 }}> · actif</span>}
+                  {c.id === store.activeChildId && <span style={{ color: 'var(--primary)', fontWeight: 700 }}> · actif</span>}
                 </div>
-                <div className="entry-sub">{formatAge(c.birthdate)} · {c.sexe==='garcon'?'Garçon':'Fille'}</div>
+                <div className="entry-sub">{formatAge(c.birthdate)} · {c.sexe === 'garcon' ? 'Garçon' : 'Fille'}</div>
               </div>
               {canEdit && (
-                <div style={{ display:'flex', gap:6 }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
                   {c.id !== store.activeChildId && (
-                    <button className="btn btn-ghost btn-sm" onClick={() => update(d => { d.activeChildId=c.id; return d; })}>Activer</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => update((d) => { d.activeChildId = c.id; return d; })}>Activer</button>
                   )}
                   {store.children.length > 1 && <ConfirmInline onConfirm={() => handleDelete(c.id)} />}
                 </div>
@@ -179,32 +52,36 @@ function ChildrenSection({ canEdit, embedded = false }) {
           ))}
         </div>
       )}
+      {canEdit && (
+        <button className="btn btn-secondary btn-sm mt-8" onClick={() => { setEditing(null); setFormOpen(true); }}>＋ Ajouter un enfant</button>
+      )}
       <ChildForm open={formOpen} onClose={() => { setFormOpen(false); setEditing(null); }} editing={editing} />
     </div>
   );
 }
 
 // ----------------------------------------------------------------------
-// Section synchronisation Firebase
+// Famille & synchro : membres, code d'invitation, compte, profils PIN
 // ----------------------------------------------------------------------
-function SyncSection({ embedded = false }) {
+const SYNC_LABELS = {
+  offline: { text: 'Hors-ligne', color: 'var(--text-faint)' },
+  syncing: { text: 'Synchronisation…', color: 'var(--accent-sun)' },
+  synced: { text: 'Synchronisé', color: 'var(--accent-sage)' },
+  error: { text: 'Erreur de synchro', color: 'var(--danger)' },
+};
+
+function FamilySection({ onOpenFamille }) {
   const { store, firebaseUser, syncStatus, logout } = useStore();
   const showToast = useToast();
   const [showCode, setShowCode] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-
-  const STATUS = {
-    offline: { text:'Hors-ligne', color:'var(--text-faint)' },
-    syncing: { text:'Synchronisation...', color:'var(--accent-sun)' },
-    synced:  { text:'Synchronisé', color:'var(--accent-sage)' },
-    error:   { text:'Erreur de sync', color:'var(--danger)' },
-  };
-  const st = STATUS[syncStatus] || STATUS.offline;
+  const [authMode, setAuthMode] = useState(null); // 'login' | 'join' | null
+  const st = SYNC_LABELS[syncStatus] || SYNC_LABELS.offline;
 
   const handleDeleteAccount = async () => {
     try {
       if (auth.currentUser) await deleteUser(auth.currentUser);
-      logout();
+      await logout();
       showToast('Compte supprimé', '✅');
     } catch (e) {
       showToast('Reconnecte-toi avant de supprimer le compte', '⚠️');
@@ -212,68 +89,89 @@ function SyncSection({ embedded = false }) {
     setDeleteConfirm(false);
   };
 
-  if (!firebaseUser) {
-    return (
-      <div className={embedded ? '' : 'card appear'}>
-        <div className="section-title" style={{ display: embedded?'none':'flex', marginBottom:8 }}>☁️ Synchronisation</div>
-        <div className="muted" style={{ fontSize:'.82rem', marginBottom:12 }}>
-          Connecte-toi pour partager les données en temps réel avec le deuxième parent.
-        </div>
-        <div className="muted" style={{ fontSize:'.8rem' }}>
-          Va dans Réglages → Synchronisation pour te connecter au prochain lancement.
-        </div>
-      </div>
+  const shareCode = async () => {
+    const r = await shareText(
+      `Rejoins notre famille sur OmniBaby : ouvre l'appli, choisis « Rejoindre une famille » et entre le code ${store.familyCode}.`,
+      'Invitation OmniBaby'
     );
-  }
+    if (r === 'copied') showToast('Invitation copiée', '📋');
+  };
+
+  const members = store.members?.length
+    ? store.members
+    : (firebaseUser ? [{ uid: firebaseUser.uid, displayName: firebaseUser.displayName, email: firebaseUser.email, role: 'admin' }] : []);
 
   return (
-    <div className={embedded ? '' : 'card appear'}>
-      <div className="section-title" style={{ display: embedded?'none':'flex', marginBottom:8 }}>☁️ Synchronisation</div>
-
-      {/* Compte connecté */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-        <div>
-          <div style={{ fontWeight:600, fontSize:'.86rem' }}>{firebaseUser.displayName || firebaseUser.email}</div>
-          <div style={{ fontSize:'.72rem', color:st.color, marginTop:2, fontWeight:600 }}>● {st.text}</div>
-        </div>
-        <button className="btn btn-secondary btn-sm" onClick={logout}>Déconnexion</button>
-      </div>
-
-      {/* Code famille */}
-      {store.familyCode && (
-        <div style={{ background:'var(--primary-soft)', borderRadius:'var(--radius-md)', padding:'10px 12px', marginBottom:12 }}>
-          <div style={{ fontSize:'.72rem', color:'var(--primary-deep)', fontWeight:700, marginBottom:4 }}>
-            Code d'invitation famille
+    <div>
+      {!firebaseUser ? (
+        <>
+          <div className="muted" style={{ fontSize: '.85rem', marginBottom: 12 }}>
+            Connecte un compte pour partager le journal avec l'autre parent, en temps réel.
           </div>
-          <div style={{ fontFamily:'var(--font-mono)', fontSize:'1.3rem', fontWeight:700, letterSpacing:6, color:'var(--primary-deep)', textAlign:'center' }}>
-            {showCode ? store.familyCode : '••••••'}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary btn-sm" onClick={() => setAuthMode('login')}>Se connecter / créer un compte</button>
+            <button className="btn btn-outline btn-sm" onClick={() => setAuthMode('join')}>Rejoindre une famille</button>
           </div>
-          <button onClick={() => setShowCode(s=>!s)} style={{ display:'block', margin:'6px auto 0', background:'none', border:'none', color:'var(--primary-deep)', fontSize:'.72rem', cursor:'pointer', fontFamily:'inherit' }}>
-            {showCode ? 'Masquer' : 'Afficher le code'}
-          </button>
-        </div>
-      )}
-
-      <div className="muted" style={{ fontSize:'.72rem', marginBottom:12 }}>
-        Sync en temps réel entre tous les appareils. Fonctionne aussi hors-ligne.
-      </div>
-
-      {/* Supprimer le compte */}
-      {!deleteConfirm ? (
-        <button className="btn btn-danger btn-sm" onClick={() => setDeleteConfirm(true)}>
-          Supprimer mon compte Firebase
-        </button>
+        </>
       ) : (
-        <div style={{ background:'var(--danger-soft)', borderRadius:'var(--radius-md)', padding:'10px 12px' }}>
-          <div style={{ fontWeight:600, fontSize:'.82rem', marginBottom:8 }}>
-            Supprimer définitivement le compte ? Les données cloud seront inaccessibles.
+        <>
+          <div className="member-list">
+            {members.map((m) => {
+              const isMe = m.uid === firebaseUser.uid;
+              return (
+                <div key={m.uid} className="member-row">
+                  <span className="member-avatar">{initials(m.displayName || m.email)}</span>
+                  <span className="member-body">
+                    <span className="member-name">{m.displayName || m.email?.split('@')[0]}</span>
+                    <span className="member-role">{m.role === 'admin' ? 'Admin' : 'Éditeur'}{isMe ? ' · toi' : ''}</span>
+                  </span>
+                  <span className="member-seen" style={isMe ? { color: st.color } : undefined}>
+                    {isMe ? st.text : m.lastSeenAt ? `vu il y a ${formatElapsed(Date.now() - m.lastSeenAt)}` : ''}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-          <div style={{ display:'flex', gap:8 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setDeleteConfirm(false)}>Annuler</button>
-            <button className="btn btn-danger btn-sm" onClick={handleDeleteAccount}>Confirmer</button>
+
+          {store.familyCode && (
+            <div className="invite-row">
+              <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <span className="muted" style={{ fontSize: '.75rem' }}>Code d'invitation</span>
+                <button className="invite-code" onClick={() => setShowCode((v) => !v)} aria-label={showCode ? 'Masquer le code' : 'Afficher le code'}>
+                  {showCode ? store.familyCode : '•• •• ••'}
+                </button>
+              </span>
+              <button className="btn btn-outline btn-sm" onClick={shareCode}>Partager</button>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            <button className="btn btn-secondary btn-sm" onClick={logout}>Déconnexion</button>
+            {!deleteConfirm && <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => setDeleteConfirm(true)}>Supprimer mon compte</button>}
           </div>
-        </div>
+          {deleteConfirm && (
+            <div style={{ background: 'var(--danger-soft)', borderRadius: 'var(--radius-md)', padding: '10px 12px', marginTop: 10 }}>
+              <div style={{ fontWeight: 600, fontSize: '.82rem', marginBottom: 8 }}>
+                Supprimer définitivement ton compte ? Les données de la famille restent accessibles aux autres membres.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => setDeleteConfirm(false)}>Annuler</button>
+                <button className="btn btn-danger btn-sm" onClick={handleDeleteAccount}>Confirmer</button>
+              </div>
+            </div>
+          )}
+        </>
       )}
+
+      <div className="flex-between" style={{ borderTop: '1px solid var(--border)', marginTop: 14, paddingTop: 12 }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: '.86rem' }}>Profils de ce téléphone</div>
+          <div className="muted" style={{ fontSize: '.75rem', marginTop: 2 }}>Code PIN, couleur, rôle ({store.users.length})</div>
+        </div>
+        <button className="btn btn-secondary btn-sm" onClick={onOpenFamille}>Gérer</button>
+      </div>
+
+      {authMode && <AuthOverlay mode={authMode} onClose={() => setAuthMode(null)} />}
     </div>
   );
 }
@@ -328,7 +226,7 @@ function AppearanceSection({ embedded = false }) {
   const set = (key, val) => update(d => { d.settings[key] = val; return d; });
 
   return (
-    <div className={embedded ? '' : 'card appear'} style={{ marginTop: embedded?12:0 }}>
+    <div className={embedded ? '' : 'card appear'} style={{ marginTop: embedded ? 4 : 0 }}>
       <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>🎨 Apparence</div>
 
       {/* Thème */}
@@ -384,7 +282,7 @@ function AppearanceSection({ embedded = false }) {
                ))}
              </div>
              <div className="muted" style={{ fontSize:'.72rem', marginTop:4 }}>
-               Retour au thème précédent à 7h · Badge "🌙 Nuit" dans la topbar pour désactiver
+               Retour au thème habituel à 7 h · touche le badge « Nuit » en haut de l'écran pour l'arrêter jusqu'au matin
              </div>
            </div>
          )}
@@ -411,6 +309,8 @@ function AppearanceSection({ embedded = false }) {
 function BehaviorSection({ embedded = false }) {
   const { store, update } = useStore();
   const s = store.settings || {};
+  const [ml, setMl] = useState(String(s.defaultBiberonMl ?? 120));
+  React.useEffect(() => { setMl(String(s.defaultBiberonMl ?? 120)); }, [s.defaultBiberonMl]);
   const set = (key, val) => update(d => { d.settings[key] = val; return d; });
 
   return (
@@ -424,22 +324,14 @@ function BehaviorSection({ embedded = false }) {
             inputMode="numeric"
             min="10"
             max="500"
-            value={s.defaultBiberonMl ?? 120}
-            onChange={(e) => {
-              // Permettre la saisie libre (champ vide, valeur partielle)
-              const raw = e.target.value;
-              if (raw === '' || raw === '0') {
-                set('defaultBiberonMl', '');
-                return;
-              }
-              set('defaultBiberonMl', raw);
-            }}
-            onBlur={(e) => {
-              // Valider uniquement quand on quitte le champ
-              const val = parseInt(e.target.value, 10);
-              if (isNaN(val) || val < 10) set('defaultBiberonMl', 10);
-              else if (val > 500) set('defaultBiberonMl', 500);
-              else set('defaultBiberonMl', val);
+            value={ml}
+            onChange={(e) => setMl(e.target.value)}
+            onBlur={() => {
+              // Valeur partagée avec l'autre parent : écrite une seule fois, à la sortie du champ
+              const val = parseInt(ml, 10);
+              const clamped = isNaN(val) ? 120 : Math.min(500, Math.max(10, val));
+              setMl(String(clamped));
+              if (clamped !== s.defaultBiberonMl) set('defaultBiberonMl', clamped);
             }}
             style={{ width: 90, textAlign:'center', fontFamily:'var(--font-mono)', fontWeight:700, fontSize:'1rem' }}
           />
@@ -539,7 +431,7 @@ function DataSection({ canEdit, embedded = false }) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      try { replaceStore(JSON.parse(reader.result)); showToast('Sauvegarde importée', '📥'); }
+      try { replaceStore(JSON.parse(String(reader.result))); showToast('Sauvegarde importée', '📥'); }
       catch { showToast('Fichier invalide', '⚠️'); }
     };
     reader.readAsText(file);
@@ -599,60 +491,61 @@ function DataSection({ canEdit, embedded = false }) {
 }
 
 // ----------------------------------------------------------------------
-// Main ReglagesTab
+// Onglet Réglages — 5 sections
 // ----------------------------------------------------------------------
 export default function ReglagesTab({ onOpenFamille }) {
-  const { store, session } = useStore();
-  const role = store.users.find(u => u.id === session?.userId)?.role || 'lecture';
+  const { store, session, firebaseUser, syncStatus } = useStore();
+  const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role === 'admin';
+  const s = store.settings || {};
+  const active = store.children.find((c) => c.id === store.activeChildId);
+
+  const babySub = active
+    ? `${active.nom} · ${formatAge(active.birthdate)}${store.children.length > 1 ? ` · ${store.children.length} enfants` : ''}`
+    : 'Aucun profil';
+  const famSub = firebaseUser
+    ? `${Math.max(1, store.members?.length || 0)} parent${(store.members?.length || 0) > 1 ? 's' : ''} · ${(SYNC_LABELS[syncStatus] || SYNC_LABELS.offline).text.toLowerCase()}`
+    : 'Non connecté · données sur ce téléphone';
+  const theme = s.dark == null ? 'Thème auto' : s.dark ? 'Thème sombre' : 'Thème clair';
+  const night = s.nightMode === false ? 'nuit off' : s.nightMode === true ? 'nuit toujours' : `nuit ${s.nightHour || 22} h`;
+  const prefSub = `${theme} · ${night} · ${s.defaultBiberonMl || 120} ml${s.biometrie !== false ? ' · empreinte' : ''}`;
+  const notifCount = Object.values(s.notifs || {}).filter(Boolean).length;
 
   return (
     <div>
-      <Accordion icon="👶" title="Profils enfants" badge={store.children.length||null} defaultOpen={true} stateKey="reg.enfants">
-        <ChildrenSection canEdit={canEdit} embedded />
+      <Accordion iconName="baby" title="Bébé" subtitle={babySub} stateKey="reg.bebe">
+        <ChildrenSection canEdit={canEdit} />
       </Accordion>
 
-      <Accordion icon="☁️" title="Synchronisation" defaultOpen={false} stateKey="reg.sync">
-        <SyncSection embedded />
+      <Accordion iconName="users" title="Famille & synchro" subtitle={famSub} stateKey="reg.famille">
+        <FamilySection onOpenFamille={onOpenFamille} />
       </Accordion>
 
-      <Accordion icon="🔐" title="Biométrie & Apparence" defaultOpen={false} stateKey="reg.bio">
+      <Accordion iconName="sliders" title="Préférences" subtitle={prefSub} stateKey="reg.prefs">
         <BiometricSection embedded />
         <AppearanceSection embedded />
-      </Accordion>
-
-      <Accordion icon="⚙️" title="Saisie" defaultOpen={false} stateKey="reg.behavior">
-        <BehaviorSection embedded />
-      </Accordion>
-
-      <Accordion icon="🔔" title="Notifications" defaultOpen={false} stateKey="reg.notifs">
-        <NotificationsSection embedded />
-      </Accordion>
-
-      <Accordion icon="👨‍👩‍👧" title="Famille" defaultOpen={false} stateKey="reg.famille">
-        <div className="flex-between" style={{ marginBottom:8 }}>
-          <div className="muted" style={{ fontSize:'.85rem' }}>Utilisateurs, rôles, code d'invitation.</div>
-          <button className="btn btn-secondary btn-sm" onClick={onOpenFamille}>Gérer →</button>
+        <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 12 }}>
+          <BehaviorSection embedded />
         </div>
       </Accordion>
 
-      <Accordion icon="💾" title="Données" defaultOpen={false} stateKey="reg.data">
-        <DataSection canEdit={canEdit} embedded />
+      <Accordion iconName="bell" title="Rappels & notifications" subtitle={`${notifCount} type${notifCount > 1 ? 's' : ''} activé${notifCount > 1 ? 's' : ''}`} stateKey="reg.notifs">
+        <NotificationsSection embedded />
       </Accordion>
 
-      <Accordion icon="ℹ️" title="À propos" defaultOpen={false} stateKey="reg.about">
-        <div style={{ padding:'4px 0' }}>
+      <Accordion iconName="database" title="Sauvegarde & export" subtitle={`JSON, PDF pédiatre · v${APP_VERSION}`} stateKey="reg.data">
+        <DataSection canEdit={canEdit} embedded />
+        <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 4 }}>
           {[
-            { label:'Application', val:'OmniBaby' },
-            { label:'Version', val:`v${APP_VERSION}` },
-            { label:'Sources médicales', val:'OMS · PNNS4 · HCSP 2020' },
-            { label:'Données', val:'Locales + Firebase' },
-            { label:'Publicités', val:'Aucune' },
+            { label: 'Version', val: `v${APP_VERSION}` },
+            { label: 'Sources médicales', val: 'OMS · PNNS4 · HCSP' },
+            { label: 'Données', val: store.familyId ? 'Téléphone + Firebase' : 'Ce téléphone uniquement' },
+            { label: 'Publicités', val: 'Aucune' },
           ].map((r, i, arr) => (
-            <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0',
-              borderBottom: i<arr.length-1 ? '1px solid var(--border)' : 'none' }}>
-              <span style={{ fontSize:'.84rem', color:'var(--text-soft)' }}>{r.label}</span>
-              <span style={{ fontSize:'.84rem', fontWeight:600 }}>{r.val}</span>
+            <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0',
+              borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <span style={{ fontSize: '.84rem', color: 'var(--text-soft)' }}>{r.label}</span>
+              <span style={{ fontSize: '.84rem', fontWeight: 600 }}>{r.val}</span>
             </div>
           ))}
         </div>
