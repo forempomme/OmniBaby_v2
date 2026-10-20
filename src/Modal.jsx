@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 // ----------------------------------------------------------------------
 // Modal stack context — provides a LIFO stack so the Android back button
@@ -7,33 +8,34 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 const ModalStackContext = createContext(null);
 
 export function ModalStackProvider({ children }) {
-  const [stack, setStack] = useState([]); // array of close callbacks
+  // Pile dans une ref : fermer la modale du dessus ne doit pas se faire dans
+  // un updater setState (rejoué deux fois en StrictMode → double fermeture).
+  const stackRef = useRef([]);
+  const [depth, setDepth] = useState(0);
 
   const push = useCallback((closeFn) => {
-    setStack((s) => [...s, closeFn]);
+    stackRef.current = [...stackRef.current, closeFn];
+    setDepth(stackRef.current.length);
   }, []);
 
   const pop = useCallback((closeFn) => {
-    setStack((s) => s.filter((f) => f !== closeFn));
+    stackRef.current = stackRef.current.filter((f) => f !== closeFn);
+    setDepth(stackRef.current.length);
   }, []);
 
   const closeTop = useCallback(() => {
-    setStack((s) => {
-      if (s.length === 0) return s;
-      const top = s[s.length - 1];
-      top();
-      return s.slice(0, -1);
-    });
+    const top = stackRef.current[stackRef.current.length - 1];
+    if (top) top();
   }, []);
 
   return (
-    <ModalStackContext.Provider value={{ push, pop, closeTop, depth: stack.length }}>
+    <ModalStackContext.Provider value={{ push, pop, closeTop, depth }}>
       {children}
     </ModalStackContext.Provider>
   );
 }
 
-export function useModalStack() {
+function useModalStack() {
   const ctx = useContext(ModalStackContext);
   if (!ctx) throw new Error('useModalStack doit être utilisé dans un ModalStackProvider');
   return ctx;
@@ -53,8 +55,9 @@ export function Modal({ open, onClose, title, icon, children, full = false, dirt
   const handleConfirmAbandon = () => { setConfirmClose(false); onClose(); };
   const handleCancelAbandon = () => setConfirmClose(false);
   const { push, pop } = useModalStack();
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
+  // Bouton retour Android : même comportement que la croix (confirmation si saisie en cours)
+  const closeRef = useRef(handleClose);
+  closeRef.current = handleClose;
 
   useEffect(() => {
     if (!open) return;
@@ -65,13 +68,15 @@ export function Modal({ open, onClose, title, icon, children, full = false, dirt
 
   if (!open) return null;
 
-  return (
+  // Rendu dans <body> : la modale passe au-dessus du bouton + et de la barre
+  // d'onglets (avant, l'animation de l'onglet la confinait sous ceux-ci).
+  return createPortal((
     <>
       <div className="modal-backdrop" onClick={handleClose} />
       <div className={`modal-panel ${full ? 'full' : ''}`}>
         <div className="modal-header">
           <h2>{icon && <span>{icon}</span>} {title}</h2>
-          <button className="modal-close" onClick={handleClose}>✕</button>
+          <button className="modal-close" onClick={handleClose} aria-label="Fermer">✕</button>
         </div>
         <div className="modal-body">
           {children}
@@ -114,7 +119,7 @@ export function Modal({ open, onClose, title, icon, children, full = false, dirt
         </div>
       </div>
     </>
-  );
+  ), document.body);
 }
 
 // ----------------------------------------------------------------------
