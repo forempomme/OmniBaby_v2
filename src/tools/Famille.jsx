@@ -2,18 +2,13 @@ import React, { useState } from 'react';
 import { useStore, genId } from '../store.jsx';
 import { useToast, ConfirmInline } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
-import { avatarColor, AVATAR_COLOR_KEYS } from '../Auth.jsx';
-import { db, doc, updateDoc } from '../firebase.js';
+import { avatarColor, AVATAR_COLOR_KEYS, initials, hashPin } from '../Auth.jsx';
 
 const ROLES = [
   { key: 'admin', label: 'Admin', icon: '👑', desc: 'Accès total : profils, utilisateurs, données, réinitialisation' },
   { key: 'editeur', label: 'Éditeur', icon: '✏️', desc: 'Peut ajouter et modifier les entrées' },
   { key: 'lecture', label: 'Lecture seule', icon: '👀', desc: 'Consultation uniquement' },
 ];
-
-function initials(nom) {
-  return (nom || '?').trim().slice(0, 2).toUpperCase();
-}
 
 function userDefaults() {
   return { nom: '', pin: '', couleur: 'purple', role: 'editeur' };
@@ -28,7 +23,7 @@ function UserForm({ open, onClose, editing, isLastUser }) {
   React.useEffect(() => {
     if (open) {
       setForm(editing
-        ? { nom: editing.nom, pin: editing.pin, couleur: editing.couleur || 'purple', role: editing.role || 'editeur' }
+        ? { nom: editing.nom, pin: '', couleur: editing.couleur || 'purple', role: editing.role || 'editeur' }
         : userDefaults());
       setError('');
     }
@@ -37,19 +32,24 @@ function UserForm({ open, onClose, editing, isLastUser }) {
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
   const handlePinChange = (value) => set('pin', value.replace(/\D/g, '').slice(0, 4));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.nom.trim()) { setError('Entre un prénom.'); return; }
-    if (form.pin.length !== 4) { setError('Le code PIN doit comporter 4 chiffres.'); return; }
+    // En modification, PIN vide = inchangé
+    if ((!editing || form.pin) && form.pin.length !== 4) { setError('Le code PIN doit comporter 4 chiffres.'); return; }
     if (editing && isLastUser && form.role !== 'admin') { setError('Le dernier utilisateur doit rester Admin.'); return; }
 
+    const id = editing ? editing.id : genId();
+    const pinHash = form.pin ? await hashPin(id, form.pin) : null;
     update((draft) => {
+      const data = { nom: form.nom.trim(), couleur: form.couleur, role: form.role, initiales: initials(form.nom) };
       if (editing) {
         const idx = draft.users.findIndex((u) => u.id === editing.id);
         if (idx !== -1) {
-          draft.users[idx] = { ...draft.users[idx], nom: form.nom.trim(), pin: form.pin, couleur: form.couleur, role: form.role, initiales: initials(form.nom) };
+          draft.users[idx] = { ...draft.users[idx], ...data };
+          if (pinHash) { draft.users[idx].pinHash = pinHash; delete draft.users[idx].pin; }
         }
       } else {
-        draft.users.push({ id: genId(), nom: form.nom.trim(), pin: form.pin, couleur: form.couleur, role: form.role, initiales: initials(form.nom) });
+        draft.users.push({ id, ...data, pinHash });
       }
       return draft;
     });
@@ -64,7 +64,7 @@ function UserForm({ open, onClose, editing, isLastUser }) {
         <input type="text" value={form.nom} onChange={(e) => set('nom', e.target.value)} placeholder="Ex : Papa, Mamie..." autoFocus />
       </div>
       <div className="field">
-        <label>Code PIN (4 chiffres)</label>
+        <label>{editing ? 'Nouveau code PIN (laisser vide pour le garder)' : 'Code PIN (4 chiffres)'}</label>
         <input type="password" inputMode="numeric" value={form.pin} onChange={(e) => handlePinChange(e.target.value)} placeholder="••••" maxLength={4} />
       </div>
       <div className="field">
@@ -110,7 +110,7 @@ function UserForm({ open, onClose, editing, isLastUser }) {
 // Main Famille module
 // ----------------------------------------------------------------------
 export default function FamilleTool() {
-  const { store, update, session, firebaseUser } = useStore();
+  const { store, update, session } = useStore();
   const showToast = useToast();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -126,7 +126,7 @@ export default function FamilleTool() {
   return (
     <div>
       <div className="muted" style={{ fontSize: '0.85rem', marginBottom: 4 }}>
-        Gère les membres de la famille ayant accès à l'application, et leur rôle.
+        Profils qui peuvent ouvrir l'appli sur ce téléphone, et leurs droits.
       </div>
 
       <div className="flex-between mt-16">
@@ -177,48 +177,10 @@ export default function FamilleTool() {
         isLastUser={editing ? store.users.length === 1 : false}
       />
 
-      {/* Section membres Firebase */}
-      {store.familyId && (
-        <div className="card appear" style={{ marginTop: 8 }}>
-          <div className="section-title" style={{ marginBottom: 8 }}>☁️ Famille synchronisée</div>
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: '.72rem', color: 'var(--text-soft)', marginBottom: 4 }}>Code d'invitation</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.3rem', fontWeight: 700,
-              letterSpacing: 6, color: 'var(--primary-deep)', textAlign: 'center',
-              background: 'var(--primary-soft)', padding: '8px', borderRadius: 'var(--radius-md)' }}>
-              {store.familyCode || '------'}
-            </div>
-          </div>
-          {firebaseUser && (
-            <div style={{ padding: '8px 0', borderTop: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--primary-soft)',
-                  color: 'var(--primary-deep)', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontWeight: 700, fontSize: '.85rem' }}>
-                  {(firebaseUser.displayName || firebaseUser.email || '?').slice(0, 2).toUpperCase()}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: '.85rem' }}>
-                    {firebaseUser.displayName || firebaseUser.email?.split('@')[0]}
-                  </div>
-                  <div style={{ fontSize: '.7rem', color: 'var(--text-soft)' }}>
-                    {firebaseUser.email} · {isAdmin ? 'Administrateur' : 'Éditeur'}
-                  </div>
-                </div>
-                <span style={{ fontSize: '.65rem',
-                  background: isAdmin ? 'var(--primary)' : 'var(--sage-soft)',
-                  color: isAdmin ? '#fff' : 'var(--sage)',
-                  padding: '2px 8px', borderRadius: 'var(--radius-pill)', fontWeight: 700 }}>
-                  {isAdmin ? '👑 Admin' : '✏️ Éditeur'}
-                </span>
-              </div>
-            </div>
-          )}
-          <div className="muted" style={{ fontSize: '.72rem', marginTop: 10 }}>
-            Pour inviter le 2e parent : partage le code ci-dessus. Il devra installer OmniBaby et choisir "Rejoindre une famille".
-          </div>
-        </div>
-      )}
+      <div className="muted mt-16" style={{ fontSize: '0.8rem' }}>
+        Ces profils protègent l'accès à ce téléphone (code PIN). Les comptes synchronisés et le code
+        d'invitation de l'autre parent sont dans Réglages → Famille &amp; synchro.
+      </div>
     </div>
   );
 }
