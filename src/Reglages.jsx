@@ -1,61 +1,82 @@
 import React, { useState, useRef } from 'react';
 import { useStore, formatAge } from './store.jsx';
-import { toISODate, useToast, ConfirmInline, exportPDF, shareJSON, shareText, formatElapsed, Accordion } from './utils.jsx';
+import { toISODate, useToast, exportPDF, shareJSON, shareText, formatElapsed, Accordion } from './utils.jsx';
 import { APP_VERSION } from './version.js';
 import { auth, deleteUser } from './firebase.js';
 import { isBiometricAvailable, AuthOverlay, initials } from './Auth.jsx';
 import ChildForm from './ChildForm.jsx';
+import { Icon } from './icons.jsx';
+import { TestChildForm, DeleteChildModal, OrphanSection } from './ChildManager.jsx';
+import { childDataCounts, totalCount } from './children.js';
 
 // ----------------------------------------------------------------------
 // Bébé : profils enfants
 // ----------------------------------------------------------------------
 function ChildrenSection({ canEdit }) {
   const { store, update } = useStore();
-  const showToast = useToast();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-
-  const handleDelete = (id) => {
-    update((draft) => {
-      draft.children = draft.children.filter((c) => c.id !== id);
-      if (draft.activeChildId === id) draft.activeChildId = draft.children[0]?.id || null;
-      return draft;
-    });
-    showToast('Profil supprimé', '🗑️');
-  };
+  const [testFormOpen, setTestFormOpen] = useState(false);
+  const [danger, setDanger] = useState(null); // { child, mode: 'delete' | 'clear' }
+  const hasTest = store.children.some((c) => c.isTest);
+  const activate = (id) => update((d) => { d.activeChildId = id; return d; });
 
   return (
-    <div>
-      {store.children.length === 0 ? (
+    <div className="kids">
+      {store.children.length === 0 && (
         <div className="muted" style={{ fontSize: '.85rem', padding: '4px 0 10px' }}>Aucun profil enfant pour l'instant.</div>
-      ) : (
-        <div className="entry-list">
-          {store.children.map((c) => (
-            <div key={c.id} className="swipe-content" style={{ cursor: canEdit ? 'pointer' : 'default' }}
-              onClick={() => { if (canEdit) { setEditing(c); setFormOpen(true); } }}>
-              <div className="entry-icon" style={{ background: 'var(--primary-soft)', color: 'var(--primary-deep)', fontSize: '1.2rem' }}>{c.emoji || '👶'}</div>
-              <div className="entry-body">
-                <div className="entry-title">{c.nom}
-                  {c.id === store.activeChildId && <span style={{ color: 'var(--primary)', fontWeight: 700 }}> · actif</span>}
-                </div>
-                <div className="entry-sub">{formatAge(c.birthdate)} · {c.sexe === 'garcon' ? 'Garçon' : 'Fille'}</div>
+      )}
+      {store.children.map((c) => {
+        const active = c.id === store.activeChildId;
+        const n = totalCount(childDataCounts(store, c.id));
+        if (c.isTest) {
+          return (
+            <div key={c.id} className="kid-card is-test">
+              <div className="kid-row">
+                <span className="kid-avatar"><Icon name="flask" size={18} /></span>
+                <span className="kid-body">
+                  <span className="kid-name">{c.nom} <span className="test-badge">TEST</span>{active && <span className="kid-active"> · actif</span>}</span>
+                  <span className="kid-sub">{formatAge(c.birthdate)} · {n} donnée{n > 1 ? 's' : ''}{store.familyId ? ' · synchronisé' : ''}</span>
+                </span>
               </div>
               {canEdit && (
-                <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
-                  {c.id !== store.activeChildId && (
-                    <button className="btn btn-ghost btn-sm" onClick={() => update((d) => { d.activeChildId = c.id; return d; })}>Activer</button>
-                  )}
-                  {store.children.length > 1 && <ConfirmInline onConfirm={() => handleDelete(c.id)} />}
+                <div className="kid-actions">
+                  <button className="btn btn-sm kid-btn-main" disabled={active} onClick={() => activate(c.id)}>{active ? 'Actif' : 'Activer'}</button>
+                  <button className="btn btn-sm kid-btn-outline" disabled={!n} onClick={() => setDanger({ child: c, mode: 'clear' })}>Vider</button>
+                  <button className="btn btn-sm kid-btn-danger" onClick={() => setDanger({ child: c, mode: 'delete' })}>Supprimer</button>
                 </div>
               )}
             </div>
-          ))}
+          );
+        }
+        return (
+          <div key={c.id} className="kid-card">
+            <div className="kid-row">
+              <span className="kid-avatar">{(c.nom || '?').slice(0, 1).toUpperCase()}</span>
+              <span className="kid-body">
+                <span className="kid-name">{c.nom}{active && <span className="kid-active"> · actif</span>}</span>
+                <span className="kid-sub">{formatAge(c.birthdate)} · {c.sexe === 'garcon' ? 'Garçon' : 'Fille'} · {n} donnée{n > 1 ? 's' : ''}</span>
+              </span>
+            </div>
+            {canEdit && (
+              <div className="kid-actions">
+                <button className="btn btn-sm kid-btn-outline" onClick={() => { setEditing(c); setFormOpen(true); }}>Modifier</button>
+                {!active && <button className="btn btn-sm kid-btn-outline" onClick={() => activate(c.id)}>Activer</button>}
+                <button className="btn btn-sm kid-btn-danger" onClick={() => setDanger({ child: c, mode: 'delete' })}>Supprimer</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {canEdit && (
+        <div className="kid-add">
+          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}>＋ Ajouter un enfant</button>
+          {!hasTest && <button className="btn btn-sm dashed-btn-sm" onClick={() => setTestFormOpen(true)}>＋ Profil test</button>}
         </div>
       )}
-      {canEdit && (
-        <button className="btn btn-secondary btn-sm mt-8" onClick={() => { setEditing(null); setFormOpen(true); }}>＋ Ajouter un enfant</button>
-      )}
       <ChildForm open={formOpen} onClose={() => { setFormOpen(false); setEditing(null); }} editing={editing} />
+      <TestChildForm open={testFormOpen} onClose={() => setTestFormOpen(false)} />
+      {danger && <DeleteChildModal child={danger.child} mode={danger.mode} onClose={() => setDanger(null)} />}
     </div>
   );
 }
@@ -500,9 +521,14 @@ export default function ReglagesTab({ onOpenFamille }) {
   const s = store.settings || {};
   const active = store.children.find((c) => c.id === store.activeChildId);
 
-  const babySub = active
-    ? `${active.nom} · ${formatAge(active.birthdate)}${store.children.length > 1 ? ` · ${store.children.length} enfants` : ''}`
-    : 'Aucun profil';
+  const realKids = store.children.filter((c) => !c.isTest);
+  const testKid = store.children.find((c) => c.isTest);
+  const mainKid = active && !active.isTest ? active : realKids[0];
+  const babySub = [
+    mainKid ? `${mainKid.nom} · ${formatAge(mainKid.birthdate)}` : 'Aucun profil',
+    realKids.length > 1 ? `${realKids.length} enfants` : null,
+    testKid ? `1 profil test${active?.isTest ? ' (actif)' : ''}` : null,
+  ].filter(Boolean).join(' · ');
   const famSub = firebaseUser
     ? `${Math.max(1, store.members?.length || 0)} parent${(store.members?.length || 0) > 1 ? 's' : ''} · ${(SYNC_LABELS[syncStatus] || SYNC_LABELS.offline).text.toLowerCase()}`
     : 'Non connecté · données sur ce téléphone';
@@ -533,8 +559,13 @@ export default function ReglagesTab({ onOpenFamille }) {
         <NotificationsSection embedded />
       </Accordion>
 
-      <Accordion iconName="database" title="Sauvegarde & export" subtitle={`JSON, PDF pédiatre · v${APP_VERSION}`} stateKey="reg.data">
+      <Accordion iconName="database" title="Sauvegarde & export" subtitle={`JSON, PDF pédiatre, nettoyage · v${APP_VERSION}`} stateKey="reg.data">
         <DataSection canEdit={canEdit} embedded />
+        {canEdit && (
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 12 }}>
+            <OrphanSection />
+          </div>
+        )}
         <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 4 }}>
           {[
             { label: 'Version', val: `v${APP_VERSION}` },
