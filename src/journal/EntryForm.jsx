@@ -2,7 +2,8 @@ import React, { useState, useMemo, useRef } from 'react';
 import { useStore, getActiveChild, ageInMonths, authorFields } from '../store.jsx';
 import { toISODateTime, toISODate, toLocalDT, useToast } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
-import { ENTRY_TYPES } from './entryTypes.js';
+import { ENTRY_TYPES, STOOL_COLORS, stoolColor } from './entryTypes.js';
+import { Icon } from '../icons.jsx';
 
 const COUCHE_OPTIONS = [
   { key: 'pipi', label: 'Pipi' },
@@ -67,6 +68,43 @@ function FeedingFields({ f, set, showVitD, idSuffix }) {
   );
 }
 
+// Couleur des selles + alerte si décolorées
+function StoolPicker({ f, set, child }) {
+  if (f.contenu !== 'selles' && f.contenu !== 'mixte') return null;
+  const picked = stoolColor(f.couleur);
+  const swatch = (c) => (
+    <button key={c.key} className={`stool-sw ${f.couleur === c.key ? 'on' : ''} ${c.pale ? 'pale' : ''}`}
+      style={{ background: c.hex, color: c.ink }} aria-pressed={f.couleur === c.key}
+      aria-label={`Selles ${c.label}`} onClick={() => set('couleur', f.couleur === c.key ? '' : c.key)}>
+      {c.label}
+    </button>
+  );
+  return (
+    <div className="field">
+      <label>Couleur des selles (facultatif)</label>
+      <div className="stool-group">Habituelles</div>
+      <div className="stool-grid">{STOOL_COLORS.filter((c) => !c.pale).map(swatch)}</div>
+      <div className="stool-group">Décolorées — à signaler</div>
+      <div className="stool-grid">{STOOL_COLORS.filter((c) => c.pale).map(swatch)}</div>
+      {picked?.pale && (
+        <>
+          <div className="alert-box danger mt-8">
+            <Icon name="alert" size={20} />
+            <span><strong>Selles décolorées : à montrer rapidement à un médecin</strong>, sans attendre la prochaine visite. Prends une photo de la couche.</span>
+          </div>
+          {child?.medecinTel && (
+            <div className="call-row">
+              <a className="btn btn-danger-solid btn-sm" href={`tel:${child.medecinTel.replace(/\s/g, '')}`}>
+                <Icon name="phone" size={16} /> {child.medecinNom || 'Médecin'}
+              </a>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function applyFields(base, type, f) {
   const out = { ...base };
   if (type === 'biberon') {
@@ -77,6 +115,8 @@ function applyFields(base, type, f) {
     out.vitamineD = !!f.vitamineD;
   } else if (type === 'couche') {
     out.contenu = f.contenu;
+    if ((f.contenu === 'selles' || f.contenu === 'mixte') && f.couleur) out.couleur = f.couleur;
+    else delete out.couleur;
   } else if (type === 'autre') {
     out.note = f.note;
   }
@@ -102,6 +142,7 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
     duree: prefill?.duree ?? '',
     vitamineD: !!prefill?.vitamineD,
     contenu: prefill?.contenu || 'pipi',
+    couleur: '',
     note: '',
   }), [prefill, defaultMl, open]);
 
@@ -175,6 +216,7 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
           <Pills options={COUCHE_OPTIONS} value={f.contenu} onChange={(v) => set('contenu', v)} />
         </div>
       )}
+      {f.type === 'couche' && <StoolPicker f={f} set={set} child={activeChild} />}
 
       {f.type === 'autre' && (
         <div className="field">
@@ -192,9 +234,10 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
 // Modification d'une entrée (hors sommeil, qui passe par SommeilForm)
 // ----------------------------------------------------------------------
 export function EditEntryModal({ entry, onClose }) {
-  const { update, firebaseUser } = useStore();
+  const { store, update, firebaseUser } = useStore();
   const showToast = useToast();
   const def = ENTRY_TYPES[entry.type] || ENTRY_TYPES.autre;
+  const child = store.children.find((c) => c.id === entry.childId) || getActiveChild(store);
   const [f, setF] = useState(() => ({
     datetime: toLocalDT(entry.date) || toISODateTime(),
     mode: entry.mode || 'biberon',
@@ -203,6 +246,7 @@ export function EditEntryModal({ entry, onClose }) {
     duree: entry.duree ?? '',
     vitamineD: !!entry.vitamineD,
     contenu: entry.contenu || 'pipi',
+    couleur: entry.couleur || '',
     note: entry.note || '',
   }));
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
@@ -237,6 +281,7 @@ export function EditEntryModal({ entry, onClose }) {
           <Pills options={COUCHE_OPTIONS} value={f.contenu} onChange={(v) => set('contenu', v)} />
         </div>
       )}
+      {entry.type === 'couche' && <StoolPicker f={f} set={set} child={child} />}
 
       {entry.type === 'autre' && (
         <div className="field">
