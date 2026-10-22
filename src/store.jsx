@@ -156,6 +156,7 @@ export function migrateStore(raw) {
     contactUrgenceTel: c.contactUrgenceTel || '',
     notesMedicales: c.notesMedicales || '',
     lastVitDDate: c.lastVitDDate || null,
+    ...(c.isTest ? { isTest: true } : {}),
   }));
 
   if (!store.nextId) {
