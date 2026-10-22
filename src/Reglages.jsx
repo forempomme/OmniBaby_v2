@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { useStore, formatAge } from './store.jsx';
+import { useStore, formatAge, HISTORY_WINDOW_DAYS } from './store.jsx';
+import { readsToday } from './readCounter.js';
 import { toISODate, useToast, exportPDF, shareJSON, shareText, formatElapsed, Accordion } from './utils.jsx';
 import { APP_VERSION } from './version.js';
 import { auth, deleteUser } from './firebase.js';
@@ -91,6 +92,37 @@ const SYNC_LABELS = {
   error: { text: 'Erreur de synchro', color: 'var(--danger)' },
 };
 
+// Lectures Firestore de ce téléphone aujourd'hui (estimation haute)
+function ReadsCounter() {
+  const { historyStatus, loadHistory } = useStore();
+  const [reads, setReads] = useState(() => readsToday());
+  React.useEffect(() => {
+    const h = () => setReads(readsToday());
+    window.addEventListener('omnibaby-reads', h);
+    const t = setInterval(h, 60000); // passage à minuit
+    return () => { window.removeEventListener('omnibaby-reads', h); clearInterval(t); };
+  }, []);
+  const pct = Math.min(100, (reads / 50000) * 100);
+  return (
+    <div className="reads-box">
+      <div className="flex-between">
+        <span style={{ fontWeight: 600, fontSize: '.86rem' }}>Lectures Firebase aujourd'hui</span>
+        <span className="reads-value">≈ {reads.toLocaleString('fr-FR')}</span>
+      </div>
+      <div className="reads-bar"><span style={{ width: `${Math.max(pct, reads > 0 ? 1 : 0)}%` }} /></div>
+      <div className="muted" style={{ fontSize: '.72rem', marginTop: 6, lineHeight: 1.4 }}>
+        Ce téléphone, estimation haute. Gratuit jusqu'à 50 000 / jour pour toute la famille.
+        Synchro continue : {HISTORY_WINDOW_DAYS} derniers jours ; historique ancien {historyStatus === 'complete' ? 'chargé' : 'chargé à la demande'}.
+      </div>
+      {historyStatus !== 'complete' && (
+        <button className="btn btn-outline btn-sm mt-8" onClick={() => loadHistory()} disabled={historyStatus === 'loading'}>
+          {historyStatus === 'loading' ? 'Chargement…' : "Charger l'historique complet"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function FamilySection({ onOpenFamille }) {
   const { store, firebaseUser, syncStatus, logout } = useStore();
   const showToast = useToast();
@@ -165,6 +197,8 @@ function FamilySection({ onOpenFamille }) {
               <button className="btn btn-outline btn-sm" onClick={shareCode}>Partager</button>
             </div>
           )}
+
+          {store.familyId && <ReadsCounter />}
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
             <button className="btn btn-secondary btn-sm" onClick={logout}>Déconnexion</button>
@@ -424,7 +458,7 @@ function NotificationsSection({ embedded = false }) {
 // Section données
 // ----------------------------------------------------------------------
 function DataSection({ canEdit, embedded = false }) {
-  const { store, update, replaceStore, resetStore } = useStore();
+  const { store, update, replaceStore, resetStore, loadHistory, getStore } = useStore();
   const showToast = useToast();
   const fileInputRef = useRef(null);
   const [resetStep, setResetStep] = useState(0);
@@ -434,7 +468,10 @@ function DataSection({ canEdit, embedded = false }) {
 
   const handleExport = async () => {
     try {
-      await shareJSON(store);
+      // La sauvegarde doit contenir tout l'historique, pas seulement 60 jours
+      const complete = await loadHistory();
+      if (!complete) showToast('Historique ancien indisponible hors connexion : sauvegarde partielle', '⚠️');
+      await shareJSON(getStore());
       update(d => { d.settings.lastExportDate = toISODate(); return d; });
       showToast('Export partagé', '📤');
     } catch (e) { if (e.name !== 'AbortError') showToast('Erreur export : ' + e.message, '⚠️'); }
