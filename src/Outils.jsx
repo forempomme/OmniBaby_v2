@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal } from './Modal.jsx';
+import { Icon } from './icons.jsx';
 import MinuteurTool from './tools/Minuteur.jsx';
 import MedicamentsTool from './tools/Medicaments.jsx';
 import FievreTool from './tools/Fievre.jsx';
@@ -16,19 +17,20 @@ import JournalBordTool from './tools/JournalBord.jsx';
 // ----------------------------------------------------------------------
 // Tool definitions
 // ----------------------------------------------------------------------
+// tone : couleur de la pastille (primary | sage | sun | sky | danger)
 const TOOLS = [
-  { key: 'minuteur', icon: '⏱️', name: 'Minuteur', desc: 'Chrono de tétée par sein avec alternance' },
-  { key: 'medicaments', icon: '💊', name: 'Médicaments', desc: 'Traitements en cours et alertes de dose' },
-  { key: 'fievre', icon: '🌡️', name: 'Fièvre', desc: 'Courbe de température et alertes' },
-  { key: 'alimentation', icon: '🥦', name: 'Alimentation', desc: 'Diversification, aliments testés, conseils lait' },
-  { key: 'statistiques', icon: '📊', name: 'Statistiques', desc: 'Graphiques biberons, sommeil, couches' },
-  { key: 'journalbord', icon: '📸', name: 'Journal de bord', desc: 'Souvenirs, premières fois, moments drôles' },
-  { key: 'developpement', icon: '🧩', name: 'Développement', desc: 'Repères moteurs, langage et éveil par âge' },
-  { key: 'rappels', icon: '🎯', name: 'Rappels', desc: 'RDV, courses, visites médicales' },
-  { key: 'historique', icon: '🗂️', name: 'Historique', desc: 'Toutes les entrées, chronologique' },
-  { key: 'famille', icon: '👨‍👩‍👧', name: 'Famille', desc: 'Utilisateurs et rôles' },
-  { key: 'urgence', icon: '🆘', name: 'Urgence', desc: 'Fiche allergies, médecin, contacts' },
-  { key: 'recherche', icon: '🔍', name: 'Recherche', desc: "Recherche globale dans toute l'app" },
+  { key: 'minuteur', icon: 'clock', tone: 'primary', name: 'Minuteur', desc: 'Chrono de tétée par sein avec alternance' },
+  { key: 'medicaments', icon: 'pill', tone: 'sage', name: 'Médicaments', desc: 'Traitements en cours et alertes de dose' },
+  { key: 'fievre', icon: 'thermo', tone: 'danger', name: 'Fièvre', desc: 'Courbe de température et alertes' },
+  { key: 'alimentation', icon: 'leaf', tone: 'sage', name: 'Alimentation', desc: 'Diversification, aliments testés, conseils lait' },
+  { key: 'statistiques', icon: 'chart', tone: 'sky', name: 'Statistiques', desc: 'Graphiques biberons, sommeil, couches' },
+  { key: 'journalbord', icon: 'camera', tone: 'sun', name: 'Journal de bord', desc: 'Souvenirs, premières fois, moments drôles' },
+  { key: 'developpement', icon: 'puzzle', tone: 'sky', name: 'Développement', desc: 'Repères moteurs, langage et éveil par âge' },
+  { key: 'rappels', icon: 'bell', tone: 'sun', name: 'Rappels', desc: 'RDV, courses, visites médicales' },
+  { key: 'historique', icon: 'history', tone: 'primary', name: 'Historique', desc: 'Toutes les entrées, chronologique' },
+  { key: 'famille', icon: 'users', tone: 'sage', name: 'Famille', desc: 'Utilisateurs et rôles' },
+  { key: 'urgence', icon: 'alert', tone: 'danger', name: 'Urgence', desc: 'Fiche allergies, médecin, contacts' },
+  { key: 'recherche', icon: 'search', tone: 'primary', name: 'Recherche', desc: "Recherche globale dans toute l'app" },
 ];
 
 // ----------------------------------------------------------------------
@@ -95,14 +97,15 @@ export default function OutilsTab({ openToolKey, setOpenToolKey, onTimerFinish }
       <div className="tools-grid">
         {TOOLS.map((t) => (
           <button key={t.key} className="tool-card appear" onClick={() => open(t.key)}>
-            <div className="tool-icon">{t.icon}</div>
+            <div className={`tool-icon tone-${t.tone}`}><Icon name={t.icon} size={24} /></div>
             <div className="tool-name">{t.name}</div>
             <div className="tool-desc">{t.desc}</div>
           </button>
         ))}
       </div>
 
-      <Modal open={!!activeTool} onClose={close} title={activeTool?.name || ''} icon={activeTool?.icon} full>
+      <Modal open={!!activeTool} onClose={close} title={activeTool?.name || ''}
+        icon={activeTool ? <span className={`modal-tool-icon tone-${activeTool.tone}`}><Icon name={activeTool.icon} size={18} /></span> : null} full>
         {renderTool()}
       </Modal>
     </div>
