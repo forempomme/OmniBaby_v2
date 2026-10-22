@@ -119,19 +119,30 @@ export function ToastProvider({ children }) {
   const [toast, setToast] = useState(null);
   const timerRef = useRef(null);
 
-  const showToast = useCallback((message, icon = '✅') => {
+  // opts : { duration: ms, action: { label, onClick } } — ex. « Annuler » 5 s
+  const showToast = useCallback((message, icon = '✅', opts = {}) => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setToast({ message, icon });
-    timerRef.current = setTimeout(() => setToast(null), 2200);
+    const duration = opts.duration || (opts.action ? 5000 : 2200);
+    setToast({ message, icon, action: opts.action || null, duration, key: Date.now() });
+    timerRef.current = setTimeout(() => setToast(null), duration);
   }, []);
+
+  const runAction = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const a = toast?.action;
+    setToast(null);
+    if (a) a.onClick();
+  };
 
   return (
     <ToastContext.Provider value={showToast}>
       {children}
       {toast && (
-        <div className="toast" role="status">
-          <span>{toast.icon}</span>
-          <span>{toast.message}</span>
+        <div className={`toast ${toast.action ? 'toast-action' : ''}`} role="status" key={toast.key}>
+          {!toast.action && <span>{toast.icon}</span>}
+          <span className="toast-msg">{toast.message}</span>
+          {toast.action && <button className="toast-btn" onClick={runAction}>{toast.action.label}</button>}
+          {toast.action && <span className="toast-progress" style={{ animationDuration: `${toast.duration}ms` }} />}
         </div>
       )}
     </ToastContext.Provider>
@@ -340,9 +351,27 @@ export async function exportPDF(store, child) {
 // ----------------------------------------------------------------------
 // Notifications locales (@capacitor/local-notifications)
 // ----------------------------------------------------------------------
+// Identifiant numérique de notification (Android exige un entier 32 bits).
+// ≤ v3.9 : somme des codes de caractères → deux rappels pouvaient obtenir le
+// même numéro et le second remplaçait le premier. Désormais : hash FNV-1a.
+function legacyNotifId(id) {
+  return Math.abs(String(id).split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % 2147483647;
+}
 function notifNumericId(id) {
   if (typeof id === 'number') return id;
-  return Math.abs(String(id).split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % 2147483647;
+  let h = 0x811c9dc5;
+  for (const ch of String(id)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return (h % 2147483646) + 1;
+}
+
+// Prochaine occurrence d'une heure « HH:MM » (aujourd'hui, sinon demain)
+export function nextOccurrence(hhmm, now = new Date()) {
+  const [h, m] = String(hhmm || '').split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  const d = new Date(now);
+  d.setHours(h, m, 0, 0);
+  if (d <= now) d.setDate(d.getDate() + 1);
+  return d;
 }
 
 export async function requestNotifPermission() {
@@ -373,6 +402,7 @@ export async function scheduleNotif({ id, title, body, at }) {
 export async function cancelNotif(id) {
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
-    await LocalNotifications.cancel({ notifications: [{ id: notifNumericId(id) }] });
+    const ids = typeof id === 'number' ? [id] : [notifNumericId(id), legacyNotifId(id)];
+    await LocalNotifications.cancel({ notifications: ids.map((n) => ({ id: n })) });
   } catch (e) {}
 }
