@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { HistoryNotice } from './HistoryNotice.jsx';
 import { useStore, filterByActiveChild, getActiveChild, ageInMonths } from './store.jsx';
 import { groupByDay, dayLabel, daysAgo, isToday, toISODate, toLocalDT, toISODateTime, useToast } from './utils.jsx';
 import { Icon } from './icons.jsx';
@@ -206,6 +207,8 @@ export default function JournalTab({ intent, clearIntent }) {
           </div>
         ))
       )}
+
+      {period === 'all' && <HistoryNotice variant="card" />}
 
       <EntryForm
         open={!!entryForm}
