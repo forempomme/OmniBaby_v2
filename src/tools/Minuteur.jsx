@@ -1,44 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore, getActiveChild, genId, authorFields } from '../store.jsx';
 import { useToast } from '../utils.jsx';
+import { loadTimerState, saveTimerState, startSide, pauseTimer, teteeFromTimer } from '../timer.js';
 
-const STORAGE_KEY = 'omnibaby_minuteur_v1';
-
-// ----------------------------------------------------------------------
-// Persisted timer state — survives app close / tab change
-// ----------------------------------------------------------------------
-function loadTimerState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) {
-    return null;
-  }
-}
-
-function saveTimerState(state) {
-  try {
-    if (state === null) {
-      localStorage.removeItem(STORAGE_KEY);
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-  } catch (e) {
-    /* ignore */
-  }
-  window.dispatchEvent(new CustomEvent('omnibaby-timer', { detail: { active: state !== null } }));
-}
-
-// state shape:
-// {
-//   startedAt: ISO string (overall session start),
-//   currentSide: 'gauche' | 'droit',
-//   currentSideStartedAt: ISO string (when current side timer started),
-//   running: bool,
-//   elapsedGauche: seconds accumulated (excluding current running segment),
-//   elapsedDroit: seconds accumulated (excluding current running segment),
-// }
+// L'état du minuteur est partagé avec la notification « Tétée en cours »
+// (voir timer.js) : il survit à la fermeture de l'app.
 
 function formatHMS(totalSeconds) {
   const s = Math.max(0, Math.floor(totalSeconds));
@@ -70,6 +36,13 @@ export default function MinuteurTool({ onFinish }) {
     saveTimerState(newState);
   };
 
+  // Changement venu de la notification (Changer de côté / Terminer)
+  useEffect(() => {
+    const h = () => { setState(loadTimerState()); setNow(Date.now()); };
+    window.addEventListener('omnibaby-timer', h);
+    return () => window.removeEventListener('omnibaby-timer', h);
+  }, []);
+
   // Compute live elapsed for each side
   const liveElapsed = (side) => {
     if (!state) return 0;
@@ -80,42 +53,8 @@ export default function MinuteurTool({ onFinish }) {
     return total;
   };
 
-  const start = (side) => {
-    const nowIso = new Date().toISOString();
-    if (!state) {
-      persist({
-        startedAt: nowIso,
-        currentSide: side,
-        currentSideStartedAt: nowIso,
-        running: true,
-        elapsedGauche: 0,
-        elapsedDroit: 0,
-      });
-      return;
-    }
-    if (state.running && state.currentSide === side) return;
-    const elapsed = { ...state };
-    if (state.running) {
-      const delta = (Date.now() - new Date(state.currentSideStartedAt).getTime()) / 1000;
-      if (state.currentSide === 'gauche') elapsed.elapsedGauche += delta;
-      else elapsed.elapsedDroit += delta;
-    }
-    persist({
-      ...elapsed,
-      currentSide: side,
-      currentSideStartedAt: new Date().toISOString(),
-      running: true,
-    });
-  };
-
-  const pause = () => {
-    if (!state || !state.running) return;
-    const delta = (Date.now() - new Date(state.currentSideStartedAt).getTime()) / 1000;
-    const elapsed = { ...state, running: false };
-    if (state.currentSide === 'gauche') elapsed.elapsedGauche += delta;
-    else elapsed.elapsedDroit += delta;
-    persist(elapsed);
-  };
+  const start = (side) => { const next = startSide(state, side); if (next !== state) persist(next); };
+  const pause = () => persist(pauseTimer(state));
 
   const reset = () => {
     persist(null);
@@ -127,39 +66,18 @@ export default function MinuteurTool({ onFinish }) {
   const [lastEntry, setLastEntry] = React.useState(null);
 
   const handleFinish = () => {
-    let finalState = state;
-    if (state && state.running) {
-      const delta = (Date.now() - new Date(state.currentSideStartedAt).getTime()) / 1000;
-      finalState = { ...state, running: false };
-      if (state.currentSide === 'gauche') finalState.elapsedGauche += delta;
-      else finalState.elapsedDroit += delta;
-    }
-    if (!finalState) return;
+    if (!state) return;
     if (!activeChild) { showToast("Crée d'abord le profil de bébé", '⚠️'); return; }
-
-    const totalSeconds = finalState.elapsedGauche + finalState.elapsedDroit;
-    const totalMinutes = Math.max(1, Math.round(totalSeconds / 60));
-    let cote;
-    if (finalState.elapsedGauche > 0 && finalState.elapsedDroit > 0) cote = 'deux';
-    else if (finalState.elapsedDroit > finalState.elapsedGauche) cote = 'droit';
-    else cote = 'gauche';
-
-    // Heure de la tétée = début de la séance (pas l'heure de fin)
     const entry = {
       id: genId(),
-      childId: activeChild?.id,
-      type: 'biberon',
-      mode: 'sein',
-      date: new Date(finalState.startedAt || Date.now()).toISOString(),
-      cote,
-      duree: totalMinutes,
+      childId: activeChild.id,
+      ...teteeFromTimer(state),
       ...authorFields(firebaseUser, 'created'),
     };
-
     update((draft) => { draft.entries.push(entry); return draft; });
     setLastEntry(entry);
     reset();
-    showToast(`Tétée enregistrée — ${totalMinutes} min · ${cote === 'deux' ? 'les deux côtés' : cote}`, '✅');
+    showToast(`Tétée enregistrée — ${entry.duree} min · ${entry.cote === 'deux' ? 'les deux côtés' : entry.cote}`, '✅');
   };
 
   const hasSession = !!state;
@@ -171,7 +89,8 @@ export default function MinuteurTool({ onFinish }) {
     <div>
       <div className="muted" style={{ fontSize: '0.85rem', marginBottom: 16 }}>
         Lance le chrono du côté utilisé, bascule en cours de tétée si besoin, puis termine pour
-        enregistrer directement dans le journal.
+        enregistrer directement dans le journal. Sur le téléphone, une notification « Tétée en cours »
+        permet de changer de côté ou de terminer sans rouvrir l'app.
       </div>
 
       <div className="card" style={{ textAlign: 'center' }}>
