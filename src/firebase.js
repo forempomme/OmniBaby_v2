@@ -22,6 +22,9 @@ import {
   onSnapshot,
   serverTimestamp,
   arrayUnion,
+  query,
+  where,
+  getDocs,
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -67,4 +70,7 @@ export {
   onSnapshot,
   serverTimestamp,
   arrayUnion,
+  query,
+  where,
+  getDocs,
 };
