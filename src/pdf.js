@@ -13,6 +13,7 @@ import {
   getLMS, lmsValue, estimatePercentile, VACCINS_CALENDRIER,
 } from './data/who-growth.js';
 import { shareFileNative, toISODate } from './utils.jsx';
+import { stoolColor } from './journal/entryTypes.js';
 
 // ── Couleurs (maquette validée) ─────────────────────────────────────
 const C = {
@@ -126,6 +127,7 @@ export function computeWeek(store, child, now = new Date()) {
   const milk = bottles.reduce((s, e) => s + (Number(e.quantite) || 0), 0);
   const breastMin = breast.reduce((s, e) => s + (Number(e.duree) || 0), 0);
   const diapers = entries.filter((e) => e.type === 'couche').length;
+  const paleStools = entries.filter((e) => e.type === 'couche' && stoolColor(e.couleur)?.pale).length;
   const sleepMin = entries.filter((e) => e.type === 'sommeil' && !e.enCours)
     .reduce((s, e) => s + (Number(e.duree) || 0), 0);
   const temps = forChild(store.temperatures, child).filter((t) => inPeriod(t.date));
@@ -136,6 +138,7 @@ export function computeWeek(store, child, now = new Date()) {
   if (milk) rows.push(['Lait au biberon', `${fmt(milk)} ml`, `${fmt(milk / 7)} ml`]);
   if (breastMin) rows.push(['Tétées (durée saisie)', fmtHours(breastMin), fmtHours(breastMin / 7)]);
   if (diapers) rows.push(['Changes', fmt(diapers), fmt(diapers / 7, 1)]);
+  if (paleStools) rows.push(['Selles décolorées signalées', fmt(paleStools), 'à vérifier']);
   if (sleepMin) rows.push(['Sommeil (nuits + siestes saisies)', fmtHours(sleepMin), fmtHours(sleepMin / 7)]);
   if (temps.length) rows.push(['Températures relevées', fmt(temps.length), `max ${fmt(maxTemp, 1)} °C`]);
   return { start, end: now, rows };
