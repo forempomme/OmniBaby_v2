@@ -362,7 +362,8 @@ function FirebaseLoginScreen({ onDone, onCancel, initialMode = 'login', setupSte
     }
     for (let i = 0; i < writes.length; i += 40) await Promise.all(writes.slice(i, i + 40).map((w) => w()));
 
-    update((draft) => { draft.familyId = familyId; draft.familyCode = code; return draft; });
+    // Données locales envoyées dans cette famille : on les garde
+    update((draft) => { draft.familyId = familyId; draft.familyCode = code; draft.syncFamilyId = familyId; return draft; });
     showToast(writes.length ? `Compte créé · ${writes.length} données synchronisées` : 'Compte créé', '✅');
     onDone('registered');
   });
