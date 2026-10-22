@@ -13,6 +13,7 @@ describe('PDF : tableau 7 jours', () => {
         { childId: 'c1', type: 'biberon', mode: 'biberon', quantite: 150, date: at(2, 9) },
         { childId: 'c1', type: 'biberon', mode: 'sein', duree: 20, date: at(1, 9) },
         { childId: 'c1', type: 'couche', contenu: 'pipi', date: at(0, 10) },
+        { childId: 'c1', type: 'couche', contenu: 'selles', couleur: 'mastic', date: at(2, 10) },
         { childId: 'c1', type: 'sommeil', debut: at(3, 13), date: at(3, 13), duree: 90, enCours: false },
         { childId: 'c1', type: 'sommeil', debut: at(0, 19), date: at(0, 19), enCours: true },
         { childId: 'c1', type: 'biberon', mode: 'biberon', quantite: 999, date: at(10, 9) }, // hors période
@@ -24,7 +25,8 @@ describe('PDF : tableau 7 jours', () => {
     const byLabel = Object.fromEntries(rows.map((r) => [r[0], r]));
     expect(byLabel['Biberons et tétées'][1]).toBe('3');
     expect(byLabel['Lait au biberon'][1]).toBe('270 ml');
-    expect(byLabel['Changes'][1]).toBe('1');
+    expect(byLabel['Changes'][1]).toBe('2');
+    expect(byLabel['Selles décolorées signalées'][1]).toBe('1');
     expect(byLabel['Sommeil (nuits + siestes saisies)'][1]).toBe('1 h 30');
     expect(byLabel['Températures relevées'][2]).toBe('max 37,8 °C');
   });
