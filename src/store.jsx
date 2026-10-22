@@ -5,8 +5,9 @@ import {
   auth, db,
   onAuthStateChanged, signOut,
   doc, collection, getDoc, setDoc, deleteDoc, onSnapshot,
-  serverTimestamp,
+  serverTimestamp, query, where, getDocs,
 } from './firebase.js';
+import { countReads, readsForSnapshot } from './readCounter.js';
 
 const STORE_KEY = 'omnibaby_store_v3';
 const SESSION_KEY = 'omnibaby_session_v3';
@@ -18,6 +19,46 @@ export const SYNC_TABLES = [
   'entries', 'mesures', 'vaccins', 'medicaments',  // sommeils fusionné dans entries v3.3.0
   'temperatures', 'aliments', 'journal', 'rappels',
 ];
+
+// Tables volumineuses : écoute limitée aux 60 derniers jours (moins de
+// lectures Firestore). Le reste se charge à la demande (loadHistory).
+const WINDOWED_TABLES = ['entries', 'temperatures'];
+export const HISTORY_WINDOW_DAYS = 60;
+
+// Date limite « YYYY-MM-DD » (1 jour de marge pour les fuseaux horaires).
+// Les dates stockées sont des chaînes ISO (UTC « …Z » ou locale sans
+// fuseau) : la comparaison de chaînes avec un jour seul reste correcte.
+export function windowCutoff(now = new Date()) {
+  const d = new Date(now);
+  d.setDate(d.getDate() - HISTORY_WINDOW_DAYS - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Élément couvert par l'écoute (date ≥ limite). Sans date : jamais couvert.
+export function inWindow(item, cutoff) {
+  return typeof item?.date === 'string' && item.date >= cutoff;
+}
+
+// Résultat de l'écoute fenêtrée + éléments plus anciens déjà connus
+// (gardés seulement s'ils viennent de cette même famille)
+export function mergeWindow(prevItems, windowItems, cutoff, keepOld) {
+  if (!keepOld) return windowItems;
+  const ids = new Set(windowItems.map((i) => i.id));
+  return windowItems.concat((prevItems || []).filter((i) => !inWindow(i, cutoff) && !ids.has(i.id)));
+}
+
+// Historique complet lu à la demande. L'écoute reste la référence pour
+// la fenêtre récente. Si la lecture vient du serveur (authoritative), un
+// ancien élément absent a été supprimé par l'autre parent.
+export function mergeHistory(prevItems, fetched, cutoff, authoritative) {
+  const prev = prevItems || [];
+  const recentPrev = prev.filter((i) => inWindow(i, cutoff));
+  const ids = new Set(recentPrev.map((i) => i.id));
+  const out = recentPrev.slice();
+  for (const i of fetched) if (!ids.has(i.id)) { out.push(i); ids.add(i.id); }
+  if (!authoritative) for (const i of prev) if (!ids.has(i.id)) { out.push(i); ids.add(i.id); }
+  return out;
+}
 
 // Réglages propres à chaque téléphone : jamais envoyés à l'autre parent,
 // jamais écrasés par lui (thème, mode nuit, biométrie, notifications…).
@@ -68,6 +109,7 @@ export function emptyStore() {
     // Infos famille Firebase
     familyId: null,
     familyCode: null, // code à 6 chiffres pour rejoindre la famille
+    syncFamilyId: null, // famille d'origine des données anciennes gardées localement
   };
 }
 
@@ -158,6 +200,10 @@ export function migrateStore(raw) {
     lastVitDDate: c.lastVitDDate || null,
     ...(c.isTest ? { isTest: true } : {}),
   }));
+
+  // Famille dont viennent les données locales (v3.10.0). Avant, tout
+  // était reçu de la famille connectée.
+  if (raw.syncFamilyId === undefined) store.syncFamilyId = store.familyId || null;
 
   if (!store.nextId) {
     let max = 0;
@@ -291,6 +337,9 @@ export function StoreProvider({ children: reactChildren }) {
   const [session, setSessionState] = useState(() => loadSession());
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [syncStatus, setSyncStatus] = useState('offline'); // 'offline'|'syncing'|'synced'|'error'
+  // Historique au-delà de 60 jours : 'partial' | 'loading' | 'complete' | 'error'
+  const [historyStatus, setHistoryStatus] = useState('partial');
+  const historyPromise = useRef(null);
   // storeRef = source de vérité synchrone : deux update() successifs dans le
   // même événement voient chacun l'état produit par le précédent.
   const storeRef = useRef(store);
@@ -341,7 +390,9 @@ export function StoreProvider({ children: reactChildren }) {
       .catch(() => {});
 
     // 1. Métadonnées famille
+    const metaTracker = { serverSeen: false };
     const unsubMeta = onSnapshot(familyRef(familyId), (snap) => {
+      countReads(readsForSnapshot(snap, metaTracker));
       if (!snap.exists()) return;
       const data = snap.data();
       commit((prev) => {
@@ -363,7 +414,9 @@ export function StoreProvider({ children: reactChildren }) {
     unsubscribers.current.push(unsubMeta);
 
     // 2. Membres (affichage uniquement)
+    const membersTracker = { serverSeen: false };
     const unsubMembers = onSnapshot(collection(db, 'families', familyId, 'members'), (snap) => {
+      countReads(readsForSnapshot(snap, membersTracker));
       const members = snap.docs.map((d) => {
         const m = d.data();
         return {
@@ -378,22 +431,44 @@ export function StoreProvider({ children: reactChildren }) {
     }, (e) => console.warn('[Firebase] members listener:', e?.message));
     unsubscribers.current.push(unsubMembers);
 
-    // 3. Tables de données
+    // 3. Tables de données (entries et temperatures : 60 derniers jours)
+    historyPromise.current = null;
+    setHistoryStatus('partial');
+    const cutoff = windowCutoff();
+    // Anciennes données locales d'une autre famille (ou d'avant la
+    // connexion) : écartées au premier résultat, comme avant la v3.10.
+    const keepOldAtStart = storeRef.current.syncFamilyId === familyId;
     for (const table of SYNC_TABLES) {
+      const windowed = WINDOWED_TABLES.includes(table);
+      const ref = collection(db, 'families', familyId, table);
+      const tracker = { serverSeen: false };
+      let first = true;
+      let keepOld = keepOldAtStart;
       const unsub = onSnapshot(
-        collection(db, 'families', familyId, table),
+        windowed ? query(ref, where('date', '>=', cutoff)) : ref,
+        { includeMetadataChanges: true },
         (snap) => {
+          countReads(readsForSnapshot(snap, tracker));
+          // Changement de métadonnées seul (cache → serveur, écriture confirmée)
+          if (!first && snap.docChanges().length === 0) { setSyncStatus('synced'); return; }
+          const keep = keepOld;
+          first = false;
+          keepOld = true;
           const items = snap.docs.map((d) => {
             const { _updatedAt, ...rest } = d.data();
             return rest;
           });
-          commit((prev) => ({ ...prev, [table]: items }));
+          commit((prev) => (windowed
+            ? { ...prev, [table]: mergeWindow(prev[table], items, cutoff, keep) }
+            : { ...prev, [table]: items }));
           setSyncStatus('synced');
         },
         (e) => { console.error(`[Firebase] ${table} listener:`, e); setSyncStatus('error'); }
       );
       unsubscribers.current.push(unsub);
     }
+    // Les données locales appartiennent désormais à cette famille
+    commit((prev) => (prev.syncFamilyId === familyId ? prev : { ...prev, syncFamilyId: familyId }));
   }
 
   function stopSync() {
@@ -422,6 +497,46 @@ export function StoreProvider({ children: reactChildren }) {
 
   const nextId = useCallback(() => genId(), []);
 
+  // Historique complet (au-delà de 60 jours) : lu une fois par session,
+  // seulement quand un écran en a besoin. Renvoie true si complet.
+  const loadHistory = useCallback(() => {
+    const familyId = storeRef.current.familyId;
+    if (!familyId || !auth.currentUser) return Promise.resolve(true);
+    if (historyPromise.current) return historyPromise.current;
+    setHistoryStatus('loading');
+    const run = (async () => {
+      try {
+        const cutoff = windowCutoff();
+        const results = await Promise.all(WINDOWED_TABLES.map((t) => getDocs(collection(db, 'families', familyId, t))));
+        if (storeRef.current.familyId !== familyId) return false;
+        let fromServer = true;
+        const fetched = {};
+        WINDOWED_TABLES.forEach((t, i) => {
+          const snap = results[i];
+          if (snap.metadata?.fromCache) fromServer = false;
+          else countReads(Math.max(1, snap.size));
+          fetched[t] = snap.docs.map((d) => { const { _updatedAt, ...rest } = d.data(); return rest; });
+        });
+        commit((prev) => {
+          const next = { ...prev };
+          for (const t of WINDOWED_TABLES) next[t] = mergeHistory(prev[t], fetched[t], cutoff, fromServer);
+          return next;
+        });
+        // Hors connexion : seul le cache a été lu → on retentera plus tard
+        if (!fromServer) { historyPromise.current = null; setHistoryStatus('error'); return false; }
+        setHistoryStatus('complete');
+        return true;
+      } catch (e) {
+        console.warn('[Firebase] historique :', e?.message);
+        historyPromise.current = null;
+        setHistoryStatus('error');
+        return false;
+      }
+    })();
+    historyPromise.current = run;
+    return run;
+  }, []);
+
   // Import JSON : remplace les données locales ; si une famille est
   // connectée, ajoute/modifie dans le cloud sans rien y supprimer.
   const replaceStore = useCallback((newStore) => {
@@ -431,6 +546,7 @@ export function StoreProvider({ children: reactChildren }) {
       ...migrated,
       familyId: prev.familyId,
       familyCode: prev.familyCode,
+      syncFamilyId: prev.syncFamilyId,
       members: prev.members,
       users: migrated.users.length ? migrated.users : prev.users,
     };
@@ -466,6 +582,11 @@ export function StoreProvider({ children: reactChildren }) {
     firebaseUser,
     syncStatus,
     logout,
+    // Pas de famille : tout est sur ce téléphone, l'historique est complet
+    historyStatus: store.familyId && firebaseUser ? historyStatus : 'complete',
+    loadHistory,
+    // État à jour après un await (la variable store d'un rendu peut être ancienne)
+    getStore: () => storeRef.current,
   };
 
   return (
