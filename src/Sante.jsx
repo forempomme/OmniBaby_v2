@@ -10,6 +10,7 @@ import {
   exportPDF,
   scheduleNotif,
   requestNotifPermission,
+  toTime,
 } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import NoChildState from './NoChildState.jsx';
@@ -300,7 +301,7 @@ function MesureSection({ type, child, mesures, canEdit }) {
   const [showHistory, setShowHistory] = useState(false);
 
   const typeMesures = useMemo(
-    () => mesures.filter((m) => m.type === type).sort((a, b) => (a.date < b.date ? 1 : -1)),
+    () => mesures.filter((m) => m.type === type).sort((a, b) => toTime(b.date) - toTime(a.date)),
     [mesures, type]
   );
 
