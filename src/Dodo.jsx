@@ -1,11 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild, ageInMonths, genId, authorFields } from './store.jsx';
 import {
-  toISODate, toISODateTime, toLocalDT, toTime, formatTimeFR,
+  toISODate, toISODateTime, toLocalDT, toTime, formatTimeFR, formatElapsed,
   groupByDay, dayLabel, daysAgo, isToday, useToast,
 } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import NoChildState from './NoChildState.jsx';
+import EntryItem from './journal/EntryItem.jsx';
+import { Stamp, useNow } from './journal/TodayOverview.jsx';
+import { formatMinutes } from './journal/entryTypes.js';
+import { HistoryNotice } from './HistoryNotice.jsx';
 
 // ----------------------------------------------------------------------
 // Recommandations de sommeil OMS
@@ -220,245 +224,129 @@ export function SommeilForm({ open, onClose, child, editing, onSaved }) {
 }
 
 // ----------------------------------------------------------------------
-// Résumé du jour
+// Tampons (même style que le Journal) : sommeil en cours / éveillé,
+// total du jour, repère pour l'âge
 // ----------------------------------------------------------------------
-function TodaySummaryCard({ entries, child }) {
-  const ageM = ageInMonths(child?.birthdate);
-  const reco = getRecoForAge(ageM);
+export function sleepToday(entries, now = new Date()) {
+  const day = toISODate(now);
+  const today = entries.filter((e) => !e.enCours && toISODate(new Date(e.debut || e.date)) === day);
+  return {
+    minutes: today.reduce((s, e) => s + (Number(e.duree) || 0), 0),
+    nuits: today.filter((e) => e.sousType === 'nuit').length,
+    siestes: today.filter((e) => e.sousType !== 'nuit').length,
+  };
+}
 
-  const todaySleeps = entries.filter((e) => isToday(e.debut || e.date));
-  const totalMin = todaySleeps.reduce((s, e) => s + (e.duree || 0), 0);
-  const nuits = todaySleeps.filter((e) => e.sousType === 'nuit').length;
-  const siestes = todaySleeps.filter((e) => e.sousType !== 'nuit').length;
-  const enCours = entries.find((e) => e.enCours);
-
-  const totalH = totalMin / 60;
+function SleepOverview({ entries, child, onWake, onNew, canEdit, weekAvg }) {
+  const now = useNow();
+  const reco = getRecoForAge(ageInMonths(child?.birthdate));
   const [recoMin, recoMax] = reco.total;
-  let statusColor = 'var(--text-soft)', statusLabel = '—';
-  if (totalMin > 0) {
-    if (totalH < recoMin) { statusColor = 'var(--accent-sun)'; statusLabel = 'En dessous des repères'; }
-    else if (totalH > recoMax) { statusColor = 'var(--accent-sky)'; statusLabel = 'Au-dessus des repères'; }
-    else { statusColor = 'var(--accent-sage)'; statusLabel = 'Dans les repères'; }
+  const sleeping = entries.find((e) => e.enCours);
+  const lastSleep = entries.find((e) => !e.enCours);
+  const awakeSince = lastSleep ? (lastSleep.fin || lastSleep.debut || lastSleep.date) : null;
+  const t = sleepToday(entries);
+
+  // Comparaison sur la moyenne des 7 derniers jours terminés : en cours
+  // de journée, le total du jour est forcément « en dessous »
+  let status = null;
+  let statusColor;
+  if (weekAvg != null) {
+    const h = weekAvg / 60;
+    if (h < recoMin) { status = 'en dessous'; statusColor = 'var(--accent-sun)'; }
+    else if (h > recoMax) { status = 'au-dessus'; statusColor = 'var(--accent-sky)'; }
+    else { status = 'dans le repère'; statusColor = 'var(--accent-sage)'; }
   }
+  const parts = [];
+  if (t.nuits) parts.push(t.nuits > 1 ? `${t.nuits} nuits` : 'nuit');
+  if (t.siestes) parts.push(`${t.siestes} sieste${t.siestes > 1 ? 's' : ''}`);
 
   return (
-    <div className="card appear">
-      <div className="section-title" style={{ marginBottom: 6 }}>🌙 Aujourd'hui</div>
-
-      {/* Badge sommeil en cours */}
-      {enCours && (
-        <div style={{
-          display:'flex', alignItems:'center', gap:8, marginBottom:10,
-          background:'var(--accent-sky-soft)', borderRadius:'var(--radius-md)',
-          padding:'8px 12px', border:'1px solid var(--accent-sky)',
-        }}>
-          <span style={{ fontSize:'1rem', animation:'pulse 2s infinite' }}>🌙</span>
-          <div>
-            <div style={{ fontWeight:700, fontSize:'.82rem', color:'var(--accent-sky)' }}>Sommeil en cours</div>
-            <div style={{ fontSize:'.72rem', color:'var(--text-soft)' }}>
-              Depuis {formatTimeFR(enCours.debut || enCours.date)}
-              {' · '}
-              {formatDuration(Math.floor((new Date() - new Date(enCours.debut || enCours.date)) / 60000))} écoulées
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="stamp-row">
-        <div className="stamp" style={{ cursor:'default' }}>
-          <span className="stamp-icon">⏱️</span>
-          <span className="stamp-value">{formatDuration(totalMin)}</span>
-          <span className="stamp-label">Total</span>
-        </div>
-        <div className="stamp" style={{ cursor:'default' }}>
-          <span className="stamp-icon">🌃</span>
-          <span className="stamp-value">{nuits}</span>
-          <span className="stamp-label">Nuit(s)</span>
-        </div>
-        <div className="stamp" style={{ cursor:'default' }}>
-          <span className="stamp-icon">☀️</span>
-          <span className="stamp-value">{siestes}</span>
-          <span className="stamp-label">Sieste(s)</span>
-        </div>
+    <div className="card appear today-card">
+      <div className="section-title" style={{ marginBottom: 0 }}>Aujourd'hui</div>
+      <div className="stamp-row mt-8">
+        {sleeping ? (
+          <Stamp
+            type="sommeil" label="Dort" live
+            value={formatElapsed(now - toTime(sleeping.debut || sleeping.date))}
+            since={`depuis ${formatTimeFR(sleeping.debut || sleeping.date)}`}
+            detail={canEdit ? 'Réveil ›' : null}
+            onClick={() => canEdit && onWake(sleeping)}
+            onLongPress={() => canEdit && onWake(sleeping)}
+            ariaLabel="Sommeil en cours. Toucher pour noter le réveil."
+          />
+        ) : (
+          <Stamp
+            type="sommeil" label={lastSleep ? 'Éveillé' : 'Sommeil'}
+            value={awakeSince ? formatElapsed(now - toTime(awakeSince)) : '—'}
+            since={awakeSince ? `depuis ${formatTimeFR(awakeSince)}` : 'aucun'}
+            detail={canEdit ? 'Endormi ›' : null}
+            onClick={() => canEdit && onNew()}
+            onLongPress={() => canEdit && onNew()}
+            ariaLabel="Toucher pour noter un nouveau sommeil."
+          />
+        )}
+        <Stamp
+          type="sommeil" icon="clock" label="Aujourd'hui"
+          value={t.minutes ? formatMinutes(t.minutes) : '—'}
+          since={parts.join(' + ') || 'rien de noté'}
+          onClick={() => {}} onLongPress={() => {}}
+          ariaLabel="Total de sommeil terminé aujourd'hui"
+        />
+        <Stamp
+          type="sommeil" icon="target" label="Repère"
+          value={`${recoMin}–${recoMax} h`}
+          since={reco.label}
+          detail={status ? `moy. ${formatMinutes(weekAvg)}` : null}
+          detailColor={statusColor}
+          onClick={() => {}} onLongPress={() => {}}
+          ariaLabel={`Repère pour l'âge : ${recoMin} à ${recoMax} heures par jour, ${reco.naps}.${status ? ` Moyenne sur 7 jours ${status}.` : ''}`}
+        />
       </div>
-      <div className="flex-between mt-8" style={{ fontSize:'.82rem' }}>
-        <span className="muted">Repère {reco.label} : {recoMin}-{recoMax} h/j, {reco.naps}</span>
-        {totalMin > 0 && <span style={{ color:statusColor, fontWeight:700 }}>{statusLabel}</span>}
+      <div className="muted" style={{ fontSize: '0.78rem' }}>
+        Repère indicatif {reco.label} : {reco.naps}.{status ? ` Moyenne des 7 derniers jours ${status === 'dans le repère' ? 'dans le repère' : `${status} du repère`}.` : ''} Chaque bébé est différent.
       </div>
     </div>
   );
 }
 
 // ----------------------------------------------------------------------
-// Graphique 7 jours
+// 7 derniers jours (sommeil rattaché au jour de son début)
 // ----------------------------------------------------------------------
-function WeeklyChart({ entries }) {
-  const days = useMemo(() => {
-    const result = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = daysAgo(i);
-      const iso = toISODate(d);
-      const total = entries
-        .filter((e) => toISODate(new Date(e.debut || e.date)) === iso)
-        .reduce((s, e) => s + (e.duree || 0), 0);
-      result.push({
-        iso,
-        label: d.toLocaleDateString('fr-FR', { weekday:'short' }).slice(0,1).toUpperCase(),
-        hours: total / 60,
-      });
-    }
-    return result;
-  }, [entries]);
+export function weeklySleep(entries, now = new Date()) {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const iso = toISODate(d);
+    const minutes = entries
+      .filter((e) => !e.enCours && toISODate(new Date(e.debut || e.date)) === iso)
+      .reduce((s, e) => s + (Number(e.duree) || 0), 0);
+    days.push({ iso, today: i === 0, label: d.toLocaleDateString('fr-FR', { weekday: 'short' }).slice(0, 1).toUpperCase(), minutes });
+  }
+  // Moyenne des jours terminés avec au moins un sommeil (aujourd'hui exclu)
+  const done = days.filter((d) => !d.today && d.minutes > 0);
+  const avg = done.length ? Math.round(done.reduce((s, d) => s + d.minutes, 0) / done.length) : null;
+  return { days, avg };
+}
 
-  const maxHours = Math.max(16, ...days.map((d) => d.hours));
-
+function WeeklyChart({ week }) {
+  const { days, avg } = week;
+  const max = Math.max(16 * 60, ...days.map((d) => d.minutes));
   return (
     <div className="card appear">
-      <div className="section-title" style={{ marginBottom:10 }}>📊 7 derniers jours</div>
-      <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:100 }}>
+      <div className="flex-between" style={{ alignItems: 'baseline', marginBottom: 10 }}>
+        <div className="section-title" style={{ marginBottom: 0 }}>7 derniers jours</div>
+        {avg != null && <span className="muted" style={{ fontSize: '.78rem' }}>moyenne {formatMinutes(avg)}</span>}
+      </div>
+      <div className="sleep-bars">
         {days.map((d) => (
-          <div key={d.iso} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-            <div style={{
-              width:'100%', maxWidth:28,
-              background: d.hours > 0 ? 'var(--accent-sky)' : 'var(--border)',
-              borderRadius:6,
-              height:`${Math.max(4, (d.hours / maxHours) * 80)}px`,
-            }} title={`${d.hours.toFixed(1)} h`} />
-            <span style={{ fontSize:'.68rem', color:'var(--text-soft)', fontWeight:600 }}>{d.label}</span>
+          <div key={d.iso} className="sleep-col">
+            <div className={`sleep-bar ${d.today ? 'today' : ''} ${d.minutes ? '' : 'empty'}`}
+              style={{ height: `${Math.max(4, (d.minutes / max) * 80)}px` }}
+              title={d.minutes ? formatMinutes(d.minutes) : 'rien'} />
+            <span>{d.label}</span>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-// ----------------------------------------------------------------------
-// Item sommeil dans la liste
-// ----------------------------------------------------------------------
-function SommeilItem({ entry, onEdit, onDelete, onTerminer }) {
-  const [confirmDel, setConfirmDel] = React.useState(false);
-  const qualDef = QUALITES.find((q) => q.key === entry.qualite) || QUALITES[1];
-  const typeIcon = entry.sousType === 'nuit' ? '🌃' : '☀️';
-  const typeLabel = entry.sousType === 'nuit' ? 'Nuit' : 'Sieste';
-
-  if (confirmDel) {
-    return (
-      <div style={{
-        display:'flex', alignItems:'center', gap:8, padding:'9px 12px',
-        background:'var(--danger-soft)', border:'1.5px solid var(--danger)',
-        borderRadius:'var(--radius-md)', marginBottom:6,
-      }}>
-        <span style={{ flex:1, fontSize:'.82rem', color:'var(--danger)', fontWeight:600 }}>
-          Supprimer ce sommeil ?
-        </span>
-        <button onPointerDown={() => setConfirmDel(false)} style={{ padding:'4px 10px', borderRadius:'var(--radius-pill)', border:'1px solid var(--border)', background:'var(--surface)', fontWeight:600, fontSize:'.75rem', cursor:'pointer', fontFamily:'inherit' }}>Annuler</button>
-        <button onPointerDown={onDelete} style={{ padding:'4px 10px', borderRadius:'var(--radius-pill)', border:'none', background:'var(--danger)', color:'#fff', fontWeight:700, fontSize:'.75rem', cursor:'pointer', fontFamily:'inherit' }}>Confirmer</button>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{
-      position:'relative', borderRadius:'var(--radius-md)', marginBottom:6, userSelect:'none',
-    }}>
-      {/* Zone corbeille */}
-      <div style={{
-        position:'absolute', top:0, right:0, bottom:0, width:72,
-        background:'var(--danger)', borderRadius:'var(--radius-md)',
-        display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden',
-      }}>
-        <button onPointerDown={() => setConfirmDel(true)} style={{
-          width:'100%', height:'100%', background:'none', border:'none',
-          color:'#fff', cursor:'pointer', display:'flex', flexDirection:'column',
-          alignItems:'center', justifyContent:'center', gap:3,
-        }}>
-          <span style={{ fontSize:'1.1rem' }}>🗑️</span>
-          <span style={{ fontSize:'.58rem', fontWeight:700 }}>Suppr.</span>
-        </button>
-      </div>
-
-      {/* Contenu */}
-      <SommeilItemContent
-        entry={entry} qualDef={qualDef} typeIcon={typeIcon} typeLabel={typeLabel}
-        onEdit={onEdit} onTerminer={onTerminer}
-      />
-    </div>
-  );
-}
-
-function SommeilItemContent({ entry, qualDef, typeIcon, typeLabel, onEdit, onTerminer }) {
-  const [offsetX, setOffsetX] = React.useState(0);
-  const [revealed, setRevealed] = React.useState(false);
-  const startX = React.useRef(null);
-  const isDragging = React.useRef(false);
-  const ACTION_W = 72;
-
-  const onTouchStart = (e) => { startX.current = e.touches[0].clientX; isDragging.current = false; };
-  const onTouchMove = (e) => {
-    if (startX.current === null) return;
-    const dx = e.touches[0].clientX - startX.current;
-    if (dx > 8) { if (revealed) { setRevealed(false); setOffsetX(0); } return; }
-    if (dx < -5) { isDragging.current = true; setOffsetX(Math.max(-ACTION_W, dx)); }
-  };
-  const onTouchEnd = () => {
-    if (revealed) return;
-    isDragging.current = false;
-    startX.current = null;
-    if (offsetX < -36) { setRevealed(true); setOffsetX(-ACTION_W); }
-    else { setOffsetX(0); }
-  };
-
-  return (
-    <div
-      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-      onClick={() => revealed ? (setRevealed(false), setOffsetX(0)) : onEdit()}
-      style={{
-        transform:`translateX(${offsetX}px)`,
-        transition: isDragging.current ? 'none' : 'transform .18s ease',
-        background:'var(--surface)', border:'1px solid var(--border)',
-        borderRadius:'var(--radius-md)', padding:'10px 12px',
-        display:'flex', alignItems:'center', gap:11,
-        position:'relative', zIndex:1, cursor:'pointer', willChange:'transform',
-      }}
-    >
-      <div className="entry-icon" style={{ background:'var(--accent-sky-soft)', color:'var(--accent-sky)', fontSize:'1.1rem' }}>
-        {typeIcon}
-      </div>
-      <div className="entry-body" style={{ flex:1, minWidth:0 }}>
-        <div className="entry-title" style={{ display:'flex', alignItems:'center', gap:6 }}>
-          {typeLabel}
-          {entry.duree && <span style={{ color:'var(--accent-sky)', fontFamily:'var(--font-mono)', fontWeight:700, fontSize:'.8rem' }}>{formatDuration(entry.duree)}</span>}
-          {entry.enCours && (
-            <span style={{ fontSize:'.65rem', background:'var(--accent-sky-soft)', color:'var(--accent-sky)', padding:'1px 6px', borderRadius:'var(--radius-pill)', fontWeight:700 }}>
-              En cours
-            </span>
-          )}
-        </div>
-        <div className="entry-sub">
-          {entry.enCours
-            ? `Depuis ${formatTimeFR(entry.debut || entry.date)}`
-            : `${qualDef.icon} ${qualDef.label}${entry.humeurReveil ? ` · Réveil : ${entry.humeurReveil}` : ''}`}
-          {entry.note && <span> · {entry.note}</span>}
-        </div>
-      </div>
-      <div style={{ textAlign:'right', flexShrink:0 }}>
-        <div className="entry-time">{formatTimeFR(entry.debut || entry.date)}</div>
-        {entry.fin && !entry.enCours && (
-          <div style={{ fontSize:'.65rem', color:'var(--text-faint)' }}>→ {formatTimeFR(entry.fin)}</div>
-        )}
-        {/* Bouton "Terminer" si en cours */}
-        {entry.enCours && onTerminer && (
-          <button
-            onPointerDown={(e) => { e.stopPropagation(); onTerminer(entry); }}
-            style={{
-              marginTop:4, padding:'3px 8px', borderRadius:'var(--radius-pill)',
-              background:'var(--accent-sage)', color:'#fff', border:'none',
-              fontSize:'.65rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit',
-            }}
-          >
-            ☀️ Terminer
-          </button>
-        )}
       </div>
     </div>
   );
@@ -498,7 +386,7 @@ export default function DodoTab({ openFormExternal, setOpenFormExternal }) {
     if (period === 'today') return childSleeps.filter((s) => isToday(s.debut || s.date));
     if (period === '7days') {
       const cutoff = daysAgo(7);
-      return childSleeps.filter((s) => new Date(s.debut || s.date) >= cutoff);
+      return childSleeps.filter((s) => toTime(s.debut || s.date) >= cutoff.getTime());
     }
     return childSleeps;
   }, [childSleeps, period]);
@@ -513,72 +401,62 @@ export default function DodoTab({ openFormExternal, setOpenFormExternal }) {
     [normalizedPeriod]
   );
 
+  const week = useMemo(() => weeklySleep(childSleeps), [childSleeps]);
+
   const handleDelete = (id) => {
     update((draft) => { draft.entries = draft.entries.filter((e) => e.id !== id); return draft; });
     showToast('Sommeil supprimé', '🗑️');
   };
 
-  // Terminer un sommeil en cours — ouvrir le formulaire pré-rempli
-  const handleTerminer = (entry) => {
-    setEditing({
-      ...entry,
-      fin: toISODateTime(),
-      enCours: false,
-    });
+  // Réveil : formulaire pré-rempli avec fin = maintenant
+  const wake = (entry) => {
+    setEditing({ ...entry, fin: toISODateTime(), enCours: false });
     setFormOpen(true);
   };
+  const openNew = () => { setEditing(null); setFormOpen(true); };
 
   if (!activeChild) return <NoChildState />;
 
   return (
     <div>
-      <TodaySummaryCard entries={childSleeps} child={activeChild} />
-      <WeeklyChart entries={childSleeps} />
+      <SleepOverview entries={childSleeps} child={activeChild} onWake={wake} onNew={openNew} canEdit={canEdit} weekAvg={week.avg} />
+      <WeeklyChart week={week} />
 
-      <div className="flex-between mt-16">
-        <div className="section-title" style={{ marginBottom:0 }}>🗂️ Historique</div>
-        {canEdit && (
-          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
-            ＋ Ajouter
-          </button>
-        )}
-      </div>
-
-      <div className="chip-row mt-8">
-        <button className={`chip ${period==='today'?'active':''}`} onClick={() => setPeriod('today')}>Aujourd'hui</button>
-        <button className={`chip ${period==='7days'?'active':''}`} onClick={() => setPeriod('7days')}>7 jours</button>
-        <button className={`chip ${period==='all'?'active':''}`} onClick={() => setPeriod('all')}>Tout</button>
+      <div className="period-bar">
+        <div className="period-chips">
+          {[['today', "Aujourd'hui"], ['7days', '7 jours'], ['all', 'Tout']].map(([k, l]) => (
+            <button key={k} className={`chip ${period === k ? 'active' : ''}`} onClick={() => setPeriod(k)}>{l}</button>
+          ))}
+        </div>
       </div>
 
       {grouped.length === 0 ? (
         <div className="empty-state">
-          <div className="emoji">🌙</div>
           <div className="title">Rien à afficher</div>
-          <div className="desc">Aucune période de sommeil enregistrée. Touche "Ajouter" pour commencer.</div>
+          <div className="desc">Aucun sommeil sur cette période. Touche le bouton + pour en noter un.</div>
         </div>
       ) : (
         grouped.map(([day, items]) => (
           <div key={day}>
-            <div className="day-group-label" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <div className="day-group-label">
               <span>{dayLabel(day)}</span>
-              <span style={{ fontSize:'.65rem', color:'var(--text-faint)', fontWeight:600, fontFamily:'var(--font-mono)' }}>
-                {items.length} session{items.length > 1 ? 's' : ''}
-              </span>
+              <span className="day-count">{items.length} sommeil{items.length > 1 ? 's' : ''}</span>
             </div>
             <div className="entry-list">
               {items.map((s) => (
-                <SommeilItem
+                <EntryItem
                   key={s.id}
                   entry={s}
-                  onEdit={() => canEdit && (setEditing(s), setFormOpen(true))}
+                  onEdit={() => canEdit && (s.enCours ? wake(s) : (setEditing(s), setFormOpen(true)))}
                   onDelete={() => canEdit && handleDelete(s.id)}
-                  onTerminer={canEdit ? handleTerminer : null}
                 />
               ))}
             </div>
           </div>
         ))
       )}
+
+      {period === 'all' && <HistoryNotice variant="card" />}
 
       <SommeilForm
         open={formOpen}
