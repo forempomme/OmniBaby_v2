@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, filterByActiveChild, getActiveChild, ageInMonths } from '../store.jsx';
-import { toISODate, daysAgo } from '../utils.jsx';
-import { useToast } from '../utils.jsx';
+import { useStore, filterByActiveChild, getActiveChild, ageInMonths, HISTORY_WINDOW_DAYS } from '../store.jsx';
+import { useFullHistory, HistoryNotice } from '../HistoryNotice.jsx';
+import { toISODate, useToast, toTime, formatDateFR } from '../utils.jsx';
+import { Icon } from '../icons.jsx';
 import { estimatePercentile, WEIGHT_LMS, HEIGHT_LMS, HEAD_LMS } from '../data/who-growth.js';
 
 const PERIODS = [
@@ -13,9 +14,13 @@ const PERIODS = [
 // ----------------------------------------------------------------------
 // Build daily series
 // ----------------------------------------------------------------------
-function buildDailySeries(items, dateField, days, valueFn) {
+function buildDailySeries(items, dateField, days, valueFn, now = new Date()) {
   const dates = [];
-  for (let i = days - 1; i >= 0; i--) dates.push(toISODate(daysAgo(i)));
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    dates.push(toISODate(d));
+  }
   const map = Object.fromEntries(dates.map(d => [d, 0]));
   for (const item of items) {
     const iso = toISODate(new Date(item[dateField] || item.date));
@@ -57,7 +62,7 @@ function BarChart({ series, color, unit, formatValue }) {
 // ----------------------------------------------------------------------
 // Stat card avec tendance
 // ----------------------------------------------------------------------
-function StatCard({ title, icon, series, color, unit, formatValue }) {
+function StatCard({ title, iconName, series, color, unit, formatValue }) {
   const total = series.reduce((s, d) => s + d.value, 0);
   const avg = series.length > 0 ? total / series.length : 0;
 
@@ -72,7 +77,7 @@ function StatCard({ title, icon, series, color, unit, formatValue }) {
   return (
     <div className="card appear">
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-        <div className="section-title" style={{ margin:0 }}>{icon} {title}</div>
+        <div className="section-title" style={{ margin:0 }}><Icon name={iconName} size={18} style={{ color }} /> {title}</div>
         {trendLabel && (
           <span style={{ fontSize:'.72rem', fontWeight:700, color:trendColor,
             background: trend > 0 ? 'var(--accent-sage-soft)' : 'var(--danger-soft)',
@@ -100,7 +105,7 @@ function GrowthCurve({ mesures, type, sexe, label, unit, lmsTable }) {
 
   const sorted = [...mesures]
     .filter(m => m.type === type && m.valeur)
-    .sort((a, b) => a.date > b.date ? 1 : -1);
+    .sort((a, b) => toTime(a.date) - toTime(b.date));
 
   if (sorted.length === 0) return null;
 
@@ -200,6 +205,76 @@ function GrowthCurve({ mesures, type, sexe, label, unit, lmsTable }) {
 }
 
 // ----------------------------------------------------------------------
+// Lait au biberon par kilo (v3.10)
+// Repère indicatif : règle d'Appert, poids (g) ÷ 10 + 250 ml/j, jusqu'à 6 mois.
+// ----------------------------------------------------------------------
+export function milkStats(entries, mesures, days, now = new Date()) {
+  const today = toISODate(now);
+  const series = buildDailySeries(entries.filter((e) => e.type === 'biberon' && e.mode !== 'sein'), 'date', days, (e) => Number(e.quantite) || 0, now);
+  // Moyenne sur les jours terminés ayant au moins un biberon (aujourd'hui exclu)
+  const complete = series.filter((d) => d.iso !== today && d.value > 0);
+  const avg = complete.length ? complete.reduce((s, d) => s + d.value, 0) / complete.length : null;
+  const poids = mesures.filter((m) => m.type === 'poids' && Number(m.valeur) > 0)
+    .sort((a, b) => toTime(b.date) - toTime(a.date))[0] || null;
+  const kg = poids ? Number(poids.valeur) : null;
+  return {
+    series,
+    avg,
+    kg,
+    poidsDate: poids?.date || null,
+    perKg: avg != null && kg ? avg / kg : null,
+    appert: kg ? Math.round(kg * 1000 / 10 + 250) : null,
+    daysCounted: complete.length,
+  };
+}
+
+function MilkCard({ child, entries, mesures, days }) {
+  const ageM = ageInMonths(child.birthdate) ?? 0;
+  const st = useMemo(() => milkStats(entries, mesures, days), [entries, mesures, days]);
+  if (child.alimentation === 'allaitement') return null; // quantités inconnues au sein
+  const showAppert = ageM < 6 && st.appert;
+  const max = Math.max(1, ...st.series.map((d) => d.value), showAppert ? st.appert : 0);
+  const today = toISODate();
+  return (
+    <div className="card appear">
+      <div className="flex-between" style={{ marginBottom: 10 }}>
+        <div className="section-title" style={{ margin: 0 }}><Icon name="bottle" size={18} style={{ color: 'var(--primary)' }} /> Lait au biberon</div>
+        {st.kg && <span className="muted" style={{ fontSize: '.74rem' }}>poids {String(st.kg).replace('.', ',')} kg · {formatDateFR(st.poidsDate)}</span>}
+      </div>
+      <div className="milk-kpis">
+        <div><strong>{st.avg != null ? `${Math.round(st.avg)} ml` : '—'}</strong><span>par jour (moyenne)</span></div>
+        <div><strong>{st.perKg != null ? `${Math.round(st.perKg)} ml` : '—'}</strong><span>par kg et par jour</span></div>
+      </div>
+      {days <= 31 && (
+        <div className="milk-bars">
+          {showAppert && (
+            <div className="milk-guide" style={{ bottom: `${(st.appert / max) * 100}%` }}>
+              <span>repère {st.appert} ml</span>
+            </div>
+          )}
+          {st.series.map((d) => (
+            <div key={d.iso} className={`milk-bar ${d.iso === today ? 'today' : ''}`}
+              style={{ height: `${Math.max(2, (d.value / max) * 100)}%` }}
+              title={`${formatDateFR(d.iso)} : ${d.value} ml`} />
+          ))}
+        </div>
+      )}
+      {!st.kg && <div className="muted mt-8" style={{ fontSize: '.78rem' }}>Ajoute une pesée (Santé → Poids) pour le calcul par kilo.</div>}
+      <div className="info-box warn mt-8" style={{ marginBottom: 0 }}>
+        <Icon name="info" size={18} />
+        <span>
+          {child.alimentation === 'mixte' && <><strong>Allaitement mixte :</strong> les tétées ne sont pas comptées, ce total est partiel. </>}
+          {showAppert
+            ? <>Repère indicatif (règle d'Appert, jusqu'à 6 mois) : {Math.round(st.kg * 1000)} g ÷ 10 + 250 = {st.appert} ml/j.</>
+            : <>Moyenne des jours terminés avec au moins un biberon ({st.daysCounted} j).</>}
+          {' '}Indication seulement : l'appétit varie, demande au pédiatre en cas de doute.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
 // Export CSV
 // ----------------------------------------------------------------------
 function exportCSV(entries, childName) {
@@ -229,13 +304,15 @@ function exportCSV(entries, childName) {
 // Main StatistiquesTool
 // ----------------------------------------------------------------------
 export default function StatistiquesTool() {
-  const { store } = useStore();
+  const { store, loadHistory, getStore } = useStore();
   const showToast = useToast();
   const activeChild = getActiveChild(store);
   const [period, setPeriod] = useState('7d');
   const [tab, setTab] = useState('journal');
 
   const days = PERIODS.find(p => p.key === period).days;
+  // Au-delà de 60 jours : historique complet nécessaire
+  useFullHistory(tab === 'journal' && days > HISTORY_WINDOW_DAYS);
   const ageM = ageInMonths(activeChild?.birthdate) ?? 0;
 
   const childEntries = useMemo(
@@ -259,7 +336,7 @@ export default function StatistiquesTool() {
 
   // Séries temporelles
   const biberonSeries   = useMemo(() => buildDailySeries(childEntries.filter(e=>e.type==='biberon'),'date',days), [childEntries,days]);
-  const biberonMlSeries = useMemo(() => buildDailySeries(childEntries.filter(e=>e.type==='biberon'&&e.mode==='biberon'),'date',days,(e)=>e.quantite||0), [childEntries,days]);
+  const biberonMlSeries = useMemo(() => buildDailySeries(childEntries.filter(e=>e.type==='biberon'&&e.mode!=='sein'),'date',days,(e)=>Number(e.quantite)||0), [childEntries,days]);
   const coucheSeries    = useMemo(() => buildDailySeries(childEntries.filter(e=>e.type==='couche'),'date',days), [childEntries,days]);
   const sommeilSeries   = useMemo(() => buildDailySeries(childSommeils,'date',days,(s)=>(s.duree||0)/60), [childSommeils,days]);
 
@@ -280,8 +357,8 @@ export default function StatistiquesTool() {
     <div>
       {/* Onglets */}
       <div className="chip-row">
-        <button className={`chip ${tab==='journal'?'active':''}`} onClick={()=>setTab('journal')}>📊 Journal</button>
-        <button className={`chip ${tab==='croissance'?'active':''}`} onClick={()=>setTab('croissance')}>📈 Croissance</button>
+        <button className={`chip ${tab==='journal'?'active':''}`} onClick={()=>setTab('journal')}>Journal</button>
+        <button className={`chip ${tab==='croissance'?'active':''}`} onClick={()=>setTab('croissance')}>Croissance</button>
       </div>
 
       {tab === 'journal' && (
@@ -294,13 +371,18 @@ export default function StatistiquesTool() {
 
           {/* Bouton export CSV */}
           <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => {
-              exportCSV(childEntries, activeChild.nom);
-              showToast('Export CSV téléchargé', '📥');
+            <button className="btn btn-secondary btn-sm" onClick={async () => {
+              // Le CSV contient tout l'historique : on le charge d'abord
+              const complete = await loadHistory();
+              const s = getStore();
+              exportCSV(filterByActiveChild(s.entries || [], s.activeChildId), activeChild.nom);
+              showToast(complete ? 'Export CSV téléchargé' : 'Export CSV (historique ancien indisponible hors connexion)', complete ? '📥' : '⚠️');
             }}>
-              📥 Export CSV
+              Export CSV
             </button>
           </div>
+
+          {days > HISTORY_WINDOW_DAYS && <HistoryNotice compact />}
 
           {!hasJournalData ? (
             <div className="empty-state">
@@ -310,10 +392,11 @@ export default function StatistiquesTool() {
             </div>
           ) : (
             <>
-              <StatCard title="Biberons / tétées" icon="🍼" series={biberonSeries} color="var(--primary)" formatValue={v=>v.toFixed(1)} />
-              <StatCard title="Lait biberon" icon="🥛" series={biberonMlSeries} color="var(--accent-sun)" unit=" ml" formatValue={v=>Math.round(v)} />
-              <StatCard title="Couches" icon="🧷" series={coucheSeries} color="var(--accent-sage)" formatValue={v=>v.toFixed(1)} />
-              <StatCard title="Sommeil" icon="🌙" series={sommeilSeries} color="var(--accent-sky)" unit=" h" formatValue={v=>v.toFixed(1)} />
+              <MilkCard child={activeChild} entries={childEntries} mesures={childMesures} days={days} />
+              <StatCard title="Biberons / tétées" iconName="bottle" series={biberonSeries} color="var(--primary)" formatValue={v=>v.toFixed(1)} />
+              <StatCard title="Lait biberon" iconName="bottle" series={biberonMlSeries} color="var(--accent-sun)" unit=" ml" formatValue={v=>Math.round(v)} />
+              <StatCard title="Couches" iconName="droplet" series={coucheSeries} color="var(--accent-sage)" formatValue={v=>v.toFixed(1)} />
+              <StatCard title="Sommeil" iconName="moon" series={sommeilSeries} color="var(--accent-sky)" unit=" h" formatValue={v=>v.toFixed(1)} />
             </>
           )}
         </>
@@ -332,9 +415,9 @@ export default function StatistiquesTool() {
               <div className="muted" style={{ fontSize:'.78rem', marginBottom:12 }}>
                 Courbes OMS · {activeChild.nom} · {ageM} mois · {activeChild.sexe === 'garcon' ? 'Garçon' : 'Fille'}
               </div>
-              <GrowthCurve mesures={childMesures} type="poids"    sexe={activeChild.sexe} label="⚖️ Poids"             unit="kg" lmsTable={WEIGHT_LMS} />
-              <GrowthCurve mesures={childMesures} type="taille"   sexe={activeChild.sexe} label="📏 Taille"            unit="cm" lmsTable={HEIGHT_LMS} />
-              <GrowthCurve mesures={childMesures} type="perimetre" sexe={activeChild.sexe} label="🧠 Périmètre crânien" unit="cm" lmsTable={HEAD_LMS}   />
+              <GrowthCurve mesures={childMesures} type="poids"    sexe={activeChild.sexe} label="Poids"             unit="kg" lmsTable={WEIGHT_LMS} />
+              <GrowthCurve mesures={childMesures} type="taille"   sexe={activeChild.sexe} label="Taille"            unit="cm" lmsTable={HEIGHT_LMS} />
+              <GrowthCurve mesures={childMesures} type="perimetre" sexe={activeChild.sexe} label="Périmètre crânien" unit="cm" lmsTable={HEAD_LMS}   />
               <div className="muted" style={{ fontSize:'.7rem', marginTop:8 }}>
                 P = percentile OMS. P50 = médiane mondiale. P3-P97 = intervalle normal.
               </div>
