@@ -47,11 +47,11 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 | 🔍 Recherche | Recherche globale dans toutes les données |
 
 ### ⚙️ Réglages (5 sections)
-- **Bébé** : profils multi-enfants
+- **Bébé** : profils multi-enfants ; **profil test** (badge TEST, barre ocre, 7 jours de données d'exemple en option, Vider / Supprimer) ; suppression complète d'un enfant (profil + toutes ses données, partout ; prénom à retaper pour un vrai enfant)
 - **Famille & synchro** : membres, code d'invitation (masqué + Partager), connexion / rejoindre, profils PIN
 - **Préférences** : thème, mode nuit (badge « Nuit » = arrêt jusqu'à 7 h), saisie, biométrie — propres à chaque téléphone
 - **Rappels & notifications**
-- **Sauvegarde & export** : JSON, PDF pédiatre (police Poppins embarquée, accents corrects), version
+- **Sauvegarde & export** : nettoyage des données orphelines (rattachées à un enfant supprimé), JSON, PDF pédiatre (police Poppins embarquée, accents corrects), version
 
 ---
 
@@ -118,6 +118,8 @@ omnibaby/
 │   ├── journal/             # entryTypes, EntryForm, TodayOverview, EntryItem, QuickEntryBar, WeekSummary
 │   ├── NoChildState.jsx     # État vide « Créer le profil de bébé »
 │   ├── ChildForm.jsx        # Formulaire profil enfant
+│   ├── ChildManager.jsx     # Choix d'enfant, profil test, suppression, orphelins
+│   ├── children.js          # Logique : données par enfant, orphelins, données d'exemple
 │   ├── icons.jsx            # Icônes SVG
 │   ├── pdf.js               # PDF pédiatre + fiche de garde (chargé à la demande)
 │   ├── Sante.jsx            # Courbes croissance, vaccins
@@ -171,6 +173,7 @@ omnibaby/
 | 3.1.0 | Améliorations UI (stamps, modal handle, FAB, chips) |
 | 3.2.0 | Recherche, notifications, onboarding, IDs UUID, Famille Firebase |
 | **3.8.0** | Corrections (saisie, rapport d'activité, Santé, rejoindre une famille), premier lancement en 4 étapes, journal « temps écoulé » + icônes SVG, Réglages en 5 sections, nouveau PDF pédiatre, PIN haché, vérification statique en CI |
+| 3.9.0 | Profil test synchronisé, choix d'enfant en touchant son nom, suppression complète d'un enfant, nettoyage des données orphelines |
 
 ---
 
