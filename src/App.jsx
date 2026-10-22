@@ -10,6 +10,7 @@ import DodoTab from './Dodo.jsx';
 import OutilsTab from './Outils.jsx';
 import ReglagesTab from './Reglages.jsx';
 import { entryTitle } from './journal/entryTypes.js';
+import { ChildSwitcherSheet, TestChildForm, TestModeBanner } from './ChildManager.jsx';
 
 const TABS = [
   { key: 'journal', label: 'Journal', icon: 'book' },
@@ -17,35 +18,6 @@ const TABS = [
   { key: 'dodo', label: 'Dodo', icon: 'moon' },
   { key: 'outils', label: 'Outils', icon: 'grid' },
 ];
-
-// ----------------------------------------------------------------------
-// Choix de l'enfant actif
-// ----------------------------------------------------------------------
-function ChildSwitcher({ open, onClose }) {
-  const { store, update } = useStore();
-  const select = (id) => {
-    update((draft) => { draft.activeChildId = id; return draft; });
-    onClose();
-  };
-  return (
-    <Modal open={open} onClose={onClose} title="Choisir un enfant" icon="👶">
-      <div className="entry-list">
-        {store.children.map((c) => (
-          <button
-            key={c.id}
-            className="swipe-content"
-            style={{ width: '100%', cursor: 'pointer', border: c.id === store.activeChildId ? '1.5px solid var(--primary)' : '1px solid var(--border)' }}
-            onClick={() => select(c.id)}
-          >
-            <div className="entry-icon" style={{ background: 'var(--primary-soft)', color: 'var(--primary-deep)' }}>{c.emoji || '👶'}</div>
-            <div className="entry-body"><div className="entry-title">{c.nom}</div></div>
-            {c.id === store.activeChildId && <Icon name="check" size={20} style={{ color: 'var(--primary)' }} />}
-          </button>
-        ))}
-      </div>
-    </Modal>
-  );
-}
 
 // ----------------------------------------------------------------------
 // Activité des parents — 7 derniers jours
@@ -71,7 +43,10 @@ function ActivityReport({ open, onClose, firebaseUser, store }) {
     const since = daysAgo(7).getTime();
     const items = [];
     const childOf = (id) => store.children.find((c) => c.id === id);
+    // Le profil test n'apparaît jamais dans l'activité
+    const testIds = new Set(store.children.filter((c) => c.isTest).map((c) => c.id));
     for (const e of store.entries || []) {
+      if (testIds.has(e.childId)) continue;
       if (!e.createdBy && !e.updatedBy) continue;
       const child = childOf(e.childId);
       items.push({
@@ -85,6 +60,7 @@ function ActivityReport({ open, onClose, firebaseUser, store }) {
       });
     }
     for (const m of store.mesures || []) {
+      if (testIds.has(m.childId)) continue;
       if (!m.createdBy) continue;
       items.push({
         date: m.createdAt || m.date,
@@ -97,6 +73,7 @@ function ActivityReport({ open, onClose, firebaseUser, store }) {
       });
     }
     for (const t of store.temperatures || []) {
+      if (testIds.has(t.childId)) continue;
       if (!t.createdBy) continue;
       items.push({
         date: t.createdAt || t.date,
@@ -223,6 +200,7 @@ function AppShell() {
   const showToast = useToast();
   const [activeTab, setActiveTab] = useState('journal');
   const [childSwitcherOpen, setChildSwitcherOpen] = useState(false);
+  const [testFormOpen, setTestFormOpen] = useState(false);
   const [journalIntent, setJournalIntent] = useState(null);
   const [openToolKey, setOpenToolKey] = useState(null);
   const [openDodoForm, setOpenDodoForm] = useState(false);
@@ -237,6 +215,7 @@ function AppShell() {
   const activeChild = getActiveChild(store);
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role !== 'lecture';
+  const testMode = !!activeChild?.isTest;
   const { showExitHint } = useAndroidBack({ activeTab, setActiveTab, defaultTab: 'journal' });
 
   // Squelette pendant la première synchro (4 s maximum, même en cas d'erreur)
@@ -322,17 +301,26 @@ function AppShell() {
   const userName = firebaseUser?.displayName || firebaseUser?.email?.split('@')[0];
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${testMode ? 'test-mode' : ''}`}>
       <header className="app-topbar">
         <div className="app-topbar-left">
-          <div style={{ minWidth: 0 }}>
-            <div className="app-topbar-title">{activeTab === 'reglages' ? 'Réglages' : 'OmniBaby'}</div>
-            {activeChild && activeTab !== 'reglages' && (
-              <div className="app-topbar-sub">
-                {activeChild.nom}{activeChild.birthdate ? ` · ${formatAge(activeChild.birthdate)}` : ''}
-              </div>
-            )}
-          </div>
+          {activeTab === 'reglages' ? (
+            <div className="app-topbar-title">Réglages</div>
+          ) : (
+            <button className="topbar-child" onClick={() => setChildSwitcherOpen(true)}
+              aria-label={activeChild ? `Enfant actif : ${activeChild.nom}. Changer d'enfant` : "Choisir l'enfant"}>
+              <span className="app-topbar-title">OmniBaby</span>
+              {activeChild && (
+                <span className="app-topbar-sub">
+                  {activeChild.isTest && <span className="test-badge">TEST</span>}
+                  <span className="topbar-child-name">
+                    {activeChild.nom}{activeChild.birthdate ? ` · ${formatAge(activeChild.birthdate)}` : ''}
+                  </span>
+                  <Icon name="chevronDown" size={14} strokeWidth={2.4} />
+                </span>
+              )}
+            </button>
+          )}
         </div>
         <div className="topbar-actions">
           {theme === 'night' && (
@@ -341,13 +329,7 @@ function AppShell() {
             </button>
           )}
 
-          {store.children.length > 1 && activeChild && (
-            <button className="topbar-pill" onClick={() => setChildSwitcherOpen(true)} aria-label="Changer d'enfant">
-              <span>{activeChild.emoji || '👶'}</span>
-            </button>
-          )}
-
-          {firebaseUser && (
+          {firebaseUser && !testMode && (
             <button className="user-pill" onClick={() => setActivityOpen(true)} aria-label="Activité des parents">
               <span className="user-pill-avatar">{initials(userName)}</span>
               <span className="user-pill-text">
@@ -366,6 +348,8 @@ function AppShell() {
           </button>
         </div>
       </header>
+
+      {testMode && activeTab !== 'reglages' && <TestModeBanner />}
 
       <main className="app-content">
         {isFirstLoad && store.familyId && firebaseUser ? (
@@ -396,7 +380,9 @@ function AppShell() {
         ))}
       </nav>
 
-      <ChildSwitcher open={childSwitcherOpen} onClose={() => setChildSwitcherOpen(false)} />
+      <ChildSwitcherSheet open={childSwitcherOpen} onClose={() => setChildSwitcherOpen(false)}
+        onCreateTest={() => setTestFormOpen(true)} canEdit={canEdit} />
+      <TestChildForm open={testFormOpen} onClose={() => setTestFormOpen(false)} />
       <ActivityReport open={activityOpen} onClose={() => setActivityOpen(false)} firebaseUser={firebaseUser} store={store} />
       {showExitHint && <div className="exit-hint">Appuie à nouveau pour quitter</div>}
     </div>
