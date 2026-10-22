@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { StoreProvider, useStore, getActiveChild, formatAge } from './store.jsx';
+import { StoreProvider, useStore, getActiveChild, formatAge, genId, authorFields } from './store.jsx';
 import { ToastProvider, useToast, toTime, daysAgo } from './utils.jsx';
 import { ModalStackProvider, useAndroidBack, Modal } from './Modal.jsx';
 import AuthGate, { initials } from './Auth.jsx';
@@ -11,6 +11,7 @@ import OutilsTab from './Outils.jsx';
 import ReglagesTab from './Reglages.jsx';
 import { entryTitle } from './journal/entryTypes.js';
 import { ChildSwitcherSheet, TestChildForm, TestModeBanner } from './ChildManager.jsx';
+import { loadTimerState, saveTimerState, switchSide, teteeFromTimer, syncTimerNotif, initTimerNotifActions } from './timer.js';
 
 const TABS = [
   { key: 'journal', label: 'Journal', icon: 'book' },
@@ -233,6 +234,38 @@ function AppShell() {
     const h = (e) => setTimerRunning(!!e.detail?.active);
     window.addEventListener('omnibaby-timer', h);
     return () => window.removeEventListener('omnibaby-timer', h);
+  }, []);
+
+  // Boutons de la notification « Tétée en cours ». Le gestionnaire passe
+  // par une ref pour toujours voir l'enfant actif et le compte courants.
+  const timerActionRef = useRef(null);
+  timerActionRef.current = (action) => {
+    const state = loadTimerState();
+    if (!state) return;
+    if (action === 'switch') {
+      saveTimerState(switchSide(state));
+      return;
+    }
+    if (action === 'finish' && activeChild && canEdit) {
+      const entry = { id: genId(), childId: activeChild.id, ...teteeFromTimer(state), ...authorFields(firebaseUser, 'created') };
+      update((draft) => { draft.entries.push(entry); return draft; });
+      saveTimerState(null);
+      setOpenToolKey(null);
+      setActiveTab('journal');
+      showToast(`Tétée enregistrée — ${entry.duree} min · ${entry.cote === 'deux' ? 'les deux côtés' : entry.cote}`, '✅');
+      return;
+    }
+    // Toucher la notification (ou Terminer sans enfant / droits) : ouvre le minuteur
+    setActiveTab('outils');
+    setOpenToolKey('minuteur');
+  };
+  useEffect(() => {
+    let off = () => {};
+    let alive = true;
+    initTimerNotifActions((a) => timerActionRef.current?.(a)).then((fn) => { if (alive) off = fn; else fn(); });
+    // Notification remise en place au lancement (ex. après redémarrage du téléphone)
+    syncTimerNotif(loadTimerState());
+    return () => { alive = false; off(); };
   }, []);
 
   // Erreurs d'écriture Firestore → message visible (au plus 1 / 30 s)
