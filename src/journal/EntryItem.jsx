@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { useStore } from '../store.jsx';
 import { formatTimeFR } from '../utils.jsx';
 import { Icon } from '../icons.jsx';
-import { ENTRY_TYPES, entryStart, entryTitle, entryDetail, entryAuthor } from './entryTypes.js';
+import { ENTRY_TYPES, entryStart, entryTitle, entryDetail, entryAuthor, entryAlert } from './entryTypes.js';
 
 // ----------------------------------------------------------------------
 // Ligne du journal. Glisser à gauche = corbeille (option Réglages).
@@ -103,9 +103,9 @@ export default function EntryItem({ entry, onEdit, onDelete, compact = false }) 
         <div className="entry-body">
           <div className="entry-title">
             {title}
-            {entry.type === 'sommeil' && entry.enCours && <span className="entry-live">En cours</span>}
+            {entryAlert(entry) && <Icon name="alert" size={16} className="entry-alert-icon" title="Selles décolorées" />}
           </div>
-          {!compact && detail && <div className="entry-sub">{detail}</div>}
+          {!compact && detail && <div className={`entry-sub ${entryAlert(entry) ? 'entry-sub-alert' : ''}`}>{detail}</div>}
           {!compact && author && <div className="entry-author">{author}</div>}
         </div>
         <div className="entry-time">{timeStr}</div>
