@@ -12,6 +12,28 @@ export const ENTRY_TYPES = {
   autre: { label: 'Autre', short: 'Note', icon: '📝', svg: 'note', color: 'var(--accent-sun-soft)', iconColor: 'var(--accent-sun)' },
 };
 
+// Couleur des selles (facultative). Les 3 teintes décolorées déclenchent
+// une alerte : signe à montrer rapidement à un médecin (dépistage de
+// l'atrésie des voies biliaires, carte colorimétrique des selles).
+export const STOOL_COLORS = [
+  { key: 'jaune', label: 'jaune', hex: '#D9A62E', ink: '#3B2A06', pale: false },
+  { key: 'moutarde', label: 'moutarde', hex: '#B58A2A', ink: '#2E2206', pale: false },
+  { key: 'verte', label: 'verte', hex: '#5E7A2E', ink: '#EEF3E2', pale: false },
+  { key: 'marron', label: 'marron', hex: '#6B4423', ink: '#F4E6D8', pale: false },
+  { key: 'jaune_pale', label: 'jaune pâle', hex: '#EBDD9E', ink: '#4A3F12', pale: true },
+  { key: 'mastic', label: 'mastic', hex: '#D8CDB4', ink: '#3B3426', pale: true },
+  { key: 'blanche', label: 'blanche', hex: '#F2EFE8', ink: '#3B3426', pale: true },
+];
+
+export function stoolColor(key) {
+  return STOOL_COLORS.find((c) => c.key === key) || null;
+}
+
+// Entrée qui mérite un signalement visuel (selles décolorées)
+export function entryAlert(e) {
+  return e.type === 'couche' && !!stoolColor(e.couleur)?.pale;
+}
+
 const COUCHE_LABELS = { pipi: 'pipi', selles: 'selles', mixte: 'pipi + selles', seche: 'sèche' };
 const COTE_LABELS = { gauche: 'gauche', droit: 'droit', deux: 'les deux côtés' };
 
@@ -65,6 +87,11 @@ export function entryDetail(e) {
       if (e.humeurReveil || e.humeur) parts.push(`réveil ${String(e.humeurReveil || e.humeur).toLowerCase()}`);
       if (e.note) parts.push(e.note);
       break;
+    case 'couche': {
+      const c = stoolColor(e.couleur);
+      if (c) parts.push(c.pale ? `selles décolorées (${c.label}) — à signaler` : `couleur ${c.label}`);
+      break;
+    }
     case 'autre':
       if (e.note) parts.push(e.note);
       break;
