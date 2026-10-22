@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useFullHistory, HistoryNotice } from '../HistoryNotice.jsx';
 import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
 import { formatDateFR, formatDateTimeFR, toTime } from '../utils.jsx';
 import { ENTRY_TYPES } from '../Journal.jsx';
@@ -76,6 +77,7 @@ function ResultItem({ source, title, subtitle, time, query }) {
 // ----------------------------------------------------------------------
 export default function RechercheTool() {
   const { store } = useStore();
+  useFullHistory(true);
   const activeChild = getActiveChild(store);
   const [query, setQuery] = useState('');
   const [activeSources, setActiveSources] = useState(Object.keys(SOURCE_DEFS));
@@ -227,6 +229,7 @@ export default function RechercheTool() {
           autoFocus
         />
       </div>
+      <HistoryNotice />
 
       <div className="chip-row">
         {Object.entries(SOURCE_DEFS).map(([key, def]) => (
