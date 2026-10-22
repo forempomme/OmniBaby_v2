@@ -4,7 +4,7 @@ import { Icon } from '../icons.jsx';
 import { ENTRY_TYPES, entryStart, entryTime, formatMinutes } from './entryTypes.js';
 
 // Horloge qui se rafraîchit chaque minute (temps écoulé des tampons)
-function useNow(intervalMs = 60000) {
+export function useNow(intervalMs = 60000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), intervalMs);
@@ -63,7 +63,8 @@ function useLongPress(onLongPress, onClick) {
   };
 }
 
-function Stamp({ type, label, value, since, detail, active, live, onClick, onLongPress, ariaLabel }) {
+// Tampon réutilisé par Dodo (icon / detailColor : variantes facultatives)
+export function Stamp({ type, label, value, since, detail, active, live, onClick, onLongPress, ariaLabel, icon, detailColor }) {
   const def = ENTRY_TYPES[type];
   const handlers = useLongPress(onLongPress, onClick);
   return (
@@ -72,11 +73,11 @@ function Stamp({ type, label, value, since, detail, active, live, onClick, onLon
       aria-label={ariaLabel}
       {...handlers}
     >
-      <span className="stamp-icon" style={{ color: def.iconColor }}><Icon name={def.svg} size={22} /></span>
+      <span className="stamp-icon" style={{ color: def.iconColor }}><Icon name={icon || def.svg} size={22} /></span>
       <span className="stamp-label">{label}</span>
       <span className="stamp-value">{value}</span>
       <span className="stamp-since">{since}</span>
-      {detail && <span className="stamp-detail" style={{ color: def.iconColor }}>{detail}</span>}
+      {detail && <span className="stamp-detail" style={{ color: detailColor || def.iconColor }}>{detail}</span>}
     </button>
   );
 }
