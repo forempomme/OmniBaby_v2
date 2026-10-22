@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
-import { toISODate, formatDateFR, groupByDay, dayLabel, useToast, ConfirmInline } from '../utils.jsx';
+import { toISODate, formatDateFR, groupByDay, dayLabel, useToast, ConfirmInline, toTime } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 
 const TAGS = [
@@ -144,7 +144,7 @@ export default function JournalBordTool() {
         const q = search.toLowerCase();
         return (j.titre || '').toLowerCase().includes(q) || (j.note || '').toLowerCase().includes(q);
       })
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
+      .sort((a, b) => toTime(b.date) - toTime(a.date));
   }, [childJournal, filterTag, search]);
 
   const grouped = useMemo(() => groupByDay(filtered, 'date'), [filtered]);
