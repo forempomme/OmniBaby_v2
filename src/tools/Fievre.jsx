@@ -1,16 +1,30 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
-import { toISODateTime, formatDateFR, formatTimeFR, groupByDay, dayLabel, daysAgo, SwipeToDelete, useToast } from '../utils.jsx';
+import { useStore, filterByActiveChild, getActiveChild, ageInMonths } from '../store.jsx';
+import { toISODateTime, formatDateFR, formatTimeFR, groupByDay, dayLabel, daysAgo, SwipeToDelete, useToast, toTime } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
+import { Icon } from '../icons.jsx';
 
-const FEVER_THRESHOLD = 38.5;
 const NORMAL_MAX = 37.5;
+
+// Seuil d'alerte selon l'âge : avant 3 mois, 38 °C suffit pour consulter
+// rapidement (MSD Manuals) ; ensuite l'alerte reste à 38,5 °C.
+function feverThreshold(child) {
+  const m = child ? ageInMonths(child.birthdate) : null;
+  return m != null && m < 3 ? 38 : 38.5;
+}
+
+function isYoungInfant(child) {
+  const m = child ? ageInMonths(child.birthdate) : null;
+  return m != null && m < 3;
+}
+
+const fmt1 = (v) => Number(v).toFixed(1).replace('.', ',');
 
 // ----------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------
-function statusFor(valeur) {
-  if (valeur >= FEVER_THRESHOLD) return { label: 'Fièvre', color: 'var(--danger)', bg: 'var(--danger-soft)' };
+function statusFor(valeur, threshold = 38.5) {
+  if (valeur >= threshold) return { label: 'Fièvre', color: 'var(--danger)', bg: 'var(--danger-soft)' };
   if (valeur > NORMAL_MAX) return { label: 'Légère élévation', color: 'var(--accent-sun)', bg: 'var(--accent-sun-soft)' };
   return { label: 'Normale', color: 'var(--accent-sage)', bg: 'var(--accent-sage-soft)' };
 }
@@ -24,12 +38,16 @@ function TemperatureForm({ open, onClose, child }) {
   const [date, setDate] = useState(toISODateTime());
   const [valeur, setValeur] = useState('');
   const [notes, setNotes] = useState('');
+  const [methode, setMethode] = useState('rectale');
+  const threshold = feverThreshold(child);
+  const young = isYoungInfant(child);
 
   React.useEffect(() => {
     if (open) {
       setDate(toISODateTime());
       setValeur('');
       setNotes('');
+      setMethode('rectale');
     }
   }, [open]);
 
@@ -41,9 +59,9 @@ function TemperatureForm({ open, onClose, child }) {
     }
     const id = nextId();
     update((draft) => {
-      draft.temperatures.push({ id, childId: child.id, date, valeur: v, notes });
+      draft.temperatures.push({ id, childId: child.id, date, valeur: v, notes, methode });
 
-      if (v >= FEVER_THRESHOLD) {
+      if (v >= threshold) {
         const rappelDate = new Date(new Date(date).getTime() + 60 * 60 * 1000);
         draft.rappels.push({
           id: nextId(),
@@ -58,8 +76,8 @@ function TemperatureForm({ open, onClose, child }) {
       return draft;
     });
 
-    if (v >= FEVER_THRESHOLD) {
-      showToast('Température enregistrée — rappel créé dans 1h', '🌡️');
+    if (v >= threshold) {
+      showToast('Température enregistrée — rappel créé dans 1 h', '🌡️');
     } else {
       showToast('Température enregistrée', '✅');
     }
@@ -85,18 +103,44 @@ function TemperatureForm({ open, onClose, child }) {
         />
       </div>
       <div className="field">
-        <label>Notes (optionnel)</label>
-        <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Méthode de prise, symptômes associés..." />
-      </div>
-      {valeur && parseFloat(String(valeur).replace(',', '.')) >= FEVER_THRESHOLD && (
-        <div className="card" style={{ background: 'var(--danger-soft)', border: 'none' }}>
-          <div style={{ fontWeight: 700, color: 'var(--danger)', fontSize: '0.85rem' }}>⚠️ Fièvre ≥ 38.5°C</div>
-          <div className="muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>
-            Un rappel "reprendre la température dans 1h" sera créé automatiquement.
-          </div>
+        <label>Prise</label>
+        <div className="pill-group">
+          <button className={`pill-choice ${methode === 'rectale' ? 'selected' : ''}`} onClick={() => setMethode('rectale')}>Rectale</button>
+          <button className={`pill-choice ${methode === 'autre' ? 'selected' : ''}`} onClick={() => setMethode('autre')}>Autre</button>
         </div>
+      </div>
+      <div className="field">
+        <label>Notes (optionnel)</label>
+        <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Symptômes associés, médicament donné…" />
+      </div>
+      {valeur && parseFloat(String(valeur).replace(',', '.')) >= threshold && (
+        <>
+          <div className="alert-box danger">
+            <Icon name="alert" size={20} />
+            <span>
+              {young ? (
+                <><strong>Moins de 3 mois et 38 °C ou plus :</strong> fais examiner {child.nom} par un médecin rapidement, même si {child.sexe === 'garcon' ? 'il' : 'elle'} semble aller bien. Avant 1 mois, c'est en général une hospitalisation pour bilan.</>
+              ) : (
+                <><strong>Fièvre ≥ {fmt1(threshold)} °C.</strong> Un rappel « reprendre la température dans 1 h » sera créé.</>
+              )}
+            </span>
+          </div>
+          {young && (
+            <div className="call-row">
+              {child.medecinTel && (
+                <a className="btn btn-danger-solid btn-sm" href={`tel:${child.medecinTel.replace(/\s/g, '')}`}>
+                  <Icon name="phone" size={16} /> {child.medecinNom || 'Médecin'}
+                </a>
+              )}
+              <a className="btn btn-outline btn-sm" href="tel:15">SAMU — 15</a>
+            </div>
+          )}
+        </>
       )}
-      <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>Enregistrer ✓</button>
+      <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>Enregistrer</button>
+      <div className="muted" style={{ fontSize: '.74rem', marginTop: 10, lineHeight: 1.45 }}>
+        Seuil d'alerte de l'appli : 38 °C avant 3 mois, 38,5 °C ensuite. Ne remplace pas un avis médical.
+      </div>
     </Modal>
   );
 }
@@ -104,7 +148,7 @@ function TemperatureForm({ open, onClose, child }) {
 // ----------------------------------------------------------------------
 // Temperature chart (SVG, last 7 days)
 // ----------------------------------------------------------------------
-function TemperatureChart({ temperatures }) {
+function TemperatureChart({ temperatures, threshold }) {
   const W = 320;
   const H = 160;
   const PAD_L = 32;
@@ -116,7 +160,7 @@ function TemperatureChart({ temperatures }) {
     const cutoff = daysAgo(7);
     return temperatures
       .filter((t) => new Date(t.date) >= cutoff)
-      .sort((a, b) => (a.date < b.date ? -1 : 1));
+      .sort((a, b) => toTime(a.date) - toTime(b.date));
   }, [temperatures]);
 
   if (points.length === 0) return null;
@@ -130,12 +174,12 @@ function TemperatureChart({ temperatures }) {
   const yScale = (val) => H - PAD_B - ((val - yMin) / (yMax - yMin)) * (H - PAD_T - PAD_B);
 
   const path = points.map((p) => `${xScale(p.date)},${yScale(p.valeur)}`).join(' ');
-  const feverY = yScale(FEVER_THRESHOLD);
+  const feverY = yScale(threshold);
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
       <line x1={PAD_L} y1={feverY} x2={W - PAD_R} y2={feverY} stroke="var(--danger)" strokeWidth="1" strokeDasharray="4,3" />
-      <text x={W - PAD_R} y={feverY - 4} fontSize="8" fill="var(--danger)" textAnchor="end">38.5°C</text>
+      <text x={W - PAD_R} y={feverY - 4} fontSize="8" fill="var(--danger)" textAnchor="end">{fmt1(threshold)} °C</text>
 
       <line x1={PAD_L} y1={H - PAD_B} x2={W - PAD_R} y2={H - PAD_B} stroke="var(--text-faint)" strokeWidth="1" />
       <line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} stroke="var(--text-faint)" strokeWidth="1" />
@@ -144,7 +188,7 @@ function TemperatureChart({ temperatures }) {
 
       <polyline points={path} fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       {points.map((p, i) => (
-        <circle key={i} cx={xScale(p.date)} cy={yScale(p.valeur)} r="3" fill={p.valeur >= FEVER_THRESHOLD ? 'var(--danger)' : 'var(--primary)'} />
+        <circle key={i} cx={xScale(p.date)} cy={yScale(p.valeur)} r="3" fill={p.valeur >= threshold ? 'var(--danger)' : 'var(--primary)'} />
       ))}
     </svg>
   );
@@ -163,13 +207,14 @@ export default function FievreTool() {
   const canEdit = role !== 'lecture';
 
   const childTemps = useMemo(
-    () => filterByActiveChild(store.temperatures, store.activeChildId).sort((a, b) => (a.date < b.date ? 1 : -1)),
+    () => filterByActiveChild(store.temperatures, store.activeChildId).sort((a, b) => toTime(b.date) - toTime(a.date)),
     [store.temperatures, store.activeChildId]
   );
 
   const grouped = useMemo(() => groupByDay(childTemps, 'date'), [childTemps]);
 
   const lastTemp = childTemps[0];
+  const threshold = feverThreshold(activeChild);
 
   const handleDelete = (id) => {
     update((draft) => {
@@ -192,12 +237,12 @@ export default function FievreTool() {
   return (
     <div>
       {lastTemp && (
-        <div className="card appear" style={{ textAlign: 'center', borderColor: statusFor(lastTemp.valeur).color }}>
+        <div className="card appear" style={{ textAlign: 'center', borderColor: statusFor(lastTemp.valeur, threshold).color }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '2.4rem', fontWeight: 600 }}>
-            {lastTemp.valeur.toFixed(1)}°C
+            {fmt1(lastTemp.valeur)} °C
           </div>
-          <div style={{ color: statusFor(lastTemp.valeur).color, fontWeight: 700, fontSize: '0.85rem', marginTop: 2 }}>
-            {statusFor(lastTemp.valeur).label}
+          <div style={{ color: statusFor(lastTemp.valeur, threshold).color, fontWeight: 700, fontSize: '0.85rem', marginTop: 2 }}>
+            {statusFor(lastTemp.valeur, threshold).label}
           </div>
           <div className="muted" style={{ fontSize: '0.78rem', marginTop: 4 }}>
             Dernière mesure · {formatDateFR(lastTemp.date)} à {formatTimeFR(lastTemp.date)}
@@ -208,7 +253,7 @@ export default function FievreTool() {
       {childTemps.length > 0 && (
         <div className="card appear">
           <div className="section-title" style={{ marginBottom: 10 }}>📈 7 derniers jours</div>
-          <TemperatureChart temperatures={childTemps} />
+          <TemperatureChart temperatures={childTemps} threshold={threshold} />
         </div>
       )}
 
@@ -223,7 +268,7 @@ export default function FievreTool() {
         <div className="empty-state">
           <div className="emoji">🌡️</div>
           <div className="title">Aucune mesure</div>
-          <div className="desc">Ajoute une première température pour commencer le suivi. Une alerte se déclenche à partir de 38.5°C.</div>
+          <div className="desc">Ajoute une première température pour commencer le suivi. Alerte à partir de {fmt1(threshold)} °C{threshold < 38.5 ? ' (moins de 3 mois)' : ''}.</div>
         </div>
       ) : (
         grouped.map(([day, items]) => (
@@ -231,12 +276,12 @@ export default function FievreTool() {
             <div className="day-group-label">{dayLabel(day)}</div>
             <div className="entry-list">
               {items.map((t) => {
-                const status = statusFor(t.valeur);
+                const status = statusFor(t.valeur, threshold);
                 return (
                   <SwipeToDelete key={t.id} onDelete={() => canEdit && handleDelete(t.id)} disabled={!canEdit}>
                     <div className="entry-icon" style={{ background: status.bg, color: status.color }}>🌡️</div>
                     <div className="entry-body">
-                      <div className="entry-title">{t.valeur.toFixed(1)}°C <span style={{ color: status.color, fontWeight: 600, fontSize: '0.78rem' }}>· {status.label}</span></div>
+                      <div className="entry-title">{fmt1(t.valeur)} °C <span style={{ color: status.color, fontWeight: 600, fontSize: '0.78rem' }}>· {status.label}</span></div>
                       {t.notes && <div className="entry-sub">{t.notes}</div>}
                     </div>
                     <div className="entry-time">{formatTimeFR(t.date)}</div>
