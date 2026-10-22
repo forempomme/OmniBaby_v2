@@ -1710,3 +1710,126 @@ a { color: var(--primary-deep); }
 /* Laisse la dernière ligne visible au-dessus du bouton + */
 .app-content { padding-bottom: calc(170px + var(--safe-bottom)); }
 .setup-screen .numpad { max-width: 232px; gap: 10px; }
+
+/* ======================================================================
+   v3.9.0 — profil test, choix d'enfant, suppression complète
+   ====================================================================== */
+.test-badge {
+  display: inline-block; padding: 1px 7px; border-radius: 999px;
+  background: #E8BC81; color: #2B1A0C; font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.4px; line-height: 1.5; vertical-align: middle;
+}
+.topbar-child {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  min-height: 44px; padding: 0; color: #FFFFFF; text-align: left; min-width: 0;
+}
+.topbar-child .app-topbar-sub { display: flex; align-items: center; gap: 6px; max-width: 100%; }
+.topbar-child-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Mode test : barre du haut ocre + bandeau */
+.app-shell.test-mode .app-topbar { background: linear-gradient(135deg, #7A5A1E 0%, #44330F 100%); }
+[data-theme='night'] .app-shell.test-mode .app-topbar { background: linear-gradient(135deg, #5C4316, #2E220A) !important; }
+.test-banner {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding: 8px 14px; background: #3D3120; color: #F3D9A8;
+  border-bottom: 1px solid #5C4A26; font-size: 0.8rem; line-height: 1.35;
+}
+.test-banner svg { color: #E8BC81; }
+.test-banner span { flex: 1; min-width: 0; }
+.test-banner strong { color: #FFFFFF; }
+.test-banner-btn {
+  flex-shrink: 0; min-height: 36px; padding: 0 12px; border-radius: 999px;
+  border: 1.5px solid #8A6B2E; color: #E8BC81; font-weight: 700; font-size: 0.8rem;
+}
+
+/* Feuille « Quel enfant ? » */
+.child-pick-list { display: flex; flex-direction: column; gap: 10px; }
+.child-pick {
+  display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 0 14px;
+  border-radius: 16px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); text-align: left; width: 100%;
+}
+.child-pick.on { border: 2px solid var(--primary); }
+.child-pick.is-test { background: var(--accent-sun-soft); }
+.child-pick.is-test.on { border-color: #E8BC81; }
+.child-pick-avatar {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  background: var(--primary-soft); color: var(--primary);
+  display: flex; align-items: center; justify-content: center; font-weight: 700;
+}
+.child-pick.is-test .child-pick-avatar { background: #5C4A26; color: #E8BC81; }
+.child-pick-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.child-pick-name { font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
+.child-pick-sub { font-size: 0.76rem; color: var(--text-soft); }
+.child-pick-check { color: var(--primary); }
+.dashed-btn {
+  width: 100%; margin-top: 12px; min-height: 52px; border-radius: 999px;
+  border: 1.5px dashed var(--border); color: var(--primary); font-weight: 700; font-size: 0.9rem;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.sheet-note { margin: 10px 0 0; text-align: center; font-size: 0.76rem; color: var(--text-faint); }
+
+/* Formulaires */
+.info-box {
+  display: flex; gap: 10px; padding: 12px; border-radius: 14px;
+  font-size: 0.82rem; line-height: 1.45; margin-bottom: 12px;
+}
+.info-box svg { flex-shrink: 0; margin-top: 1px; }
+.info-box.warn { background: var(--accent-sun-soft); color: var(--text); }
+.info-box.warn svg { color: var(--accent-sun); }
+.info-box.ok { background: var(--accent-sage-soft); color: var(--text); }
+.info-box.ok svg { color: var(--accent-sage); }
+.choice-grid { display: grid; gap: 6px; }
+.choice-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.choice-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.choice {
+  min-height: 44px; border-radius: 12px; border: 1.5px solid var(--border);
+  color: var(--text-soft); font-weight: 600; font-size: 0.82rem;
+}
+.choice.on { border: 2px solid var(--primary); background: var(--primary-soft); color: var(--text); font-weight: 700; }
+.toggle-row { gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.count-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.count-cell {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 12px;
+  border-radius: 12px; background: var(--surface); border: 1px solid var(--border);
+}
+.count-cell strong { font-family: var(--font-mono); font-size: 1.1rem; }
+.count-cell span { font-size: 0.76rem; color: var(--text-soft); }
+.btn-danger-solid { background: var(--danger); color: #1B1411; font-weight: 700; }
+[data-theme='light'] .btn-danger-solid, :root:not([data-theme]) .btn-danger-solid { color: #FFFFFF; }
+.btn:disabled { opacity: 0.45; }
+
+/* Réglages → Bébé */
+.kids { display: flex; flex-direction: column; gap: 10px; }
+.kid-card {
+  display: flex; flex-direction: column; gap: 10px; padding: 10px 12px;
+  border-radius: 14px; border: 1px solid var(--border); background: var(--bg);
+}
+.kid-card.is-test { border: 1.5px dashed #8A6B2E; background: var(--accent-sun-soft); }
+.kid-row { display: flex; align-items: center; gap: 12px; }
+.kid-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  background: var(--primary-soft); color: var(--primary);
+  display: flex; align-items: center; justify-content: center; font-weight: 700;
+}
+.kid-card.is-test .kid-avatar { background: #5C4A26; color: #E8BC81; }
+.kid-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.kid-name { font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.kid-active { color: var(--primary); font-weight: 700; }
+.kid-sub { font-size: 0.76rem; color: var(--text-soft); }
+.kid-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.kid-btn-main { background: #E8BC81; color: #2B1A0C; font-weight: 700; }
+.kid-btn-outline { border: 1.5px solid var(--border); color: var(--text); }
+.kid-btn-danger { background: var(--danger-soft); color: var(--danger); font-weight: 700; }
+.kid-add { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.dashed-btn-sm { border: 1.5px dashed #8A6B2E; color: var(--accent-sun); font-weight: 700; }
+
+/* Données orphelines */
+.orphan-box { padding: 12px; border-radius: 14px; background: var(--accent-sun-soft); display: flex; flex-direction: column; gap: 8px; }
+.orphan-total { font-size: 0.85rem; }
+.orphan-total strong { font-family: var(--font-mono); font-size: 1.4rem; color: var(--accent-sun); margin-right: 4px; }
+.orphan-row {
+  display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px;
+  border-radius: 10px; background: var(--surface); font-size: 0.8rem;
+}
+.orphan-counts { display: flex; flex-direction: column; align-items: flex-end; text-align: right; color: var(--text-soft); }
