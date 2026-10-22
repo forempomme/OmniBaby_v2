@@ -35,7 +35,17 @@ export default function QuickEntryBar({ entries }) {
       ...extra,
     };
     update((draft) => { draft.entries.push(entry); return draft; });
-    showToast(`${entryTitle(entry)} enregistré`, '✅');
+    // 5 s pour annuler un tap par erreur (supprimé partout, synchro comprise)
+    showToast(`${entryTitle(entry)} enregistré`, '✅', {
+      duration: 5000,
+      action: {
+        label: 'Annuler',
+        onClick: () => {
+          update((draft) => { draft.entries = draft.entries.filter((e) => e.id !== entry.id); return draft; });
+          showToast('Saisie annulée', '↩️');
+        },
+      },
+    });
     setFlash(key);
     setTimeout(() => setFlash(null), 700);
   };
