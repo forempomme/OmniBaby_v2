@@ -75,6 +75,7 @@ export function entryDetail(e) {
 }
 
 export function entryAuthor(e) {
+  if (e.sample) return 'exemple généré';
   if (e.updatedByName && e.updatedByName !== e.createdByName) return `modifié par ${e.updatedByName}`;
   if (e.createdByName) return `par ${e.createdByName}`;
   return '';
