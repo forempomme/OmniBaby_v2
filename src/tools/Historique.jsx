@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useFullHistory, HistoryNotice } from '../HistoryNotice.jsx';
 import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
 import { formatTimeFR, groupByDay, dayLabel, SwipeToDelete, useToast, sortByDateDesc } from '../utils.jsx';
 import { ENTRY_TYPES } from '../Journal.jsx';
@@ -126,6 +127,7 @@ const FILTERS = [
 
 export default function HistoriqueTool() {
   const { store, update, session } = useStore();
+  useFullHistory(true);
   const showToast = useToast();
   const activeChild = getActiveChild(store);
   const [filter, setFilter] = useState('tous');
@@ -162,6 +164,7 @@ export default function HistoriqueTool() {
 
   return (
     <div>
+      <HistoryNotice />
       <div className="chip-row">
         {FILTERS.map((f) => (
           <button key={f.key} className={`chip ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
