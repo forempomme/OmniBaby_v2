@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
-import { formatDateFR, ConfirmInline, useToast, pad2, scheduleNotif, requestNotifPermission } from '../utils.jsx';
+import { formatDateFR, ConfirmInline, useToast, pad2, scheduleNotif, cancelNotif, requestNotifPermission, nextOccurrence } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 
 // ----------------------------------------------------------------------
@@ -26,6 +26,28 @@ function addHoursToTime(timeHM, hours) {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
+// Notification de la prochaine dose. L'heure est stockée en « HH:MM » :
+// avant la v3.10, new Date("21:00") était invalide et rien n'était programmé.
+function medocNotifId(id) {
+  return `medoc_${id}`;
+}
+
+function scheduleDoseNotif(medoc, enabled) {
+  cancelNotif(medocNotifId(medoc.id));
+  if (!enabled) return;
+  const at = nextOccurrence(medoc.prochaineDose);
+  if (!at) return;
+  requestNotifPermission().then((granted) => {
+    if (!granted) return;
+    scheduleNotif({
+      id: medocNotifId(medoc.id),
+      title: `Médicament — ${medoc.nom}`,
+      body: `Heure de la prochaine dose${medoc.dose ? ' : ' + medoc.dose : ''}`,
+      at: at.toISOString(),
+    });
+  });
+}
+
 const FREQUENCES = [
   { label: 'Toutes les 4h', value: 4 },
   { label: 'Toutes les 6h', value: 6 },
@@ -48,7 +70,7 @@ function medocDefaults() {
 }
 
 function MedocForm({ open, onClose, child, editing }) {
-  const { update, nextId } = useStore();
+  const { store, update, nextId } = useStore();
   const showToast = useToast();
   const [form, setForm] = useState(medocDefaults());
 
@@ -65,35 +87,15 @@ function MedocForm({ open, onClose, child, editing }) {
       showToast('Entre le nom du médicament', '⚠️');
       return;
     }
+    const id = editing ? editing.id : nextId();
+    const saved = editing ? { ...editing, ...form, id } : { ...form, id, childId: child.id, lastDoseDate: null };
     update((draft) => {
-      if (editing) {
-        const idx = draft.medicaments.findIndex((m) => m.id === editing.id);
-        if (idx !== -1) draft.medicaments[idx] = { ...draft.medicaments[idx], ...form, id: editing.id };
-      } else {
-        draft.medicaments.push({
-          ...form,
-          id: nextId(),
-          childId: child.id,
-          lastDoseDate: null,
-        });
-      }
+      const idx = draft.medicaments.findIndex((m) => m.id === id);
+      if (idx !== -1) draft.medicaments[idx] = { ...draft.medicaments[idx], ...form, id };
+      else draft.medicaments.push(saved);
       return draft;
     });
-    // Si prochaineDose définie → planifier la notification
-    if (form.prochaineDose) {
-      const notifAt = new Date(form.prochaineDose);
-      if (notifAt > new Date()) {
-        requestNotifPermission().then((granted) => {
-          if (!granted) return;
-          scheduleNotif({
-            id: form.prochaineDose,
-            title: `Médicament — ${form.nom}`,
-            body: `Heure de la prochaine dose${form.dose ? ' : ' + form.dose : ''}`,
-            at: form.prochaineDose,
-          });
-        });
-      }
-    }
+    scheduleDoseNotif(saved, store.settings?.notifs?.medoc !== false);
     showToast(editing ? 'Traitement modifié' : 'Traitement ajouté', '✅');
     onClose();
   };
@@ -137,7 +139,7 @@ function MedocForm({ open, onClose, child, editing }) {
 // Medication card
 // ----------------------------------------------------------------------
 function MedocCard({ medoc, onEdit, onDelete, canEdit }) {
-  const { update } = useStore();
+  const { store, update } = useStore();
   const showToast = useToast();
   const due = isDoseDue(medoc.prochaineDose);
 
@@ -152,6 +154,7 @@ function MedocCard({ medoc, onEdit, onDelete, canEdit }) {
       }
       return draft;
     });
+    scheduleDoseNotif({ ...medoc, prochaineDose: newNext }, store.settings?.notifs?.medoc !== false);
     showToast(`Prochaine dose à ${newNext}`, '💊');
   };
 
@@ -230,6 +233,7 @@ export default function MedicamentsTool() {
       draft.medicaments = draft.medicaments.filter((m) => m.id !== id);
       return draft;
     });
+    cancelNotif(medocNotifId(id));
     showToast('Traitement supprimé', '🗑️');
   };
 
