@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, getActiveChild } from '../store.jsx';
-import { toISODateTime, formatDateTimeFR, useToast, ConfirmInline } from '../utils.jsx';
+import { toISODateTime, formatDateTimeFR, useToast, ConfirmInline, toTime } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 import { scheduleNotif, cancelNotif, requestNotifPermission } from '../utils.jsx';
 import { VISITES_OBLIGATOIRES } from '../data/who-growth.js';
@@ -63,6 +63,7 @@ function RappelForm({ open, onClose, editing }) {
       return;
     }
     const dateISO = new Date(form.date).toISOString();
+    const rappelId = editing ? editing.id : nextId();
     update((draft) => {
       if (editing) {
         const idx = draft.rappels.findIndex((r) => r.id === editing.id);
@@ -71,7 +72,7 @@ function RappelForm({ open, onClose, editing }) {
         }
       } else {
         draft.rappels.push({
-          id: nextId(),
+          id: rappelId,
           titre: form.titre.trim(),
           date: dateISO,
           recurrence: form.recurrence,
@@ -86,9 +87,10 @@ function RappelForm({ open, onClose, editing }) {
     if (notifDate > new Date()) {
       requestNotifPermission().then((granted) => {
         if (!granted) return;
-        if (editing) cancelNotif(editing.id);
+        // Même identifiant pour programmer et annuler (avant : la date)
+        cancelNotif(rappelId);
         scheduleNotif({
-          id: editing ? editing.id : dateISO,
+          id: rappelId,
           title: 'OmniBaby — Rappel',
           body: form.titre.trim(),
           at: dateISO,
@@ -256,7 +258,7 @@ export default function RappelsTool() {
   const sorted = useMemo(() => {
     return [...store.rappels]
       .filter((r) => showDone || !r.fait)
-      .sort((a, b) => (a.date < b.date ? -1 : 1));
+      .sort((a, b) => toTime(a.date) - toTime(b.date));
   }, [store.rappels, showDone]);
 
   const handleDelete = (id) => {
