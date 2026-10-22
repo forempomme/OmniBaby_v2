@@ -83,3 +83,26 @@ describe('Profil test', () => {
     expect(new Set(entries.map((e) => e.id)).size).toBe(entries.length);
   });
 });
+
+import { milkStats } from '../src/tools/Statistiques.jsx';
+
+describe('Statistiques : lait par kilo', () => {
+  it('moyenne des jours terminés, ml/kg/j et règle d’Appert', () => {
+    const now = new Date(2026, 9, 22, 12, 0);
+    const day = (n, h) => new Date(2026, 9, 22 - n, h).toISOString();
+    const entries = [
+      { type: 'biberon', mode: 'biberon', quantite: 300, date: day(1, 8) },
+      { type: 'biberon', mode: 'biberon', quantite: 400, date: day(1, 14) },
+      { type: 'biberon', mode: 'biberon', quantite: 600, date: day(2, 9) },
+      { type: 'biberon', mode: 'sein', duree: 15, date: day(2, 12) },
+      { type: 'biberon', mode: 'biberon', quantite: 150, date: day(0, 8) }, // aujourd'hui : exclu de la moyenne
+    ];
+    const mesures = [{ type: 'poids', valeur: 6.4, date: '2026-10-15' }, { type: 'poids', valeur: 5, date: '2026-09-01' }];
+    const st = milkStats(entries, mesures, 7, now);
+    expect(st.avg).toBe(650);
+    expect(st.kg).toBe(6.4);
+    expect(Math.round(st.perKg)).toBe(102);
+    expect(st.appert).toBe(890);
+    expect(st.daysCounted).toBe(2);
+  });
+});
