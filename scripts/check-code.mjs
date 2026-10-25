@@ -150,6 +150,35 @@ for (const sf of program.getSourceFiles()) {
   visit(sf);
 }
 
+// ── Plugin Capacitor renvoyé par une fonction async ──
+// Le plugin est un Proxy qui répond à « then » : « return LocalNotifications »
+// dans une fonction async → l'await ne se termine jamais, sans erreur.
+for (const sf of program.getSourceFiles()) {
+  if (!sf.fileName.startsWith(SRC)) continue;
+  const pluginNames = new Set();
+  const collect = (n) => {
+    if (ts.isVariableDeclaration(n) && n.initializer && ts.isObjectBindingPattern(n.name)) {
+      const txt = n.initializer.getText(sf);
+      if (/import\(\s*['"]@(capacitor|capgo)\//.test(txt)) {
+        n.name.elements.forEach((e) => pluginNames.add(e.name.getText(sf)));
+      }
+    }
+    ts.forEachChild(n, collect);
+  };
+  collect(sf);
+  if (!pluginNames.size) continue;
+  const visit = (n, inAsync) => {
+    const isFn = ts.isFunctionLike(n);
+    const async = isFn ? !!(ts.getCombinedModifierFlags(n) & ts.ModifierFlags.Async) : inAsync;
+    if (ts.isReturnStatement(n) && inAsync && n.expression && ts.isIdentifier(n.expression) && pluginNames.has(n.expression.text)) {
+      const { line, character } = sf.getLineAndCharacterOfPosition(n.getStart(sf));
+      errors.push(`${relative(ROOT, sf.fileName)}:${line + 1}:${character + 1}  « return ${n.expression.text} » dans une fonction async : le plugin Capacitor est pris pour une promesse et l'await ne finit jamais — renvoyer { ${n.expression.text} }`);
+    }
+    ts.forEachChild(n, (c) => visit(c, async));
+  };
+  visit(sf, false);
+}
+
 // ── Exports jamais importés (code mort, non bloquant) ──
 const exported = new Map(); // fichier → Set(noms)
 const used = new Map();     // fichier → Set(noms importés ailleurs)

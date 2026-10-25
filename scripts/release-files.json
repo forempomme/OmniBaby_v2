@@ -1,9 +1,9 @@
 {
-  "version": "3.10.1",
+  "version": "3.10.2",
   "note": "Généré à chaque livraison. Vérifié par scripts/check-code.mjs (CI).",
   "files": {
-    "package.json": "e43d81d85cf6cd76232ca2461603ca5ec90a4dc67498f253788b453d35463ec5",
-    "scripts/check-code.mjs": "9dcf8c91272597c271850d0f9edb3585a709194103828f7dd1d4e40b41528822",
+    "package.json": "90a446b8d1b27a88ea321f0888ac0bd762b63235cc0384030131f6ea674b4fed",
+    "scripts/check-code.mjs": "659848834fc390a19a5afcdad2a18177c8e5e2856cce4b3ce4e97d64620dc5e4",
     "src/App.jsx": "60a4676506ee05fed936298f5c995c67714dc04b797e2bc188f9737ffa2484e9",
     "src/Auth.jsx": "b359e40b7f4533cfe10d6507485752f0bd4b40e1301f0f888bf17310ebc898af",
     "src/ChildForm.jsx": "116a75b32f1cb42f6927d15b39b0900985a7de3fa8f08eb7aaac00c4d15b3981",
@@ -33,7 +33,7 @@
     "src/readCounter.js": "37ff6df04a8e8440a9be314d3400b6bf05b70ac6d77228f4abe336cc677ed07a",
     "src/store.jsx": "a0d8d2d3ffb23394438690eb11adf3461a4a2b1ece538393dea77666b62bd6cf",
     "src/styles.css": "3667adf67b95cdfa59822ac6388a71472a096662b88fd06f60b0a07d9673fea4",
-    "src/timer.js": "44b7fbc39f3e2bbed1efdfe010a0b2289707bbc001cb73c54af7f66f483debcf",
+    "src/timer.js": "5b1f48a713c732a950412cd23409d99182320c29b96912aed01869f9f07bc1f7",
     "src/tools/Alimentation.jsx": "c3c08be5e5d4b2cd30a4abf770d93854985bd797da5baceb8109a37d9935bfcc",
     "src/tools/Developpement.jsx": "df841d9e4a6e2149db7bfa44ff389973df9e4568b61a47f704b9c9c548021883",
     "src/tools/Famille.jsx": "d05b72b09604e147f88722a4eac439e1879f6c78fdc4519b6f1679df8818647c",
@@ -54,6 +54,6 @@
     "tests/sync.test.js": "04e61fb5317b59b93c9cca2a971a95e7e74572a7364ab25905293f4266e1a6af",
     "tests/timer.test.js": "6bab81dba16d13257e5aa05e8d1f673c41409891747f0729ac096f93a0f7ba7b",
     "tests/utils.test.js": "90d9432a6185fefcc058265b2fbdf4aec110cca58ea5ed4bd5869e0642d6ff0c",
-    "version.properties": "6e7f4c7bf39ef18dba96bc7cc1209632930b515713c0bb1b285f17d47e01359a"
+    "version.properties": "37ea5c8975d5ba87884df40523602e64a426a6c6092a674b9f77471d586ded5e"
   }
 }

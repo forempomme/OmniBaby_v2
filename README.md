@@ -184,6 +184,7 @@ omnibaby/
 | 3.9.0 | Profil test synchronisé, choix d'enfant en touchant son nom, suppression complète d'un enfant, nettoyage des données orphelines |
 | 3.10.0 | Synchro 60 jours + historique à la demande (quota Firebase), notification Minuteur, notifications Médicaments/Rappels corrigées, annulation des saisies 1 tap, couleur des selles, seuil fièvre < 3 mois, carte lait au biberon, Dodo au style du Journal, icônes SVG des Outils |
 | 3.10.1 | Notification du minuteur : catégorie « Tétée en cours » (sans son), contrôle d'affichage + secours, erreurs visibles ; contrôle CI des icônes et des fichiers livrés (scripts/release-files.json) |
+| 3.10.2 | Notification du minuteur réparée (le plugin Capacitor renvoyé par une fonction async bloquait l'appel sans erreur) ; contrôle CI de ce piège |
 
 ---
 

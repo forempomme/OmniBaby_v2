@@ -109,11 +109,16 @@ function reportNotifError(step, e) {
   try { window.dispatchEvent(new CustomEvent('omnibaby-notif-error', { detail: { message } })); } catch (x) { /* ignore */ }
 }
 
+// ATTENTION : le plugin Capacitor est un Proxy qui répond à TOUTES les
+// propriétés, y compris « then ». Renvoyé tel quel par une fonction async,
+// il est pris pour une promesse et l'await ne se termine jamais (bug des
+// v3.10.0/3.10.1 : aucune notification, aucune erreur). On l'emballe donc
+// dans un objet { LN }.
 async function plugin() {
   if (!window.Capacitor?.isNativePlatform?.()) return null; // navigateur : pas de notification
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
-    return LocalNotifications;
+    return { LN: LocalNotifications };
   } catch (e) {
     reportNotifError('chargement du module', e);
     return null;
@@ -149,8 +154,9 @@ async function isShown(LN) {
 }
 
 async function doSync(state) {
-  const LN = await plugin();
-  if (!LN) return;
+  const p = await plugin();
+  if (!p) return;
+  const { LN } = p;
   if (!state) {
     try { await LN.cancel({ notifications: [{ id: TIMER_NOTIF_ID }] }); } catch (e) { /* rien à annuler */ }
     return;
@@ -199,8 +205,9 @@ export function syncTimerNotif(state) {
 
 // À appeler une fois (App) : onAction('switch' | 'finish' | 'open')
 export async function initTimerNotifActions(onAction) {
-  const LN = await plugin();
-  if (!LN) return () => {};
+  const p = await plugin();
+  if (!p) return () => {};
+  const { LN } = p;
   try {
     await LN.registerActionTypes({
       types: [{
