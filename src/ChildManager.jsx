@@ -3,6 +3,7 @@ import { useStore, genId, formatAge } from './store.jsx';
 import { useToast, cancelNotif, formatDateFR, toISODate } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import { Icon } from './icons.jsx';
+import { useFullHistory, HistoryNotice } from './HistoryNotice.jsx';
 import {
   childDataCounts, totalCount, tableLabel, removeChild, removeChildData,
   findOrphans, removeOrphans, birthdateForAge, generateSampleData,
@@ -195,6 +196,9 @@ export function TestChildForm({ open, onClose }) {
 export function DeleteChildModal({ child, mode = 'delete', onClose }) {
   const { store, update } = useStore();
   const showToast = useToast();
+  // Toutes les données de l'enfant, y compris au-delà de 60 jours,
+  // sinon les plus anciennes resteraient dans Firebase
+  const history = useFullHistory(!!child);
   const others = useOtherParents();
   const [typed, setTyped] = useState('');
   const counts = useMemo(() => (child ? childDataCounts(store, child.id) : {}), [store, child]);
@@ -249,7 +253,8 @@ export function DeleteChildModal({ child, mode = 'delete', onClose }) {
           <input id="confirm-name" type="text" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
         </div>
       )}
-      <button className="btn btn-block btn-danger-solid mt-8" disabled={!ok} onClick={run}>
+      {history !== 'complete' && <HistoryNotice />}
+      <button className="btn btn-block btn-danger-solid mt-8" disabled={!ok || history === 'loading'} onClick={run}>
         {clear ? `Effacer ${n} donnée${n > 1 ? 's' : ''}` : child.isTest ? 'Supprimer le profil test' : `Supprimer ${child.nom} définitivement`}
       </button>
       <button className="btn btn-outline btn-block mt-8" onClick={onClose}>Annuler</button>
@@ -261,17 +266,23 @@ export function DeleteChildModal({ child, mode = 'delete', onClose }) {
 // Réglages → Sauvegarde : données orphelines
 // ----------------------------------------------------------------------
 export function OrphanSection() {
-  const { store, update, syncStatus, firebaseUser } = useStore();
+  const { store, update, syncStatus, firebaseUser, loadHistory, getStore } = useStore();
+  const [busy, setBusy] = useState(false);
   const showToast = useToast();
   const [result, setResult] = useState(null); // null | groups[]
   const [confirm, setConfirm] = useState(false);
   const [analysedAt, setAnalysedAt] = useState(null);
   const waiting = !!store.familyId && !!firebaseUser && syncStatus !== 'synced';
 
-  const analyse = () => {
-    setResult(findOrphans(store));
+  // Analyse sur tout l'historique (pas seulement les 60 derniers jours)
+  const analyse = async () => {
+    setBusy(true);
+    const complete = await loadHistory();
+    setBusy(false);
+    setResult(findOrphans(getStore()));
     setAnalysedAt(new Date());
     setConfirm(false);
+    if (!complete) showToast('Historique ancien indisponible : analyse partielle', '⚠️');
   };
 
   const total = (result || []).reduce((s, g) => s + g.items.length, 0);
@@ -279,7 +290,10 @@ export function OrphanSection() {
   const purge = () => {
     const groups = result;
     update((d) => { removeOrphans(d, groups); return d; });
-    groups.forEach((g) => g.items.filter((i) => i.table === 'rappels' || i.table === 'medicaments').forEach((i) => cancelNotif(i.id)));
+    groups.forEach((g) => g.items.forEach((i) => {
+      if (i.table === 'rappels') cancelNotif(i.id);
+      if (i.table === 'medicaments') cancelNotif(`medoc_${i.id}`);
+    }));
     showToast(`${total} données orphelines supprimées`, '🧹');
     setResult([]);
     setConfirm(false);
@@ -299,8 +313,8 @@ export function OrphanSection() {
           <div style={{ fontWeight: 700, fontSize: '.9rem' }}>Données orphelines</div>
           <div className="muted" style={{ fontSize: '.76rem', marginTop: 2 }}>Rattachées à un enfant qui n'existe plus</div>
         </div>
-        <button className="btn btn-outline btn-sm" onClick={analyse} disabled={waiting}>
-          {result ? 'Réanalyser' : 'Analyser'}
+        <button className="btn btn-outline btn-sm" onClick={analyse} disabled={waiting || busy}>
+          {busy ? 'Chargement…' : result ? 'Réanalyser' : 'Analyser'}
         </button>
       </div>
       {waiting && <div className="muted" style={{ fontSize: '.76rem', marginTop: 8 }}>Attends la fin de la synchro pour analyser (sinon un enfant pas encore reçu serait pris pour un enfant supprimé).</div>}

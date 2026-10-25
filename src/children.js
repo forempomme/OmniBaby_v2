@@ -44,7 +44,8 @@ export function removeChildData(draft, childId) {
   for (const t of SYNC_TABLES) {
     const removed = (draft[t] || []).filter((i) => i.childId === childId);
     if (!removed.length) continue;
-    if (t === 'rappels' || t === 'medicaments') removed.forEach((i) => notifIds.push(i.id));
+    if (t === 'rappels') removed.forEach((i) => notifIds.push(i.id));
+    if (t === 'medicaments') removed.forEach((i) => notifIds.push(`medoc_${i.id}`));
     draft[t] = draft[t].filter((i) => i.childId !== childId);
   }
   if (draft.settings) delete draft.settings[`dev_${childId}`];
