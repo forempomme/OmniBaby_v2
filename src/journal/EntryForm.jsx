@@ -4,6 +4,7 @@ import { toISODateTime, toISODate, toLocalDT, useToast } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 import { ENTRY_TYPES, STOOL_COLORS, stoolColor } from './entryTypes.js';
 import { Icon } from '../icons.jsx';
+import { loadTimerState, startTeteeTimer, suggestedSide } from '../timer.js';
 
 const COUCHE_OPTIONS = [
   { key: 'pipi', label: 'Pipi' },
@@ -36,7 +37,8 @@ function Pills({ options, value, onChange }) {
   );
 }
 
-function FeedingFields({ f, set, showVitD, idSuffix }) {
+// afterSide : bloc inséré après le choix du côté (bouton chrono de tétée)
+function FeedingFields({ f, set, showVitD, idSuffix, afterSide = null }) {
   return (
     <>
       <div className="field">
@@ -54,6 +56,7 @@ function FeedingFields({ f, set, showVitD, idSuffix }) {
           <Pills options={COTES} value={f.cote} onChange={(v) => set('cote', v)} />
         </div>
       )}
+      {f.mode === 'sein' && afterSide}
       <div className="field">
         <label>Durée (minutes, optionnel)</label>
         <input type="number" inputMode="numeric" value={f.duree} onChange={(e) => set('duree', e.target.value)} placeholder="15" />
@@ -132,24 +135,32 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
   const showToast = useToast();
   const activeChild = getActiveChild(store);
   const defaultMl = store.settings?.defaultBiberonMl || '';
+  // Côté proposé : l'inverse de la dernière tétée de cet enfant
+  const lastCote = useMemo(() => {
+    const feeds = (store.entries || [])
+      .filter((e) => e.childId === activeChild?.id && e.type === 'biberon' && e.mode === 'sein')
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    return feeds[0]?.cote;
+  }, [store.entries, activeChild?.id]);
+  const [timerRunning, setTimerRunning] = useState(() => !!loadTimerState());
 
   const initial = useMemo(() => ({
     type: prefill?.type && prefill.type !== 'sommeil' ? prefill.type : 'biberon',
     datetime: prefill?.datetime || toISODateTime(),
     mode: prefill?.mode || 'biberon',
     quantite: prefill?.quantite ?? defaultMl,
-    cote: prefill?.cote || 'gauche',
+    cote: prefill?.cote || suggestedSide(lastCote),
     duree: prefill?.duree ?? '',
     vitamineD: !!prefill?.vitamineD,
     contenu: prefill?.contenu || 'pipi',
     couleur: '',
     note: '',
-  }), [prefill, defaultMl, open]);
+  }), [prefill, defaultMl, open, lastCote]);
 
   const [f, setF] = useState(initial);
   const initialRef = useRef(initial);
   React.useEffect(() => {
-    if (open) { setF(initial); initialRef.current = initial; }
+    if (open) { setF(initial); initialRef.current = initial; setTimerRunning(!!loadTimerState()); }
   }, [open, initial]);
 
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
@@ -159,6 +170,29 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
     const ageM = activeChild ? ageInMonths(activeChild.birthdate) : null;
     return ageM == null || ageM < 24;
   }, [activeChild]);
+
+  // Tétée : même chrono que Outils → Minuteur (notification comprise)
+  const chronoMode = f.type === 'biberon' && f.mode === 'sein';
+  const launchChrono = () => {
+    if (!activeChild) { showToast('Crée d’abord le profil de bébé', '⚠️'); return; }
+    onClose();
+    startTeteeTimer(f.cote === 'droit' ? 'droit' : 'gauche');
+  };
+  const dateField = (
+    <div className="field">
+      <label>Date et heure</label>
+      <input type="datetime-local" value={f.datetime} onChange={(e) => set('datetime', e.target.value)} />
+    </div>
+  );
+  const chronoBlock = (
+    <>
+      <button className="btn btn-primary btn-block" onClick={launchChrono}>
+        {timerRunning ? 'Ouvrir le chrono en cours' : `▶ Lancer le chrono — côté ${f.cote === 'droit' ? 'droit' : 'gauche'}`}
+      </button>
+      <div className="chrono-sep">tétée déjà terminée ?</div>
+      {dateField}
+    </>
+  );
 
   const handleSubmit = () => {
     if (!activeChild) { showToast('Crée d’abord le profil de bébé', '⚠️'); return; }
@@ -203,12 +237,9 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
         </div>
       </div>
 
-      <div className="field">
-        <label>Date et heure</label>
-        <input type="datetime-local" value={f.datetime} onChange={(e) => set('datetime', e.target.value)} />
-      </div>
+      {!chronoMode && dateField}
 
-      {f.type === 'biberon' && <FeedingFields f={f} set={set} showVitD={showVitD} idSuffix="new" />}
+      {f.type === 'biberon' && <FeedingFields f={f} set={set} showVitD={showVitD} idSuffix="new" afterSide={chronoBlock} />}
 
       {f.type === 'couche' && (
         <div className="field">
@@ -225,7 +256,9 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
         </div>
       )}
 
-      <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>Enregistrer</button>
+      <button className={`btn ${chronoMode ? 'btn-outline' : 'btn-primary'} btn-block mt-16`} onClick={handleSubmit}>
+        {chronoMode ? 'Enregistrer sans chrono' : 'Enregistrer'}
+      </button>
     </Modal>
   );
 }

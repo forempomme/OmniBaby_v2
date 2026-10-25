@@ -4,16 +4,18 @@
 //
 // L'état vit hors de React pour que les boutons de la notification
 // fonctionnent même si l'écran Minuteur n'est pas ouvert.
-// Limite du plugin @capacitor/local-notifications : pas de chrono qui
-// défile dans la notification → on affiche les heures de début, mises à
-// jour à chaque changement de côté.
+// Grand chrono de la notification et « Changer de côté » sans ouvrir
+// l'appli : code Android ajouté au plugin pendant le build
+// (android-plugin/, scripts/patch-notif-chrono.mjs). Un changement de côté
+// fait depuis la notification est repris par adoptNativeTimerState().
 //
 // state : { startedAt, currentSide: 'gauche'|'droit', currentSideStartedAt,
-//           running, elapsedGauche (s), elapsedDroit (s) }
+//           running, elapsedGauche (s), elapsedDroit (s), updatedAt (ms) }
 // ----------------------------------------------------------------------
 const STORAGE_KEY = 'omnibaby_minuteur_v1';
 const TIMER_NOTIF_ID = 424242;
-const ACTION_TYPE = 'OMNIBABY_TETEE';
+const ACTION_TYPE = 'OMNIBABY_TETEE';          // Changer de côté + Terminer (via l'appli)
+const ACTION_TYPE_FIN = 'OMNIBABY_TETEE_FIN';  // Terminer seul : côté changé par Android
 
 export function loadTimerState() {
   try {
@@ -48,10 +50,10 @@ function closeSegment(state, nowMs) {
 export function startSide(state, side, now = new Date()) {
   const iso = now.toISOString();
   if (!state) {
-    return { startedAt: iso, currentSide: side, currentSideStartedAt: iso, running: true, elapsedGauche: 0, elapsedDroit: 0 };
+    return { startedAt: iso, currentSide: side, currentSideStartedAt: iso, running: true, elapsedGauche: 0, elapsedDroit: 0, updatedAt: now.getTime() };
   }
   if (state.running && state.currentSide === side) return state;
-  return { ...closeSegment(state, now.getTime()), currentSide: side, currentSideStartedAt: iso, running: true };
+  return { ...closeSegment(state, now.getTime()), currentSide: side, currentSideStartedAt: iso, running: true, updatedAt: now.getTime() };
 }
 
 export function switchSide(state, now = new Date()) {
@@ -61,7 +63,44 @@ export function switchSide(state, now = new Date()) {
 
 export function pauseTimer(state, now = new Date()) {
   if (!state || !state.running) return state;
-  return { ...closeSegment(state, now.getTime()), running: false };
+  return { ...closeSegment(state, now.getTime()), running: false, updatedAt: now.getTime() };
+}
+
+// Format échangé avec le code Android (ObTimer.java) : instants en ms
+export function stateToNative(state) {
+  return {
+    side: state.currentSide === 'droit' ? 'droit' : 'gauche',
+    running: !!state.running,
+    startedAt: new Date(state.startedAt).getTime(),
+    sideStart: new Date(state.currentSideStartedAt).getTime(),
+    accG: state.elapsedGauche || 0,
+    accD: state.elapsedDroit || 0,
+    updatedAt: state.updatedAt || 0,
+  };
+}
+
+export function nativeToState(o) {
+  return {
+    startedAt: new Date(o.startedAt).toISOString(),
+    currentSide: o.side === 'droit' ? 'droit' : 'gauche',
+    currentSideStartedAt: new Date(o.sideStart).toISOString(),
+    running: !!o.running,
+    elapsedGauche: Number(o.accG) || 0,
+    elapsedDroit: Number(o.accD) || 0,
+    updatedAt: Number(o.updatedAt) || 0,
+  };
+}
+
+// Côté proposé pour une nouvelle tétée : l'inverse du dernier utilisé
+export function suggestedSide(lastCote) {
+  return lastCote === 'gauche' ? 'droit' : 'gauche';
+}
+
+// Lance le chrono (si aucun ne tourne) et demande l'ouverture du Minuteur.
+// Utilisé par le Journal : même chrono que Outils → Minuteur.
+export function startTeteeTimer(side) {
+  if (!loadTimerState()) saveTimerState(startSide(null, side === 'droit' ? 'droit' : 'gauche'));
+  window.dispatchEvent(new CustomEvent('omnibaby-open-minuteur'));
 }
 
 // Entrée « tétée » du journal à partir de l'état (sans id ni auteur)
@@ -105,6 +144,9 @@ export function timerNotifExtra(state, nowMs = Date.now()) {
   const ref = state.running ? sideStart : nowMs; // en pause : valeurs figées
   return {
     kind: 'tetee',
+    // Lu par OmniBabyChrono.java (grand chrono + « Changer de côté » natif)
+    obState: JSON.stringify(stateToNative(state)),
+    nativeActionTypeId: ACTION_TYPE_FIN,
     chronoLayout: true,
     chronoRunning: !!state.running,
     totalBase: ref - accTotal,
@@ -258,13 +300,17 @@ export async function initTimerNotifActions(onAction) {
   const { LN } = p;
   try {
     await LN.registerActionTypes({
-      types: [{
-        id: ACTION_TYPE,
-        actions: [
-          { id: 'switch', title: 'Changer de côté' },
-          { id: 'finish', title: 'Terminer' },
-        ],
-      }],
+      types: [
+        {
+          id: ACTION_TYPE,
+          actions: [
+            { id: 'switch', title: 'Changer de côté' },
+            { id: 'finish', title: 'Terminer' },
+          ],
+        },
+        // Avec le code Android : « Changer de côté » ajouté par Android lui-même
+        { id: ACTION_TYPE_FIN, actions: [{ id: 'finish', title: 'Terminer' }] },
+      ],
     });
     const handle = await LN.addListener('localNotificationActionPerformed', (ev) => {
       if (ev?.notification?.extra?.kind !== 'tetee') return;
@@ -273,6 +319,41 @@ export async function initTimerNotifActions(onAction) {
     return () => handle.remove();
   } catch (e) {
     reportNotifError('boutons', e);
+    return () => {};
+  }
+}
+
+// Reprend un changement de côté fait depuis la notification (Android a
+// rangé l'état à jour dans la notification). À appeler à l'ouverture de
+// l'appli, au retour au premier plan et avant d'agir sur le minuteur.
+export async function adoptNativeTimerState() {
+  const p = await plugin();
+  if (!p) return false;
+  try {
+    const local = loadTimerState();
+    if (!local) return false;
+    const { notifications } = await p.LN.getDeliveredNotifications();
+    const n = (notifications || []).find((x) => Number(x.id) === TIMER_NOTIF_ID);
+    const raw = n?.data?.omnibaby_state;
+    if (!raw) return false;
+    const nat = nativeToState(JSON.parse(raw));
+    if (nat.updatedAt <= (local.updatedAt || 0)) return false;
+    saveTimerState(nat);
+    return true;
+  } catch (e) {
+    console.warn('[Minuteur] reprise état Android', e);
+    return false;
+  }
+}
+
+// Retour de l'appli au premier plan → callback (ex. adoptNativeTimerState)
+export async function onAppResume(cb) {
+  if (!window.Capacitor?.isNativePlatform?.()) return () => {};
+  try {
+    const mod = await import('@capacitor/app');
+    const handle = await mod.App.addListener('resume', cb);
+    return () => handle.remove();
+  } catch (e) {
     return () => {};
   }
 }

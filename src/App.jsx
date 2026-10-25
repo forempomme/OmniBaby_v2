@@ -11,7 +11,7 @@ import OutilsTab from './Outils.jsx';
 import ReglagesTab from './Reglages.jsx';
 import { entryTitle } from './journal/entryTypes.js';
 import { ChildSwitcherSheet, TestChildForm, TestModeBanner } from './ChildManager.jsx';
-import { loadTimerState, saveTimerState, switchSide, teteeFromTimer, syncTimerNotif, initTimerNotifActions } from './timer.js';
+import { loadTimerState, saveTimerState, switchSide, teteeFromTimer, syncTimerNotif, initTimerNotifActions, adoptNativeTimerState, onAppResume } from './timer.js';
 
 const TABS = [
   { key: 'journal', label: 'Journal', icon: 'book' },
@@ -239,7 +239,9 @@ function AppShell() {
   // Boutons de la notification « Tétée en cours ». Le gestionnaire passe
   // par une ref pour toujours voir l'enfant actif et le compte courants.
   const timerActionRef = useRef(null);
-  timerActionRef.current = (action) => {
+  timerActionRef.current = async (action) => {
+    // Un changement de côté a pu être fait depuis la notification
+    await adoptNativeTimerState();
     const state = loadTimerState();
     if (!state) return;
     if (action === 'switch') {
@@ -250,23 +252,44 @@ function AppShell() {
       const entry = { id: genId(), childId: activeChild.id, ...teteeFromTimer(state), ...authorFields(firebaseUser, 'created') };
       update((draft) => { draft.entries.push(entry); return draft; });
       saveTimerState(null);
+      setToolReturnTab(null);
       setOpenToolKey(null);
       setActiveTab('journal');
       showToast(`Tétée enregistrée — ${entry.duree} min · ${entry.cote === 'deux' ? 'les deux côtés' : entry.cote}`, '✅');
       return;
     }
     // Toucher la notification (ou Terminer sans enfant / droits) : ouvre le minuteur
-    setActiveTab('outils');
-    setOpenToolKey('minuteur');
+    openMinuteur(null);
   };
   useEffect(() => {
     let off = () => {};
     let alive = true;
     initTimerNotifActions((a) => timerActionRef.current?.(a)).then((fn) => { if (alive) off = fn; else fn(); });
-    // Notification remise en place au lancement (ex. après redémarrage du téléphone)
-    syncTimerNotif(loadTimerState());
-    return () => { alive = false; off(); };
+    // Au lancement : reprendre un changement de côté fait depuis la
+    // notification, sinon remettre la notification en place (ex. après
+    // redémarrage du téléphone)
+    adoptNativeTimerState().then((adopted) => { if (!adopted) syncTimerNotif(loadTimerState()); });
+    let offResume = () => {};
+    onAppResume(() => adoptNativeTimerState()).then((fn) => { if (alive) offResume = fn; else fn(); });
+    return () => { alive = false; off(); offResume(); };
   }, []);
+
+  // Minuteur ouvert depuis le Journal : sa fermeture ramène au Journal
+  const [toolReturnTab, setToolReturnTab] = useState(null);
+  const openMinuteur = (returnTab) => {
+    setToolReturnTab(returnTab);
+    setActiveTab('outils');
+    setOpenToolKey('minuteur');
+  };
+  const setToolKey = (k) => {
+    setOpenToolKey(k);
+    if (k === null && toolReturnTab) { setActiveTab(toolReturnTab); setToolReturnTab(null); }
+  };
+  useEffect(() => {
+    const h = () => openMinuteur(activeTab === 'outils' ? null : activeTab);
+    window.addEventListener('omnibaby-open-minuteur', h);
+    return () => window.removeEventListener('omnibaby-open-minuteur', h);
+  }, [activeTab]);
 
   // Erreurs d'écriture Firestore → message visible (au plus 1 / 30 s)
   useEffect(() => {
@@ -327,7 +350,7 @@ function AppShell() {
         return (
           <OutilsTab
             openToolKey={openToolKey}
-            setOpenToolKey={setOpenToolKey}
+            setOpenToolKey={setToolKey}
             onTimerFinish={handleTimerFinish}
           />
         );

@@ -1941,3 +1941,9 @@ a { color: var(--primary-deep); }
 .tool-card .tool-icon.tone-sky, .modal-tool-icon.tone-sky { background: var(--accent-sky-soft); color: var(--accent-sky); }
 .tool-card .tool-icon.tone-danger, .modal-tool-icon.tone-danger { background: var(--danger-soft); color: var(--danger); }
 .modal-tool-icon { display: inline-flex; width: 30px; height: 30px; border-radius: 10px; align-items: center; justify-content: center; vertical-align: middle; }
+
+/* ── v3.13 : bouton Tétée = chrono du Minuteur ────────────────────── */
+.quick-btn.live { border: 2px solid var(--primary); background: var(--primary-soft); }
+.quick-btn.live .quick-sub { color: var(--primary); font-weight: 700; font-family: var(--font-mono); }
+.chrono-sep { display: flex; align-items: center; gap: 8px; color: var(--text-soft); font-size: 0.78rem; margin: 16px 0 6px; }
+.chrono-sep::before, .chrono-sep::after { content: ''; flex: 1; border-top: 1px solid var(--border); }

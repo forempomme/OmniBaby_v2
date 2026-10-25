@@ -8,7 +8,8 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 
 ### 📓 Journal
 - Saisie rapide : biberon (sein/biberon, quantité, durée, côté), change, autre ; le sommeil ouvre son formulaire dédié (début / fin / en cours)
-- Saisie en 1 tap : Biberon (dernière quantité), Tétée (côté alterné), Pipi, Selles — bouton « Annuler » 5 s en cas de tap par erreur
+- Saisie en 1 tap : Biberon (dernière quantité), Pipi, Selles — bouton « Annuler » 5 s en cas de tap par erreur
+- Tétée : lance le chrono du Minuteur (côté alterné), le bouton affiche le chrono en direct ; « + » → Tétée propose aussi « Lancer le chrono » ou la saisie d'une tétée passée
 - Couleur des selles (facultatif) : nuancier, les teintes décolorées (jaune pâle, mastic, blanche) affichent une alerte « à montrer rapidement à un médecin » + appel du médecin
 - Vue « Tout » : les 60 derniers jours en direct, bouton « Charger l'historique » pour le reste
 - Vitamine D : bandeau « Donnée » en 1 tap tant qu'elle n'est pas notée (< 24 mois)
@@ -34,7 +35,7 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 ### 🛠️ Outils
 | Module | Description |
 |---|---|
-| ⏱️ Minuteur | Chrono de tétée par sein ; notification « Tétée en cours » avec grand chrono en direct et boutons Changer de côté / Terminer |
+| ⏱️ Minuteur | Chrono de tétée par sein ; notification « Tétée en cours » avec grand chrono en direct ; « Changer de côté » utilisable écran verrouillé, « Terminer » ouvre l'appli |
 | 💊 Médicaments | Traitements + notification à l'heure de la prochaine dose (reprogrammée à chaque « Dose donnée ») |
 | 🌡️ Fièvre | Courbe de température ; alerte dès 38 °C avant 3 mois (38,5 °C ensuite), méthode de prise, appel médecin / 15 |
 | 🥦 Alimentation | Diversification 0-3 ans avec dates, grille aliments testés |
@@ -190,6 +191,7 @@ omnibaby/
 | 3.11.0 | Icône de notification OmniBaby (pieds + cœur) dans la barre d'état pour le Minuteur, les Rappels et les Médicaments |
 | 3.11.1 | Notification « Tétée en cours » aussi dans la barre d'état et sur l'écran de verrouillage (catégorie d'importance normale, son silencieux fourni par l'appli) |
 | 3.12.0 | Grand chrono dans la notification « Tétée en cours » : durée totale + côté en cours en direct, autre côté figé (code Android ajouté au plugin pendant le build) |
+| 3.13.0 | « Changer de côté » depuis l'écran de verrouillage (traité par Android, sans ouvrir l'appli) ; bouton Tétée du Journal et « + » → Tétée lancent le chrono du Minuteur (chrono en direct sur le bouton) |
 
 ---
 

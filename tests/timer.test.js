@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { startSide, switchSide, pauseTimer, teteeFromTimer, timerNotifContent, timerNotifExtra, chronoText } from '../src/timer.js';
+import { startSide, switchSide, pauseTimer, teteeFromTimer, timerNotifContent, timerNotifExtra, chronoText, stateToNative, nativeToState, suggestedSide } from '../src/timer.js';
 
 const t0 = new Date(2026, 9, 20, 3, 0, 0);
 const plus = (min) => new Date(t0.getTime() + min * 60000);
@@ -70,5 +70,37 @@ describe('Minuteur : grand chrono de la notification', () => {
   it('format des chronos Android', () => {
     expect(chronoText(250)).toBe('04:10');
     expect(chronoText(3725)).toBe('1:02:05');
+  });
+});
+
+describe('Minuteur : échange avec le code Android', () => {
+  it('aller-retour sans perte (format ObTimer.java)', () => {
+    let s = startSide(null, 'gauche', t0);
+    s = switchSide(s, plus(8));
+    const n = stateToNative(s);
+    expect(n).toMatchObject({ side: 'droit', running: true, accG: 480, accD: 0, startedAt: t0.getTime(), sideStart: plus(8).getTime() });
+    expect(nativeToState(n)).toEqual(s);
+  });
+
+  it('changement de côté fait par Android = même résultat que dans l’appli', () => {
+    // Reproduction de ObTimer.switchSide (Java) sur l'état échangé
+    let s = startSide(null, 'gauche', t0);
+    const n = stateToNative(s);
+    const now = plus(8).getTime();
+    n.accG += (now - n.sideStart) / 1000; n.side = 'droit'; n.sideStart = now; n.updatedAt = now;
+    expect(nativeToState(n)).toEqual(switchSide(s, plus(8)));
+  });
+
+  it('notification : état transmis + bouton Terminer seul côté Android', () => {
+    const e = timerNotifExtra(startSide(null, 'droit', t0), plus(1).getTime());
+    expect(JSON.parse(e.obState).side).toBe('droit');
+    expect(e.nativeActionTypeId).toBe('OMNIBABY_TETEE_FIN');
+  });
+
+  it('côté proposé = inverse de la dernière tétée', () => {
+    expect(suggestedSide('gauche')).toBe('droit');
+    expect(suggestedSide('droit')).toBe('gauche');
+    expect(suggestedSide('deux')).toBe('gauche');
+    expect(suggestedSide(undefined)).toBe('gauche');
   });
 });
