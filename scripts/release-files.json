@@ -1,10 +1,11 @@
 {
-  "version": "3.11.0",
+  "version": "3.11.1",
   "note": "Généré à chaque livraison. Vérifié par scripts/check-code.mjs (CI).",
   "files": {
     ".github/workflows/build.yml": "3a4a9fd6ee75eaee9a5180b1fa486845ce47f8a3247fe5aa09c3c9063bba50a8",
     "android-res/drawable/ic_stat_omnibaby.xml": "0dab3ec6024b9ee0a4ec5e89ef0b2c5c2a601900c23472d3fb7f1bf3b86299c2",
-    "package.json": "44b6d28c3cb1f76ed96c88a2e196b229855577ee02ac2a734791288e6247ed14",
+    "android-res/raw/omnibaby_silence.wav": "4e9cc5bbce2136140462d11c5fec6e6c1ed10602c2bca874dbb58e7b9be21092",
+    "package.json": "0feab2c2ccbb82f59f667b5f54a994db4026724270e69b5675eb542ba92b53e4",
     "scripts/check-code.mjs": "659848834fc390a19a5afcdad2a18177c8e5e2856cce4b3ce4e97d64620dc5e4",
     "src/App.jsx": "60a4676506ee05fed936298f5c995c67714dc04b797e2bc188f9737ffa2484e9",
     "src/Auth.jsx": "b359e40b7f4533cfe10d6507485752f0bd4b40e1301f0f888bf17310ebc898af",
@@ -35,7 +36,7 @@
     "src/readCounter.js": "37ff6df04a8e8440a9be314d3400b6bf05b70ac6d77228f4abe336cc677ed07a",
     "src/store.jsx": "a0d8d2d3ffb23394438690eb11adf3461a4a2b1ece538393dea77666b62bd6cf",
     "src/styles.css": "3667adf67b95cdfa59822ac6388a71472a096662b88fd06f60b0a07d9673fea4",
-    "src/timer.js": "086ff317bffdc8595719d25d0ae3af38da141d59759e84f7098ad9d61b060271",
+    "src/timer.js": "6dca270e64b2b7f98796075ba6333477f0c95931ea1a564d06671738c9c44a0b",
     "src/tools/Alimentation.jsx": "c3c08be5e5d4b2cd30a4abf770d93854985bd797da5baceb8109a37d9935bfcc",
     "src/tools/Developpement.jsx": "df841d9e4a6e2149db7bfa44ff389973df9e4568b61a47f704b9c9c548021883",
     "src/tools/Famille.jsx": "d05b72b09604e147f88722a4eac439e1879f6c78fdc4519b6f1679df8818647c",
@@ -56,6 +57,6 @@
     "tests/sync.test.js": "04e61fb5317b59b93c9cca2a971a95e7e74572a7364ab25905293f4266e1a6af",
     "tests/timer.test.js": "6bab81dba16d13257e5aa05e8d1f673c41409891747f0729ac096f93a0f7ba7b",
     "tests/utils.test.js": "90d9432a6185fefcc058265b2fbdf4aec110cca58ea5ed4bd5869e0642d6ff0c",
-    "version.properties": "b74615db11c44546f517971362da6c7c1cf2ec187ec6156505c8b65fa013e885"
+    "version.properties": "92f055520a29b95bee502dd5afb0c21d4b7cec5bf6eb78a1b5abe3bf67aa1180"
   }
 }

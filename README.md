@@ -148,7 +148,7 @@ omnibaby/
 ├── firestore.rules          # Règles de sécurité Firestore (à publier dans la console)
 ├── scripts/check-code.mjs   # Vérification statique lancée par la CI avant le build
 ├── scripts/release-files.json # Empreintes des fichiers livrés (fichier oublié = build bloqué)
-├── android-res/             # Ressources Android copiées par la CI (icône de notification)
+├── android-res/             # Ressources Android copiées par la CI (icône de notification, son silencieux)
 ├── assets/android-icons/    # Icônes par densité
 ├── public/icon.png          # Icône source ≥ 1024×1024px
 ├── .github/workflows/build.yml
@@ -187,6 +187,7 @@ omnibaby/
 | 3.10.1 | Notification du minuteur : catégorie « Tétée en cours » (sans son), contrôle d'affichage + secours, erreurs visibles ; contrôle CI des icônes et des fichiers livrés (scripts/release-files.json) |
 | 3.10.2 | Notification du minuteur réparée (le plugin Capacitor renvoyé par une fonction async bloquait l'appel sans erreur) ; contrôle CI de ce piège |
 | 3.11.0 | Icône de notification OmniBaby (pieds + cœur) dans la barre d'état pour le Minuteur, les Rappels et les Médicaments |
+| 3.11.1 | Notification « Tétée en cours » aussi dans la barre d'état et sur l'écran de verrouillage (catégorie d'importance normale, son silencieux fourni par l'appli) |
 
 ---
 

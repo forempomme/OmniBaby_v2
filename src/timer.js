@@ -99,7 +99,10 @@ export function timerNotifContent(state) {
   };
 }
 
-const TIMER_CHANNEL = 'omnibaby_tetee';
+// v2 : l'importance d'une catégorie Android ne peut plus changer après sa
+// création → nouvel identifiant, l'ancienne (importance basse) est supprimée.
+const TIMER_CHANNEL = 'omnibaby_tetee_v2';
+const OLD_CHANNELS = ['omnibaby_tetee'];
 
 // Erreur visible (toast dans App) : sans ça, un échec reste invisible
 // sur le téléphone (console du développeur uniquement).
@@ -125,19 +128,30 @@ async function plugin() {
   }
 }
 
-// Catégorie Android « Tétée en cours » : importance basse = visible dans
-// le volet et la barre d'état, sans son (pas de bip la nuit).
+// Catégorie Android « Tétée en cours ».
+// Importance « normale » (3) : seule celle-ci s'affiche dans la barre
+// d'état et sur l'écran de verrouillage (sur Pixel, les notifications
+// « silencieuses » d'importance basse en sont masquées par défaut).
+// Pour ne pas biper la nuit : son silencieux fourni par l'appli
+// (android-res/raw/omnibaby_silence.wav), sans vibration.
 let channelReady = null;
 function ensureChannel(LN) {
   if (!channelReady) {
-    channelReady = LN.createChannel({
-      id: TIMER_CHANNEL,
-      name: 'Tétée en cours',
-      description: 'Chrono de tétée du Minuteur',
-      importance: 2,
-      visibility: 1,
-      vibration: false,
-    }).then(() => TIMER_CHANNEL).catch((e) => { reportNotifError('catégorie', e); return undefined; });
+    channelReady = (async () => {
+      for (const id of OLD_CHANNELS) {
+        try { await LN.deleteChannel({ id }); } catch (e) { /* déjà absente */ }
+      }
+      await LN.createChannel({
+        id: TIMER_CHANNEL,
+        name: 'Tétée en cours',
+        description: 'Chrono de tétée du Minuteur (sans son)',
+        importance: 3,
+        visibility: 1,
+        sound: 'omnibaby_silence.wav',
+        vibration: false,
+      });
+      return TIMER_CHANNEL;
+    })().catch((e) => { reportNotifError('catégorie', e); return undefined; });
   }
   return channelReady;
 }
