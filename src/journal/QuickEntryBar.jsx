@@ -3,6 +3,18 @@ import { useStore, getActiveChild, authorFields } from '../store.jsx';
 import { useToast } from '../utils.jsx';
 import { entryTitle } from './entryTypes.js';
 import { loadTimerState, startTeteeTimer, suggestedSide, chronoText } from '../timer.js';
+import { useLongPress } from './TodayOverview.jsx';
+
+// Bouton : tap = action rapide, appui long = formulaire pré-rempli
+function QuickBtn({ a, flash, onLongPress, label }) {
+  const handlers = useLongPress(() => onLongPress(a), a.run);
+  return (
+    <button className={`quick-btn ${flash ? 'done' : ''} ${a.live ? 'live' : ''}`} aria-label={label} {...handlers}>
+      <span className="quick-label">{flash ? '✓' : a.label}</span>
+      <span className="quick-sub">{a.sub}</span>
+    </button>
+  );
+}
 
 // Chrono de tétée en cours (Minuteur) : durée totale, rafraîchie chaque seconde
 function useTeteeTimer() {
@@ -31,7 +43,7 @@ function useTeteeTimer() {
 // dernière tétée ; pendant la tétée, le bouton affiche le chrono et
 // rouvre le Minuteur
 // ----------------------------------------------------------------------
-export default function QuickEntryBar({ entries }) {
+export default function QuickEntryBar({ entries, onLongPress }) {
   const { store, update, nextId, firebaseUser } = useStore();
   const showToast = useToast();
   const activeChild = getActiveChild(store);
@@ -75,22 +87,27 @@ export default function QuickEntryBar({ entries }) {
   };
 
   const actions = [
-    { key: 'biberon', label: 'Biberon', sub: `${lastQty} ml`, run: () => quickSave('biberon', 'biberon', { mode: 'biberon', quantite: lastQty }) },
+    { key: 'biberon', label: 'Biberon', sub: `${lastQty} ml`, prefill: { type: 'biberon', mode: 'biberon', quantite: lastQty }, run: () => quickSave('biberon', 'biberon', { mode: 'biberon', quantite: lastQty }) },
     timer
       ? { key: 'tetee', label: 'Tétée', sub: `${timer.running ? '●' : 'pause'} ${timer.text}`, live: true, run: () => startTeteeTimer(nextSide) }
-      : { key: 'tetee', label: 'Tétée', sub: `▶ ${nextSide}`, run: () => startTeteeTimer(nextSide) },
-    { key: 'pipi', label: 'Pipi', sub: '1 tap', run: () => quickSave('pipi', 'couche', { contenu: 'pipi' }) },
-    { key: 'selles', label: 'Selles', sub: '1 tap', run: () => quickSave('selles', 'couche', { contenu: 'selles' }) },
+      : { key: 'tetee', label: 'Tétée', sub: `▶ ${nextSide}`, prefill: { type: 'biberon', mode: 'sein', cote: nextSide }, run: () => startTeteeTimer(nextSide) },
+    { key: 'pipi', label: 'Pipi', sub: '1 tap', prefill: { type: 'couche', contenu: 'pipi' }, run: () => quickSave('pipi', 'couche', { contenu: 'pipi' }) },
+    { key: 'selles', label: 'Selles', sub: '1 tap', prefill: { type: 'couche', contenu: 'selles' }, run: () => quickSave('selles', 'couche', { contenu: 'selles' }) },
   ];
+  // Appui long : formulaire pré-rempli (autre côté, autre quantité, heure
+  // passée, couleur des selles…) ; tétée en cours : ouvre le chrono
+  const longPress = (a) => {
+    if (!a.prefill) { a.run(); return; }
+    if (onLongPress) onLongPress(a.prefill);
+  };
 
   return (
     <div className="quick-grid">
       {actions.map((a) => (
-        <button key={a.key} className={`quick-btn ${flash === a.key ? 'done' : ''} ${a.live ? 'live' : ''}`} onClick={a.run}
-          aria-label={a.key === 'tetee' ? (a.live ? 'Tétée en cours : ouvrir le chrono' : `Lancer le chrono de tétée côté ${nextSide}`) : undefined}>
-          <span className="quick-label">{flash === a.key ? '✓' : a.label}</span>
-          <span className="quick-sub">{a.sub}</span>
-        </button>
+        <QuickBtn key={a.key} a={a} flash={flash === a.key} onLongPress={longPress}
+          label={a.key === 'tetee'
+            ? (a.live ? 'Tétée en cours : ouvrir le chrono' : `Lancer le chrono de tétée côté ${nextSide}. Appui long : choisir.`)
+            : `${a.label} en 1 tap. Appui long : formulaire.`} />
       ))}
     </div>
   );

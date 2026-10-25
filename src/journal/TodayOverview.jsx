@@ -41,7 +41,7 @@ function buildShareSummary(today, child) {
 }
 
 // Appui long (≥ 500 ms) sans déclencher le clic qui suit
-function useLongPress(onLongPress, onClick) {
+export function useLongPress(onLongPress, onClick) {
   const timer = useRef(null);
   const fired = useRef(false);
   const start = () => {

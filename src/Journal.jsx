@@ -163,7 +163,7 @@ export default function JournalTab({ intent, clearIntent }) {
         </div>
       )}
 
-      {period === 'today' && canEdit && <QuickEntryBar entries={childEntries} />}
+      {period === 'today' && canEdit && <QuickEntryBar entries={childEntries} onLongPress={(prefill) => setEntryForm({ prefill })} />}
       {period === '7days' && <WeekSummary entries={periodFiltered} store={store} child={activeChild} />}
 
       {filterType !== 'tous' && (

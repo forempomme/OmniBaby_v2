@@ -1,5 +1,5 @@
 {
-  "version": "3.13.0",
+  "version": "3.13.1",
   "note": "Généré à chaque livraison. Vérifié par scripts/check-code.mjs (CI).",
   "files": {
     ".github/workflows/build.yml": "cd3fc3c4621135991a721d9b28c8b7e93a9208582378652a9b2134addf09be1f",
@@ -10,7 +10,7 @@
     "android-res/layout/omnibaby_chrono.xml": "6bf2ed739e9d03e53efd81972a294e77e97f3aa33df3d2eed34fcb37f7faff7f",
     "android-res/layout/omnibaby_chrono_big.xml": "31b2c658d97dab80b9eea15c2e0e59531c788e7c5fac3faf63788fa1c841ea9f",
     "android-res/raw/omnibaby_silence.wav": "4e9cc5bbce2136140462d11c5fec6e6c1ed10602c2bca874dbb58e7b9be21092",
-    "package.json": "64ecc2f172c576da85e77eba07e1158a81552a5caac9b284289ecff37326bef2",
+    "package.json": "5ba8bbea749c0300018684251f9d8745ecd39e934f66775409ad11343f949c81",
     "scripts/check-code.mjs": "659848834fc390a19a5afcdad2a18177c8e5e2856cce4b3ce4e97d64620dc5e4",
     "scripts/patch-notif-chrono.mjs": "db37afb12ed9431676be6cda04ecd6f15647f8e8a4c95fcb7be7a2e210e55cfa",
     "src/App.jsx": "fa62c0cdb3552d04caced4f0883577592a459d6f7d07b17e71d3e479d1d6ef41",
@@ -19,7 +19,7 @@
     "src/ChildManager.jsx": "9d388471eb825b32bbc9b5e1c01cde7e888fcbcf9fd80d3a70183be32621dd2c",
     "src/Dodo.jsx": "279a4b22e52fdb1f0d073fa8999feba6e5f9bb3a215a032a10c7649a05d63303",
     "src/HistoryNotice.jsx": "3e192b6953e3ddaff1d8e0a19b23d10880b4ca875974f10dff90f39ce5e3274b",
-    "src/Journal.jsx": "44e9a1f0d36e4f213685ca3f64e1492c83c87559743a3daa2e60737ce047c583",
+    "src/Journal.jsx": "9155fe5b070d34b0f667552959979c46f2259284857f73e78c01ec7026cd3188",
     "src/Modal.jsx": "6d69f38a094e2fbfc6de2bc0bb991804a86bccb7218fee6999a85ecc8715e38b",
     "src/NoChildState.jsx": "2b6a0448c50db472837c8eb00bc7c6dbc8fcec87bfd0dd27868627dc3749ee5b",
     "src/Outils.jsx": "8d183e45fca40f8678b1f2fa6765a387a2ce72e33fdd1f0007d809083a927ec6",
@@ -33,15 +33,15 @@
     "src/icons.jsx": "8cf233f03b8099ca86153fb76d7afe439a75e2a688189317e9b4117488f6570b",
     "src/journal/EntryForm.jsx": "a8c2fe192c1794d319113241a093c5d7bcd13f8f4ec982bdfa132985d99ab1c0",
     "src/journal/EntryItem.jsx": "56fda1b72311e51e82e3c2dee8044a230c43e62cce42d2480b8624646530af95",
-    "src/journal/QuickEntryBar.jsx": "69e3c5c2eedcdb89fe2b224c87f1d7a6fd3d035dfa041f0380c9decbea826e11",
-    "src/journal/TodayOverview.jsx": "08e91943af8705e693c6edbc3ad7dfbd8c83091038dba05fe3f0a253ca6f20ef",
+    "src/journal/QuickEntryBar.jsx": "7df74fb48362adc13ac686e723dcc4179d4ba3b0f4f1a7797f7945282264e9cb",
+    "src/journal/TodayOverview.jsx": "20a39872ed15f1f409f9bc668af3224e1b0f1699091ac5321235713dc7ecbbdb",
     "src/journal/WeekSummary.jsx": "faa1dadd7653d18ef3494921c03108e6a3d60856e270fc54099db56fc505f98b",
     "src/journal/entryTypes.js": "ad464c7556ab71fd349461982fee23857873f6fee42997fd197ea66994da220c",
     "src/main.jsx": "58647bbf920b0f854516dc1104b68084582c7b99e04acdb39cb3149dbc1321d0",
     "src/pdf.js": "75b35795f154beb52658947365ccd57a17fd61e5083bc49b8253d180f0b0b749",
     "src/readCounter.js": "37ff6df04a8e8440a9be314d3400b6bf05b70ac6d77228f4abe336cc677ed07a",
     "src/store.jsx": "a0d8d2d3ffb23394438690eb11adf3461a4a2b1ece538393dea77666b62bd6cf",
-    "src/styles.css": "dc4151673df3271dc03195c19f6af3daf4bee88c3c3a942936ddeff3e6344920",
+    "src/styles.css": "399d05b4f1badee500a68de6bd1b63b4d5f9e1574f0a4f6c65fafd5b6d0579fc",
     "src/timer.js": "d41244b15659e05477757e4cc4cbd453385cb37143cefd6c0dbe15d53499739d",
     "src/tools/Alimentation.jsx": "c3c08be5e5d4b2cd30a4abf770d93854985bd797da5baceb8109a37d9935bfcc",
     "src/tools/Developpement.jsx": "df841d9e4a6e2149db7bfa44ff389973df9e4568b61a47f704b9c9c548021883",
@@ -63,6 +63,6 @@
     "tests/sync.test.js": "04e61fb5317b59b93c9cca2a971a95e7e74572a7364ab25905293f4266e1a6af",
     "tests/timer.test.js": "e93f45964e4c18f91bec155125dca9831c888f44ecf7146943c2202ab09735a2",
     "tests/utils.test.js": "90d9432a6185fefcc058265b2fbdf4aec110cca58ea5ed4bd5869e0642d6ff0c",
-    "version.properties": "b7fe7e0f0a277881bb8f5829e69b9396cbfcc262dfe2a24875512a4cf95fe31c"
+    "version.properties": "26482aee39caf661cee94d782a30012c785f617b00f1cf37d074d579ab3a13aa"
   }
 }
