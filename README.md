@@ -34,7 +34,7 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 ### 🛠️ Outils
 | Module | Description |
 |---|---|
-| ⏱️ Minuteur | Chrono de tétée par sein ; notification « Tétée en cours » avec boutons Changer de côté / Terminer |
+| ⏱️ Minuteur | Chrono de tétée par sein ; notification « Tétée en cours » avec grand chrono en direct et boutons Changer de côté / Terminer |
 | 💊 Médicaments | Traitements + notification à l'heure de la prochaine dose (reprogrammée à chaque « Dose donnée ») |
 | 🌡️ Fièvre | Courbe de température ; alerte dès 38 °C avant 3 mois (38,5 °C ensuite), méthode de prise, appel médecin / 15 |
 | 🥦 Alimentation | Diversification 0-3 ans avec dates, grille aliments testés |
@@ -148,7 +148,8 @@ omnibaby/
 ├── firestore.rules          # Règles de sécurité Firestore (à publier dans la console)
 ├── scripts/check-code.mjs   # Vérification statique lancée par la CI avant le build
 ├── scripts/release-files.json # Empreintes des fichiers livrés (fichier oublié = build bloqué)
-├── android-res/             # Ressources Android copiées par la CI (icône de notification, son silencieux)
+├── android-res/             # Ressources Android copiées par la CI (icône, son silencieux, mise en page du chrono)
+├── android-plugin/          # Code Android ajouté au plugin de notifications (chrono), via scripts/patch-notif-chrono.mjs
 ├── assets/android-icons/    # Icônes par densité
 ├── public/icon.png          # Icône source ≥ 1024×1024px
 ├── .github/workflows/build.yml
@@ -188,6 +189,7 @@ omnibaby/
 | 3.10.2 | Notification du minuteur réparée (le plugin Capacitor renvoyé par une fonction async bloquait l'appel sans erreur) ; contrôle CI de ce piège |
 | 3.11.0 | Icône de notification OmniBaby (pieds + cœur) dans la barre d'état pour le Minuteur, les Rappels et les Médicaments |
 | 3.11.1 | Notification « Tétée en cours » aussi dans la barre d'état et sur l'écran de verrouillage (catégorie d'importance normale, son silencieux fourni par l'appli) |
+| 3.12.0 | Grand chrono dans la notification « Tétée en cours » : durée totale + côté en cours en direct, autre côté figé (code Android ajouté au plugin pendant le build) |
 
 ---
 

@@ -83,7 +83,40 @@ const hm = (iso) => {
 };
 const mins = (s) => `${Math.max(0, Math.round(s / 60))} min`;
 
-// Texte de la notification
+// Format des chronos Android (Chronometer) : MM:SS, puis H:MM:SS
+export function chronoText(seconds) {
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${String(m).padStart(2, '0')}:${sec}`;
+}
+
+// Données du grand chrono (mise en page Android omnibaby_chrono*.xml,
+// android-plugin/OmniBabyChrono.java). Les « bases » sont des instants :
+// durée affichée = maintenant - base ; Android fait avancer le chrono seul.
+export function timerNotifExtra(state, nowMs = Date.now()) {
+  if (!state) return null;
+  const droit = state.currentSide === 'droit';
+  const sideStart = new Date(state.currentSideStartedAt).getTime();
+  const accTotal = ((state.elapsedGauche || 0) + (state.elapsedDroit || 0)) * 1000;
+  const accSide = (droit ? state.elapsedDroit : state.elapsedGauche) * 1000 || 0;
+  const other = droit ? state.elapsedGauche : state.elapsedDroit;
+  const ref = state.running ? sideStart : nowMs; // en pause : valeurs figées
+  return {
+    kind: 'tetee',
+    chronoLayout: true,
+    chronoRunning: !!state.running,
+    totalBase: ref - accTotal,
+    sideBase: ref - accSide,
+    statusText: state.running ? `Tétée en cours — côté ${droit ? 'droit' : 'gauche'}` : 'Tétée en pause',
+    sideLabel: droit ? 'Droit' : 'Gauche',
+    sideMark: state.running ? '●' : 'pause',
+    otherText: `${droit ? 'Gauche' : 'Droit'} ${chronoText(other || 0)}`,
+  };
+}
+
+// Texte de la notification (aussi affiché si le grand chrono n'est pas installé)
 export function timerNotifContent(state) {
   if (!state) return null;
   const droit = state.currentSide === 'droit';
@@ -190,7 +223,7 @@ async function doSync(state) {
     ongoing: true,
     autoCancel: false,
     actionTypeId: ACTION_TYPE,
-    extra: { kind: 'tetee' },
+    extra: timerNotifExtra(state),
     smallIcon: 'ic_stat_omnibaby', // android-res/drawable (pieds + cœur, blanc)
     iconColor: '#C96F4A',
     ...(channelId ? { channelId } : {}),

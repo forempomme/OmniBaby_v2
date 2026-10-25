@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- OmniBaby : notification « Tétée en cours », vue dépliée (grand chrono) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/ob_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="@style/TextAppearance.Compat.Notification.Title"
+        android:maxLines="1" />
+
+    <Chronometer
+        android:id="@+id/ob_total"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="@style/TextAppearance.Compat.Notification.Title"
+        android:textSize="34sp"
+        android:textStyle="bold"
+        android:fontFamily="monospace" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/ob_side_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Compat.Notification"
+            android:textColor="#E0875F" />
+
+        <Chronometer
+            android:id="@+id/ob_side"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textAppearance="@style/TextAppearance.Compat.Notification"
+            android:textStyle="bold"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:id="@+id/ob_side_mark"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textAppearance="@style/TextAppearance.Compat.Notification"
+            android:textColor="#E0875F" />
+
+        <TextView
+            android:id="@+id/ob_other"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:textAppearance="@style/TextAppearance.Compat.Notification"
+            android:fontFamily="monospace" />
+    </LinearLayout>
+</LinearLayout>

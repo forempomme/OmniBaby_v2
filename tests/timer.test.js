@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { startSide, switchSide, pauseTimer, teteeFromTimer, timerNotifContent } from '../src/timer.js';
+import { startSide, switchSide, pauseTimer, teteeFromTimer, timerNotifContent, timerNotifExtra, chronoText } from '../src/timer.js';
 
 const t0 = new Date(2026, 9, 20, 3, 0, 0);
 const plus = (min) => new Date(t0.getTime() + min * 60000);
@@ -38,5 +38,37 @@ describe('Minuteur : état partagé', () => {
     expect(c.body).toBe('Droit depuis 03:08 · début de la tétée 03:00');
     expect(timerNotifContent(pauseTimer(s, plus(10))).body).toBe('Gauche 8 min · Droit 2 min · début 03:00');
     expect(timerNotifContent(null)).toBe(null);
+  });
+});
+
+describe('Minuteur : grand chrono de la notification', () => {
+  it('bases : total et côté avancent depuis le bon instant', () => {
+    let s = startSide(null, 'gauche', t0);
+    s = switchSide(s, plus(8)); // gauche 8 min, droit en cours depuis +8
+    const e = timerNotifExtra(s, plus(10).getTime());
+    expect(e.chronoRunning).toBe(true);
+    // total = maintenant - totalBase = 10 min ; côté droit = 2 min
+    expect((plus(10).getTime() - e.totalBase) / 60000).toBe(10);
+    expect((plus(10).getTime() - e.sideBase) / 60000).toBe(2);
+    expect(e.sideLabel).toBe('Droit');
+    expect(e.otherText).toBe('Gauche 08:00');
+    expect(e.statusText).toBe('Tétée en cours — côté droit');
+  });
+
+  it('en pause : chronos figés sur les valeurs cumulées', () => {
+    let s = startSide(null, 'gauche', t0);
+    s = pauseTimer(s, plus(5));
+    const now = plus(30).getTime();
+    const e = timerNotifExtra(s, now);
+    expect(e.chronoRunning).toBe(false);
+    expect((now - e.totalBase) / 60000).toBe(5);
+    expect((now - e.sideBase) / 60000).toBe(5);
+    expect(e.otherText).toBe('Droit 00:00');
+    expect(e.sideMark).toBe('pause');
+  });
+
+  it('format des chronos Android', () => {
+    expect(chronoText(250)).toBe('04:10');
+    expect(chronoText(3725)).toBe('1:02:05');
   });
 });

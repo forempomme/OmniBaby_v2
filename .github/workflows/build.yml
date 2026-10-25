@@ -102,6 +102,13 @@ jobs:
           fi
 
       # ----------------------------------------------------------------
+      # Chrono de tétée dans la notification (code Android ajouté au
+      # plugin local-notifications ; sans effet si le plugin a changé)
+      # ----------------------------------------------------------------
+      - name: Patch notification chrono
+        run: node scripts/patch-notif-chrono.mjs
+
+      # ----------------------------------------------------------------
       # Copier google-services.json requis par Firebase Android SDK
       # ----------------------------------------------------------------
       - name: Copy google-services.json
