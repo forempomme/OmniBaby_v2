@@ -177,7 +177,8 @@ async function doSync(state) {
     autoCancel: false,
     actionTypeId: ACTION_TYPE,
     extra: { kind: 'tetee' },
-    smallIcon: 'ic_launcher',
+    smallIcon: 'ic_stat_omnibaby', // android-res/drawable (pieds + cœur, blanc)
+    iconColor: '#C96F4A',
     ...(channelId ? { channelId } : {}),
   };
   try {

@@ -89,6 +89,19 @@ jobs:
         run: npx cap sync android
 
       # ----------------------------------------------------------------
+      # Ressources Android propres à l'appli (icône de notification…)
+      # android-res/ est recopié dans android/app/src/main/res/
+      # ----------------------------------------------------------------
+      - name: Copy Android resources
+        run: |
+          if [ -d "android-res" ]; then
+            cp -r android-res/. android/app/src/main/res/
+            echo "✓ Ressources copiées :"; find android-res -type f
+          else
+            echo "⚠ android-res absent — icône de notification par défaut"
+          fi
+
+      # ----------------------------------------------------------------
       # Copier google-services.json requis par Firebase Android SDK
       # ----------------------------------------------------------------
       - name: Copy google-services.json

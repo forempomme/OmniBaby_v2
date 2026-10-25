@@ -392,7 +392,8 @@ export async function scheduleNotif({ id, title, body, at }) {
         body,
         schedule: { at: new Date(at) },
         sound: null,
-        smallIcon: 'ic_launcher',
+        smallIcon: 'ic_stat_omnibaby', // android-res/drawable (pieds + cœur, blanc)
+        iconColor: '#C96F4A',
       }],
     });
     return true;
