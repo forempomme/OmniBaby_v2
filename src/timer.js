@@ -99,39 +99,102 @@ export function timerNotifContent(state) {
   };
 }
 
-async function plugin() {
-  try {
-    if (!window.Capacitor?.isNativePlatform?.()) return null;
-    const { LocalNotifications } = await import('@capacitor/local-notifications');
-    return LocalNotifications;
-  } catch (e) { return null; }
+const TIMER_CHANNEL = 'omnibaby_tetee';
+
+// Erreur visible (toast dans App) : sans ça, un échec reste invisible
+// sur le téléphone (console du développeur uniquement).
+function reportNotifError(step, e) {
+  const message = `${step} : ${e?.message || e?.errorMessage || String(e)}`;
+  console.warn('[Minuteur]', message);
+  try { window.dispatchEvent(new CustomEvent('omnibaby-notif-error', { detail: { message } })); } catch (x) { /* ignore */ }
 }
 
-export async function syncTimerNotif(state) {
+async function plugin() {
+  if (!window.Capacitor?.isNativePlatform?.()) return null; // navigateur : pas de notification
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    return LocalNotifications;
+  } catch (e) {
+    reportNotifError('chargement du module', e);
+    return null;
+  }
+}
+
+// Catégorie Android « Tétée en cours » : importance basse = visible dans
+// le volet et la barre d'état, sans son (pas de bip la nuit).
+let channelReady = null;
+function ensureChannel(LN) {
+  if (!channelReady) {
+    channelReady = LN.createChannel({
+      id: TIMER_CHANNEL,
+      name: 'Tétée en cours',
+      description: 'Chrono de tétée du Minuteur',
+      importance: 2,
+      visibility: 1,
+      vibration: false,
+    }).then(() => TIMER_CHANNEL).catch((e) => { reportNotifError('catégorie', e); return undefined; });
+  }
+  return channelReady;
+}
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function isShown(LN) {
+  try {
+    const { notifications } = await LN.getDeliveredNotifications();
+    return (notifications || []).some((n) => Number(n.id) === TIMER_NOTIF_ID);
+  } catch (e) {
+    return null; // inconnu
+  }
+}
+
+async function doSync(state) {
   const LN = await plugin();
   if (!LN) return;
+  if (!state) {
+    try { await LN.cancel({ notifications: [{ id: TIMER_NOTIF_ID }] }); } catch (e) { /* rien à annuler */ }
+    return;
+  }
   try {
-    if (!state) {
-      await LN.cancel({ notifications: [{ id: TIMER_NOTIF_ID }] });
-      return;
-    }
     const perm = await LN.checkPermissions();
     if (perm.display !== 'granted') {
       const req = await LN.requestPermissions();
-      if (req.display !== 'granted') return;
+      if (req.display !== 'granted') { reportNotifError('autorisation', `notifications ${req.display}`); return; }
     }
-    await LN.schedule({
-      notifications: [{
-        id: TIMER_NOTIF_ID,
-        ...timerNotifContent(state),
-        ongoing: true,
-        autoCancel: false,
-        actionTypeId: ACTION_TYPE,
-        extra: { kind: 'tetee' },
-        smallIcon: 'ic_launcher',
-      }],
-    });
-  } catch (e) { console.warn('[Minuteur] notification', e); }
+  } catch (e) { reportNotifError('autorisation', e); return; }
+
+  const channelId = await ensureChannel(LN);
+  const base = {
+    id: TIMER_NOTIF_ID,
+    ...timerNotifContent(state),
+    ongoing: true,
+    autoCancel: false,
+    actionTypeId: ACTION_TYPE,
+    extra: { kind: 'tetee' },
+    smallIcon: 'ic_launcher',
+    ...(channelId ? { channelId } : {}),
+  };
+  try {
+    await LN.schedule({ notifications: [base] });
+  } catch (e) { reportNotifError('affichage', e); }
+
+  // Contrôle : la notification est-elle vraiment affichée ? Sinon, même
+  // chemin que les Rappels (programmée 1 s plus tard), qui fonctionne.
+  await wait(400);
+  if ((await isShown(LN)) === false) {
+    try {
+      await LN.schedule({ notifications: [{ ...base, schedule: { at: new Date(Date.now() + 1000), allowWhileIdle: true } }] });
+      await wait(2500);
+      if ((await isShown(LN)) === false) reportNotifError('affichage', 'Android n’a pas affiché la notification');
+    } catch (e) { reportNotifError('affichage (secours)', e); }
+  }
+}
+
+// Appels en file : un changement de côté rapide ne croise pas l'appel précédent
+let queue = Promise.resolve();
+export function syncTimerNotif(state) {
+  queue = queue.then(() => doSync(state)).catch((e) => reportNotifError('notification', e));
+  return queue;
 }
 
 // À appeler une fois (App) : onAction('switch' | 'finish' | 'open')
@@ -154,7 +217,7 @@ export async function initTimerNotifActions(onAction) {
     });
     return () => handle.remove();
   } catch (e) {
-    console.warn('[Minuteur] actions', e);
+    reportNotifError('boutons', e);
     return () => {};
   }
 }

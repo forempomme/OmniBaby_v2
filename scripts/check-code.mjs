@@ -13,7 +13,8 @@
 // Usage : node scripts/check-code.mjs   (nécessite le paquet typescript)
 // ----------------------------------------------------------------------
 import ts from 'typescript';
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync, readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, relative } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -91,7 +92,11 @@ for (const d of diags) {
   }
   if (d.code >= 1000 && d.code < 2000) errors.push(`${where(d)}  TS${d.code} ${msg}`);
   else if (BLOCKING.has(d.code)) errors.push(`${where(d)}  TS${d.code} ${msg}`);
-  else if (WARN.has(d.code)) warnings.push(`${where(d)}  ${msg}`);
+  else if (WARN.has(d.code)) {
+    // « import React » inutile avec le JSX automatique : bruit propre à TypeScript 5
+    if (/^'React' is declared/.test(msg)) continue;
+    warnings.push(`${where(d)}  ${msg}`);
+  }
 }
 
 // ── Règle des hooks : pas d'appel useXxx() après un return conditionnel ──
@@ -198,6 +203,59 @@ for (const [file, names] of exported) {
   for (const n of names) {
     // utilisé dans son propre fichier ? → simple export superflu, toujours signalé
     if (!u.has(n)) warnings.push(`${relative(ROOT, file)}  export « ${n} » jamais importé`);
+  }
+}
+
+// ── Icônes : chaque nom utilisé doit exister dans icons.jsx ──
+// (un nom inconnu n'affiche rien, sans erreur : cas d'un icons.jsx pas à jour)
+{
+  const iconsFile = join(SRC, 'icons.jsx');
+  const defined = new Set();
+  const src = readFileSync(iconsFile, 'utf8');
+  const block = src.slice(src.indexOf('const PATHS = {'), src.indexOf('\n};', src.indexOf('const PATHS = {')));
+  for (const m of block.matchAll(/^ {2}([a-zA-Z]+):/gm)) defined.add(m[1]);
+  const patterns = [
+    /<Icon\b[^>]*?\bname="([a-zA-Z]+)"/g,
+    /\biconName="([a-zA-Z]+)"/g,
+    /\bicon="([a-zA-Z]+)"/g,
+    /\bicon: '([a-zA-Z]+)'/g,
+    /\bsvg: '([a-zA-Z]+)'/g,
+  ];
+  for (const f of files) {
+    if (f === iconsFile) continue;
+    const text = readFileSync(f, 'utf8');
+    for (const re of patterns) {
+      for (const m of text.matchAll(re)) {
+        if (defined.has(m[1])) continue;
+        const line = text.slice(0, m.index).split('\n').length;
+        errors.push(`${relative(ROOT, f)}:${line}  icône « ${m[1]} » absente de src/icons.jsx (icons.jsx pas à jour ?)`);
+      }
+    }
+  }
+}
+
+// ── Fichiers de la version livrée : tous présents et à jour ──
+// scripts/release-files.json liste l'empreinte SHA-256 de chaque fichier
+// livré. Un fichier oublié lors de l'envoi sur GitHub bloque le build
+// avec son nom, au lieu de produire une appli à moitié à jour.
+{
+  const manifestPath = join(ROOT, 'scripts', 'release-files.json');
+  if (!existsSync(manifestPath)) {
+    warnings.push('scripts/release-files.json absent : contrôle des fichiers livrés ignoré');
+  } else {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    const stale = [];
+    for (const [rel, hash] of Object.entries(manifest.files || {})) {
+      const p = join(ROOT, rel);
+      if (!existsSync(p)) { stale.push(`${rel}  (absent)`); continue; }
+      const h = createHash('sha256').update(readFileSync(p)).digest('hex');
+      if (h !== hash) stale.push(`${rel}  (contenu différent de la ${manifest.version})`);
+    }
+    if (stale.length) {
+      errors.push(`${stale.length} fichier(s) pas à jour par rapport à la version ${manifest.version} — renvoie-les depuis la livraison :`);
+      for (const x of stale) errors.push('    ' + x);
+      errors.push('    (si TOUS les fichiers que tu viens d’envoyer sont listés, c’est scripts/release-files.json qui n’a pas été mis à jour)');
+    }
   }
 }
 

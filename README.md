@@ -8,7 +8,9 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 
 ### 📓 Journal
 - Saisie rapide : biberon (sein/biberon, quantité, durée, côté), change, autre ; le sommeil ouvre son formulaire dédié (début / fin / en cours)
-- Saisie en 1 tap : Biberon (dernière quantité), Tétée (côté alterné), Pipi, Selles
+- Saisie en 1 tap : Biberon (dernière quantité), Tétée (côté alterné), Pipi, Selles — bouton « Annuler » 5 s en cas de tap par erreur
+- Couleur des selles (facultatif) : nuancier, les teintes décolorées (jaune pâle, mastic, blanche) affichent une alerte « à montrer rapidement à un médecin » + appel du médecin
+- Vue « Tout » : les 60 derniers jours en direct, bouton « Charger l'historique » pour le reste
 - Vitamine D : bandeau « Donnée » en 1 tap tant qu'elle n'est pas notée (< 24 mois)
 - Tampons « temps écoulé » : depuis le dernier repas / change, sommeil en cours avec bouton Réveil
 - Tap sur un tampon = filtre ; appui long = ajouter ce type d'entrée
@@ -25,19 +27,18 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 - PDF pédiatre (voir Réglages)
 
 ### 🌙 Dodo
-- Enregistrement nuits et siestes avec durée
-- Graphique 7 jours
-- Repères de sommeil selon l'âge (OMS)
-- Stamps enrichis : durée cumulée nuits / siestes
+- Même présentation que le Journal : tampons (dort / éveillé avec bouton Réveil, total du jour, repère pour l'âge comparé à la moyenne 7 jours), lignes et glisser-supprimer communs
+- Graphique 7 jours (jour en cours en pointillés, moyenne des jours terminés)
+- Repères de sommeil selon l'âge
 
 ### 🛠️ Outils
 | Module | Description |
 |---|---|
-| ⏱️ Minuteur | Chrono de tétée par sein avec alternance |
-| 💊 Médicaments | Traitements + notifications de dose automatiques |
-| 🌡️ Fièvre | Courbe de température, alerte 38.5°C |
+| ⏱️ Minuteur | Chrono de tétée par sein ; notification « Tétée en cours » avec boutons Changer de côté / Terminer |
+| 💊 Médicaments | Traitements + notification à l'heure de la prochaine dose (reprogrammée à chaque « Dose donnée ») |
+| 🌡️ Fièvre | Courbe de température ; alerte dès 38 °C avant 3 mois (38,5 °C ensuite), méthode de prise, appel médecin / 15 |
 | 🥦 Alimentation | Diversification 0-3 ans avec dates, grille aliments testés |
-| 📊 Statistiques | Graphiques 7j / 30j / 3 mois |
+| 📊 Statistiques | Graphiques 7j / 30j / 3 mois ; carte « Lait au biberon » (ml/jour, ml/kg/jour, repère d'Appert < 6 mois) |
 | 📸 Journal de bord | Souvenirs, premières fois, moments drôles |
 | 🧩 Développement | Repères moteurs, langage et éveil par âge |
 | 🎯 Rappels | RDV médicaux avec notifications locales |
@@ -48,7 +49,7 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 
 ### ⚙️ Réglages (5 sections)
 - **Bébé** : profils multi-enfants ; **profil test** (badge TEST, barre ocre, 7 jours de données d'exemple en option, Vider / Supprimer) ; suppression complète d'un enfant (profil + toutes ses données, partout ; prénom à retaper pour un vrai enfant)
-- **Famille & synchro** : membres, code d'invitation (masqué + Partager), connexion / rejoindre, profils PIN
+- **Famille & synchro** : membres, code d'invitation (masqué + Partager), connexion / rejoindre, profils PIN, estimation des lectures Firebase du jour
 - **Préférences** : thème, mode nuit (badge « Nuit » = arrêt jusqu'à 7 h), saisie, biométrie — propres à chaque téléphone
 - **Rappels & notifications**
 - **Sauvegarde & export** : nettoyage des données orphelines (rattachées à un enfant supprimé), JSON, PDF pédiatre (police Poppins embarquée, accents corrects), version
@@ -59,6 +60,9 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 
 ### Principe
 Les données sont synchronisées en temps réel entre tous les appareils de la famille via Firebase Firestore. L'app reste utilisable hors-ligne (cache local IndexedDB) et se synchronise au retour du réseau.
+
+### Quota (v3.10.0)
+Les tables volumineuses (journal : repas, changes, sommeil ; températures) ne sont écoutées en direct que sur les **60 derniers jours** (`where('date', '>=', …)`, index simple automatique, aucune règle à changer). L'historique plus ancien est lu à la demande, une fois par session : Historique, Recherche, Statistiques 3 mois, export JSON / CSV, suppression d'un enfant, analyse des orphelins, ou bouton « Charger l'historique ». Les données anciennes déjà présentes sur le téléphone sont conservées. Réglages → Famille & synchro affiche une estimation haute des lectures du téléphone (quota gratuit : 50 000 / jour pour toute la famille).
 
 ### Premier lancement (4 étapes)
 1. Présentation (3 écrans)
@@ -120,11 +124,14 @@ omnibaby/
 │   ├── ChildForm.jsx        # Formulaire profil enfant
 │   ├── ChildManager.jsx     # Choix d'enfant, profil test, suppression, orphelins
 │   ├── children.js          # Logique : données par enfant, orphelins, données d'exemple
+│   ├── HistoryNotice.jsx    # Historique au-delà de 60 jours : chargement à la demande
+│   ├── readCounter.js       # Estimation des lectures Firestore du jour
+│   ├── timer.js             # Minuteur de tétée + notification « Tétée en cours »
 │   ├── icons.jsx            # Icônes SVG
 │   ├── pdf.js               # PDF pédiatre + fiche de garde (chargé à la demande)
 │   ├── Sante.jsx            # Courbes croissance, vaccins
 │   ├── Dodo.jsx             # Sommeil, graphique
-│   ├── Outils.jsx           # Grille 11 modules
+│   ├── Outils.jsx           # Grille 12 modules (icônes SVG)
 │   ├── Reglages.jsx         # Réglages, synchro, export, À propos
 │   ├── Modal.jsx            # Bottom-sheet + abandon formulaire
 │   ├── store.jsx            # Store React Context + sync Firestore temps réel
@@ -140,6 +147,7 @@ omnibaby/
 ├── google-services.json     # Config Firebase Android (à la racine)
 ├── firestore.rules          # Règles de sécurité Firestore (à publier dans la console)
 ├── scripts/check-code.mjs   # Vérification statique lancée par la CI avant le build
+├── scripts/release-files.json # Empreintes des fichiers livrés (fichier oublié = build bloqué)
 ├── assets/android-icons/    # Icônes par densité
 ├── public/icon.png          # Icône source ≥ 1024×1024px
 ├── .github/workflows/build.yml
@@ -174,6 +182,8 @@ omnibaby/
 | 3.2.0 | Recherche, notifications, onboarding, IDs UUID, Famille Firebase |
 | **3.8.0** | Corrections (saisie, rapport d'activité, Santé, rejoindre une famille), premier lancement en 4 étapes, journal « temps écoulé » + icônes SVG, Réglages en 5 sections, nouveau PDF pédiatre, PIN haché, vérification statique en CI |
 | 3.9.0 | Profil test synchronisé, choix d'enfant en touchant son nom, suppression complète d'un enfant, nettoyage des données orphelines |
+| 3.10.0 | Synchro 60 jours + historique à la demande (quota Firebase), notification Minuteur, notifications Médicaments/Rappels corrigées, annulation des saisies 1 tap, couleur des selles, seuil fièvre < 3 mois, carte lait au biberon, Dodo au style du Journal, icônes SVG des Outils |
+| 3.10.1 | Notification du minuteur : catégorie « Tétée en cours » (sans son), contrôle d'affichage + secours, erreurs visibles ; contrôle CI des icônes et des fichiers livrés (scripts/release-files.json) |
 
 ---
 
@@ -222,5 +232,8 @@ Le workflow `.github/workflows/build.yml` :
 - **PNNS4** — Programme National Nutrition Santé 2019–2023
 - **HCSP 2020** — Repères alimentaires 0-3 ans
 - **Calendrier vaccinal France 2024** — Santé publique France
+- **Fièvre du nourrisson** — avant 3 mois, 38 °C ou plus : examen médical rapide (MSD Manuals)
+- **Carte colorimétrique des selles** — dépistage de l'atrésie des voies biliaires (selles décolorées)
+- **Règle d'Appert** — besoins en lait jusqu'à 6 mois : poids (g) / 10 + 250 ml / jour
 
 > Ces informations sont indicatives et ne remplacent pas l'avis d'un professionnel de santé.

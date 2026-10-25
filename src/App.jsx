@@ -280,6 +280,18 @@ function AppShell() {
     return () => window.removeEventListener('firebase-sync-error', handler);
   }, [showToast]);
 
+  // Notification du minuteur impossible → message visible (au plus 1 / 20 s)
+  const lastNotifToast = useRef(0);
+  useEffect(() => {
+    const handler = (e) => {
+      if (Date.now() - lastNotifToast.current < 20000) return;
+      lastNotifToast.current = Date.now();
+      showToast(`Notification tétée impossible (${e.detail?.message || 'erreur inconnue'})`, '⚠️', { duration: 8000 });
+    };
+    window.addEventListener('omnibaby-notif-error', handler);
+    return () => window.removeEventListener('omnibaby-notif-error', handler);
+  }, [showToast]);
+
   // Thème appliqué au document, recalculé chaque minute
   useEffect(() => {
     const apply = () => {
