@@ -84,6 +84,9 @@ service cloud.firestore {
       match /aliments/{id}     { allow read, write: if isMemberWrite(familyId); }
       match /journal/{id}      { allow read, write: if isMemberWrite(familyId); }
       match /rappels/{id}      { allow read, write: if isMemberWrite(familyId); }
+      // v3.14 : stock de lait (tire-lait) et tétée en cours partagée
+      match /lait/{id}         { allow read, write: if isMemberWrite(familyId); }
+      match /live/{id}         { allow read, write: if isMemberWrite(familyId); }
     }
 
     // ── Index des codes d'invitation ──────────────────────────────────

@@ -12,7 +12,7 @@ import {
   WEIGHT_LMS, HEIGHT_LMS, HEAD_LMS, PERCENTILE_Z,
   getLMS, lmsValue, estimatePercentile, VACCINS_CALENDRIER,
 } from './data/who-growth.js';
-import { shareFileNative, toISODate } from './utils.jsx';
+import { shareFileNative, toISODate, parseLocalDate } from './utils.jsx';
 import { stoolColor } from './journal/entryTypes.js';
 
 // ── Couleurs (maquette validée) ─────────────────────────────────────
@@ -58,13 +58,15 @@ const fmtHours = (min) => {
 };
 const forChild = (list, child) => (list || []).filter((e) => e.childId == null || e.childId === child.id);
 const ageMonthsAt = (birthdate, date) =>
-  Math.max(0, (new Date(date) - new Date(birthdate)) / (86400000 * 30.4375));
+  Math.max(0, (parseLocalDate(date) - parseLocalDate(birthdate)) / (86400000 * 30.4375));
 
 function ageLabel(birthdate) {
   if (!birthdate) return '';
   const months = Math.floor(ageMonthsAt(birthdate, new Date()));
   if (months < 1) {
-    const days = Math.floor((new Date() - new Date(birthdate)) / 86400000);
+    const b = parseLocalDate(birthdate);
+    const n = new Date();
+    const days = Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - b) / 86400000);
     return `${days} jour${days > 1 ? 's' : ''}`;
   }
   if (months < 24) return `${months} mois`;
