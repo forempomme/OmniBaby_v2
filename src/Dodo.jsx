@@ -10,7 +10,9 @@ import EntryItem from './journal/EntryItem.jsx';
 import { Stamp, useNow } from './journal/TodayOverview.jsx';
 import { formatMinutes } from './journal/entryTypes.js';
 import { HistoryNotice } from './HistoryNotice.jsx';
+import { sleepKindAt } from './sleepNotif.js';
 
+import { Icon, UiIcon } from './icons.jsx';
 // ----------------------------------------------------------------------
 // Recommandations de sommeil OMS
 // ----------------------------------------------------------------------
@@ -146,8 +148,8 @@ export function SommeilForm({ open, onClose, child, editing, onSaved }) {
       <div className="field">
         <label>Type</label>
         <div className="pill-group">
-          <button className={`pill-choice ${type==='nuit'?'selected':''}`} onClick={() => setType('nuit')}>🌃 Nuit</button>
-          <button className={`pill-choice ${type==='sieste'?'selected':''}`} onClick={() => setType('sieste')}>☀️ Sieste</button>
+          <button className={`pill-choice ${type==='nuit'?'selected':''}`} onClick={() => setType('nuit')}><UiIcon value="🌃" size={16} className="inline-ic" /> Nuit</button>
+          <button className={`pill-choice ${type==='sieste'?'selected':''}`} onClick={() => setType('sieste')}><UiIcon value="☀️" size={16} className="inline-ic" /> Sieste</button>
         </div>
       </div>
 
@@ -190,7 +192,7 @@ export function SommeilForm({ open, onClose, child, editing, onSaved }) {
           <div className="pill-group">
             {QUALITES.map((q) => (
               <button key={q.key} className={`pill-choice ${qualite===q.key?'selected':''}`}
-                onClick={() => setQualite(q.key)}>{q.icon} {q.label}</button>
+                onClick={() => setQualite(q.key)}>{q.label}</button>
             ))}
           </div>
         </div>
@@ -217,7 +219,7 @@ export function SommeilForm({ open, onClose, child, editing, onSaved }) {
       </div>
 
       <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>
-        {enCours ? '🌙 Démarrer le sommeil' : editing ? 'Enregistrer ✓' : 'Enregistrer ✓'}
+        {enCours ? <><Icon name="moon" size={16} /> Démarrer le sommeil</> : 'Enregistrer'}
       </button>
     </Modal>
   );
@@ -237,7 +239,7 @@ export function sleepToday(entries, now = new Date()) {
   };
 }
 
-function SleepOverview({ entries, child, onWake, onNew, canEdit, weekAvg }) {
+function SleepOverview({ entries, child, onWake, onNew, onStart, canEdit, weekAvg }) {
   const now = useNow();
   const reco = getRecoForAge(ageInMonths(child?.birthdate));
   const [recoMin, recoMax] = reco.total;
@@ -280,9 +282,9 @@ function SleepOverview({ entries, child, onWake, onNew, canEdit, weekAvg }) {
             value={awakeSince ? formatElapsed(now - toTime(awakeSince)) : '—'}
             since={awakeSince ? `depuis ${formatTimeFR(awakeSince)}` : 'aucun'}
             detail={canEdit ? 'Endormi ›' : null}
-            onClick={() => canEdit && onNew()}
+            onClick={() => canEdit && onStart()}
             onLongPress={() => canEdit && onNew()}
-            ariaLabel="Toucher pour noter un nouveau sommeil."
+            ariaLabel="Toucher pour lancer le chrono de sommeil. Appui long : formulaire."
           />
         )}
         <Stamp
@@ -356,7 +358,7 @@ function WeeklyChart({ week }) {
 // Main DodoTab
 // ----------------------------------------------------------------------
 export default function DodoTab({ openFormExternal, setOpenFormExternal }) {
-  const { store, update, session } = useStore();
+  const { store, update, session, firebaseUser } = useStore();
   const showToast = useToast();
   const activeChild = getActiveChild(store);
   const [formOpen, setFormOpen] = useState(false);
@@ -415,11 +417,31 @@ export default function DodoTab({ openFormExternal, setOpenFormExternal }) {
   };
   const openNew = () => { setEditing(null); setFormOpen(true); };
 
+  // « Endormi » : sommeil en cours lancé en 1 tap (nuit entre 19 h et 7 h),
+  // avec notification chrono + « Réveil » (voir sleepNotif.js)
+  const startSleep = () => {
+    const nowD = new Date();
+    const iso = nowD.toISOString();
+    const entry = {
+      id: genId(), childId: activeChild.id, type: 'sommeil', sousType: sleepKindAt(nowD),
+      date: iso, debut: iso, fin: null, duree: null, enCours: true,
+      ...authorFields(firebaseUser, 'created'),
+    };
+    update((draft) => { draft.entries.push(entry); return draft; });
+    showToast(`${entry.sousType === 'nuit' ? 'Nuit' : 'Sieste'} démarrée`, '🌙', {
+      duration: 5000,
+      action: {
+        label: 'Annuler',
+        onClick: () => update((draft) => { draft.entries = draft.entries.filter((e) => e.id !== entry.id); return draft; }),
+      },
+    });
+  };
+
   if (!activeChild) return <NoChildState />;
 
   return (
     <div>
-      <SleepOverview entries={childSleeps} child={activeChild} onWake={wake} onNew={openNew} canEdit={canEdit} weekAvg={week.avg} />
+      <SleepOverview entries={childSleeps} child={activeChild} onWake={wake} onNew={openNew} onStart={startSleep} canEdit={canEdit} weekAvg={week.avg} />
       <WeeklyChart week={week} />
 
       <div className="period-bar">

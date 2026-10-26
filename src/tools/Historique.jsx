@@ -5,6 +5,7 @@ import { formatTimeFR, groupByDay, dayLabel, SwipeToDelete, useToast, sortByDate
 import { ENTRY_TYPES } from '../Journal.jsx';
 import { ALIMENT_STATUTS } from '../data/diversification.js';
 
+import { Icon, UiIcon } from '../icons.jsx';
 // ----------------------------------------------------------------------
 // Build unified history items from all data tables
 // ----------------------------------------------------------------------
@@ -155,7 +156,7 @@ export default function HistoriqueTool() {
   if (!activeChild) {
     return (
       <div className="empty-state">
-        <div className="emoji">👶</div>
+        <div className="emoji"><UiIcon value="👶" size={40} /></div>
         <div className="title">Aucun profil enfant</div>
         <div className="desc">Ajoute un profil enfant dans Réglages pour voir son historique.</div>
       </div>
@@ -168,14 +169,14 @@ export default function HistoriqueTool() {
       <div className="chip-row">
         {FILTERS.map((f) => (
           <button key={f.key} className={`chip ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
-            {f.icon} {f.label}
+            <UiIcon value={f.icon} size={14} className="inline-ic" /> {f.label}
           </button>
         ))}
       </div>
 
       {grouped.length === 0 ? (
         <div className="empty-state">
-          <div className="emoji">🗂️</div>
+          <div className="emoji"><UiIcon value="🗂️" size={40} /></div>
           <div className="title">Aucune donnée</div>
           <div className="desc">L'historique complet de {activeChild.nom} apparaîtra ici au fil des ajouts.</div>
         </div>
@@ -187,14 +188,14 @@ export default function HistoriqueTool() {
               {items.map((item, idx) => (
                 <SwipeToDelete key={`${item.table}-${item.id}-${idx}`} onDelete={() => canEdit && handleDelete(item)} disabled={!canEdit}>
                   <div className="entry-icon" style={{ background: item.bg || 'var(--primary-soft)', color: item.iconColor || 'var(--primary-deep)' }}>
-                    {item.icon}
+                    <UiIcon value={item.icon} size={20} />
                   </div>
                   <div className="entry-body">
                     <div className="entry-title">{item.title}</div>
                     {item.subtitle && <div className="entry-sub">{item.subtitle}</div>}
                     {item.author && (
                       <div style={{ fontSize: '.62rem', color: 'var(--text-faint)', marginTop: 2 }}>
-                        {item.authorAction === 'modifié' ? '✏️' : '✍️'} {item.author}
+                        <Icon name="edit" size={12} /> {item.author}
                       </div>
                     )}
                   </div>

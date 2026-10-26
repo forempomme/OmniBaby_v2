@@ -13,6 +13,7 @@ import RechercheTool from './tools/Recherche.jsx';
 import DeveloppementTool from './tools/Developpement.jsx';
 import HistoriqueTool from './tools/Historique.jsx';
 import JournalBordTool from './tools/JournalBord.jsx';
+import StockLaitTool from './tools/StockLait.jsx';
 
 // ----------------------------------------------------------------------
 // Tool definitions
@@ -22,6 +23,7 @@ const TOOLS = [
   { key: 'minuteur', icon: 'clock', tone: 'primary', name: 'Minuteur', desc: 'Chrono de tétée par sein avec alternance' },
   { key: 'medicaments', icon: 'pill', tone: 'sage', name: 'Médicaments', desc: 'Traitements en cours et alertes de dose' },
   { key: 'fievre', icon: 'thermo', tone: 'danger', name: 'Fièvre', desc: 'Courbe de température et alertes' },
+  { key: 'stocklait', icon: 'fridge', tone: 'sky', name: 'Stock de lait', desc: 'Tire-lait, frigo, congélateur et dates limites' },
   { key: 'alimentation', icon: 'leaf', tone: 'sage', name: 'Alimentation', desc: 'Diversification, aliments testés, conseils lait' },
   { key: 'statistiques', icon: 'chart', tone: 'sky', name: 'Statistiques', desc: 'Graphiques biberons, sommeil, couches' },
   { key: 'journalbord', icon: 'camera', tone: 'sun', name: 'Journal de bord', desc: 'Souvenirs, premières fois, moments drôles' },
@@ -86,6 +88,8 @@ export default function OutilsTab({ openToolKey, setOpenToolKey, onTimerFinish }
         return <HistoriqueTool />;
       case 'journalbord':
         return <JournalBordTool />;
+      case 'stocklait':
+        return <StockLaitTool />;
       default:
         return null;
     }

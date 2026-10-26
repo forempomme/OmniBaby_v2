@@ -2,15 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useStore, getActiveChild, authorFields } from '../store.jsx';
 import { useToast } from '../utils.jsx';
 import { entryTitle } from './entryTypes.js';
-import { loadTimerState, startTeteeTimer, suggestedSide, chronoText } from '../timer.js';
+import { loadTimerState, startTeteeTimer, suggestedSide, chronoText, timerMeta } from '../timer.js';
 import { useLongPress } from './TodayOverview.jsx';
 
+import { Icon } from '../icons.jsx';
 // Bouton : tap = action rapide, appui long = formulaire pré-rempli
 function QuickBtn({ a, flash, onLongPress, label }) {
   const handlers = useLongPress(() => onLongPress(a), a.run);
   return (
     <button className={`quick-btn ${flash ? 'done' : ''} ${a.live ? 'live' : ''}`} aria-label={label} {...handlers}>
-      <span className="quick-label">{flash ? '✓' : a.label}</span>
+      <span className="quick-label">{flash ? <Icon name="check" size={18} /> : a.label}</span>
       <span className="quick-sub">{a.sub}</span>
     </button>
   );
@@ -89,8 +90,8 @@ export default function QuickEntryBar({ entries, onLongPress }) {
   const actions = [
     { key: 'biberon', label: 'Biberon', sub: `${lastQty} ml`, prefill: { type: 'biberon', mode: 'biberon', quantite: lastQty }, run: () => quickSave('biberon', 'biberon', { mode: 'biberon', quantite: lastQty }) },
     timer
-      ? { key: 'tetee', label: 'Tétée', sub: `${timer.running ? '●' : 'pause'} ${timer.text}`, live: true, run: () => startTeteeTimer(nextSide) }
-      : { key: 'tetee', label: 'Tétée', sub: `▶ ${nextSide}`, prefill: { type: 'biberon', mode: 'sein', cote: nextSide }, run: () => startTeteeTimer(nextSide) },
+      ? { key: 'tetee', label: 'Tétée', sub: `${timer.running ? '●' : 'pause'} ${timer.text}`, live: true, run: () => startTeteeTimer(nextSide, timerMeta(activeChild, firebaseUser)) }
+      : { key: 'tetee', label: 'Tétée', sub: `▶ ${nextSide}`, prefill: { type: 'biberon', mode: 'sein', cote: nextSide }, run: () => startTeteeTimer(nextSide, timerMeta(activeChild, firebaseUser)) },
     { key: 'pipi', label: 'Pipi', sub: '1 tap', prefill: { type: 'couche', contenu: 'pipi' }, run: () => quickSave('pipi', 'couche', { contenu: 'pipi' }) },
     { key: 'selles', label: 'Selles', sub: '1 tap', prefill: { type: 'couche', contenu: 'selles' }, run: () => quickSave('selles', 'couche', { contenu: 'selles' }) },
   ];

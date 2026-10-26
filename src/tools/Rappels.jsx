@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { useStore, getActiveChild } from '../store.jsx';
-import { toISODateTime, formatDateTimeFR, useToast, ConfirmInline, toTime } from '../utils.jsx';
+import { useStore, getActiveChild, genId } from '../store.jsx';
+import { toISODateTime, toLocalDT, formatDateTimeFR, useToast, ConfirmInline, toTime, parseLocalDate } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 import { scheduleNotif, cancelNotif, requestNotifPermission } from '../utils.jsx';
 import { VISITES_OBLIGATOIRES } from '../data/who-growth.js';
 
+import { Icon, UiIcon } from '../icons.jsx';
 const RECURRENCES = [
   { key: null, label: 'Aucune' },
   { key: 'quotidien', label: 'Quotidienne' },
@@ -34,6 +35,40 @@ function nextOccurrence(dateStr, recurrence) {
 }
 
 // ----------------------------------------------------------------------
+// Notification d'un rappel (même identifiant pour programmer et annuler).
+// notifAt : instant de la notification s'il diffère de la date du rappel
+// (visites médicales : 7 jours avant, pour prendre rendez-vous).
+// ----------------------------------------------------------------------
+export function rappelNotifAt(rappel) {
+  return new Date(rappel.notifAt || rappel.date);
+}
+
+export function scheduleRappelNotif(rappel, enabled = true) {
+  cancelNotif(rappel.id);
+  if (!enabled || rappel.fait) return;
+  const at = rappelNotifAt(rappel);
+  if (isNaN(at.getTime()) || at.getTime() <= Date.now()) return;
+  requestNotifPermission().then((granted) => {
+    if (!granted) return;
+    scheduleNotif({
+      id: rappel.id,
+      title: rappel.visiteKey ? 'OmniBaby — Visite à prévoir' : 'OmniBaby — Rappel',
+      body: rappel.visiteKey ? `${rappel.titre} dans 7 jours : pense au rendez-vous` : rappel.titre,
+      at: at.toISOString(),
+    });
+  });
+}
+
+// Icône d'un rappel : créé à la main, visite médicale, ou fièvre
+export function rappelKind(rappel) {
+  if (rappel.kind) return rappel.kind;
+  if (rappel.visiteKey) return 'visite';
+  if (/^Reprendre la température/.test(rappel.titre || '')) return 'fievre';
+  return 'manuel';
+}
+const KIND_ICONS = { manuel: 'target', visite: 'stetho', fievre: 'thermo' };
+
+// ----------------------------------------------------------------------
 // Add / edit rappel form
 // ----------------------------------------------------------------------
 function rappelDefaults() {
@@ -45,13 +80,14 @@ function rappelDefaults() {
 }
 
 function RappelForm({ open, onClose, editing }) {
-  const { update, nextId } = useStore();
+  const { store, update, nextId } = useStore();
   const showToast = useToast();
   const [form, setForm] = useState(rappelDefaults());
 
   React.useEffect(() => {
     if (open) {
-      setForm(editing ? { titre: editing.titre, date: editing.date?.slice(0, 16) || toISODateTime(), recurrence: editing.recurrence || null } : rappelDefaults());
+      // toLocalDT : la date est stockée en UTC (avant : décalage d'1 h à chaque modification)
+      setForm(editing ? { titre: editing.titre, date: toLocalDT(editing.date) || toISODateTime(), recurrence: editing.recurrence || null } : rappelDefaults());
     }
   }, [open, editing]);
 
@@ -64,39 +100,22 @@ function RappelForm({ open, onClose, editing }) {
     }
     const dateISO = new Date(form.date).toISOString();
     const rappelId = editing ? editing.id : nextId();
+    let saved = null;
     update((draft) => {
       if (editing) {
         const idx = draft.rappels.findIndex((r) => r.id === editing.id);
         if (idx !== -1) {
-          draft.rappels[idx] = { ...draft.rappels[idx], titre: form.titre.trim(), date: dateISO, recurrence: form.recurrence };
+          // Nouvelle date : l'avance « 7 jours avant » des visites ne vaut plus
+          draft.rappels[idx] = { ...draft.rappels[idx], titre: form.titre.trim(), date: dateISO, recurrence: form.recurrence, notifAt: null };
+          saved = draft.rappels[idx];
         }
       } else {
-        draft.rappels.push({
-          id: rappelId,
-          titre: form.titre.trim(),
-          date: dateISO,
-          recurrence: form.recurrence,
-          fait: false,
-        });
+        saved = { id: rappelId, titre: form.titre.trim(), date: dateISO, recurrence: form.recurrence, fait: false };
+        draft.rappels.push(saved);
       }
       return draft;
     });
-
-    // Planifier la notification locale si date future
-    const notifDate = new Date(dateISO);
-    if (notifDate > new Date()) {
-      requestNotifPermission().then((granted) => {
-        if (!granted) return;
-        // Même identifiant pour programmer et annuler (avant : la date)
-        cancelNotif(rappelId);
-        scheduleNotif({
-          id: rappelId,
-          title: 'OmniBaby — Rappel',
-          body: form.titre.trim(),
-          at: dateISO,
-        });
-      });
-    }
+    if (saved) scheduleRappelNotif(saved, store.settings?.notifs?.rappels !== false);
 
     showToast(editing ? 'Rappel modifié' : 'Rappel ajouté', '✅');
     onClose();
@@ -123,7 +142,7 @@ function RappelForm({ open, onClose, editing }) {
         </div>
       </div>
       <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>
-        {editing ? 'Enregistrer ✓' : 'Ajouter ✓'}
+        {editing ? 'Enregistrer' : 'Ajouter'}
       </button>
     </Modal>
   );
@@ -133,25 +152,32 @@ function RappelForm({ open, onClose, editing }) {
 // Rappel item
 // ----------------------------------------------------------------------
 function RappelItem({ rappel, onEdit, onDelete, canEdit }) {
-  const { update } = useStore();
+  const { store, update } = useStore();
   const overdue = !rappel.fait && new Date(rappel.date) < new Date();
 
   const toggleFait = (e) => {
     e.stopPropagation();
+    let after = null;
     update((draft) => {
       const idx = draft.rappels.findIndex((r) => r.id === rappel.id);
       if (idx === -1) return draft;
       const r = draft.rappels[idx];
       if (!r.fait && r.recurrence) {
-        const next = nextOccurrence(r.date, r.recurrence);
+        // Rappel répété : passe à la date suivante encore à venir
+        let next = nextOccurrence(r.date, r.recurrence);
+        while (next && new Date(next) <= new Date()) next = nextOccurrence(next, r.recurrence);
         if (next) {
           r.date = next;
+          after = { ...r };
           return draft;
         }
       }
       r.fait = !r.fait;
+      after = { ...r };
       return draft;
     });
+    // Notification reprogrammée (avant : une seule notification par rappel répété)
+    if (after) scheduleRappelNotif(after, store.settings?.notifs?.rappels !== false);
   };
 
   const recurrenceLabel = RECURRENCES.find((rc) => rc.key === rappel.recurrence)?.label;
@@ -166,7 +192,7 @@ function RappelItem({ rappel, onEdit, onDelete, canEdit }) {
         }}
         onClick={canEdit ? toggleFait : undefined}
       >
-        {rappel.fait ? '✅' : rappel.auto ? '💉' : '🎯'}
+        <UiIcon value={rappel.fait ? 'check' : KIND_ICONS[rappelKind(rappel)]} size={20} />
       </button>
       <div className="entry-body">
         <div className="entry-title" style={{ textDecoration: rappel.fait ? 'line-through' : 'none' }}>{rappel.titre}</div>
@@ -188,15 +214,17 @@ function visiteKeyFor(childId, ageLabel) {
   return `visite_${childId}_${ageLabel.replace(/\s+/g, '_')}`;
 }
 
-function visiteDate(birthdate, visite) {
-  const d = new Date(birthdate);
+// Date de la visite à 9 h, heure locale (avant : minuit UTC = 1 h ou 2 h)
+export function visiteDate(birthdate, visite) {
+  const d = parseLocalDate(birthdate);
   if (visite.days) d.setDate(d.getDate() + visite.days);
   if (visite.months) d.setMonth(d.getMonth() + visite.months);
+  d.setHours(9, 0, 0, 0);
   return d;
 }
 
 function MedicalVisitsBanner({ child, rappels }) {
-  const { update } = useStore();
+  const { store, update } = useStore();
   const showToast = useToast();
 
   if (!child.birthdate) return null;
@@ -209,32 +237,43 @@ function MedicalVisitsBanner({ child, rappels }) {
   if (missing.length === 0) return null;
 
   const handleGenerate = () => {
+    const created = [];
     update((draft) => {
       for (const v of VISITES_OBLIGATOIRES) {
         const key = visiteKeyFor(child.id, v.ageLabel);
         if (draft.rappels.some((r) => r.visiteKey === key)) continue;
         const date = visiteDate(child.birthdate, v);
-        draft.rappels.push({
-          id: draft.nextId++,
+        const notifAt = new Date(date);
+        notifAt.setDate(notifAt.getDate() - 7);
+        const r = {
+          // Identifiant unique (avant : compteur propre à chaque téléphone,
+          // deux téléphones pouvaient écrire le même document Firebase)
+          id: genId(),
           titre: `Examen médical obligatoire — ${v.ageLabel} — ${child.nom}`,
           date: date.toISOString(),
+          notifAt: notifAt.toISOString(),
           recurrence: null,
           fait: false,
           auto: true,
+          kind: 'visite',
           visiteKey: key,
           childId: child.id,
-        });
+        };
+        draft.rappels.push(r);
+        created.push(r);
       }
       return draft;
     });
-    showToast('Visites médicales générées', '💉');
+    const on = store.settings?.notifs?.rappels !== false;
+    created.forEach((r) => scheduleRappelNotif(r, on));
+    showToast('Visites médicales générées', '🩺');
   };
 
   return (
     <div className="card appear" style={{ background: 'var(--accent-sky-soft)', border: 'none' }}>
-      <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>💉 Visites médicales du carnet de santé</div>
+      <div style={{ fontWeight: 600, fontSize: '0.85rem' }}><UiIcon value="🩺" size={16} className="inline-ic" /> Visites médicales du carnet de santé</div>
       <div className="muted" style={{ fontSize: '0.8rem', marginTop: 4, marginBottom: 10 }}>
-        Génère les rappels des examens obligatoires (8 jours, 1, 2, 4, 9, 12, 24 mois) pour {child.nom}.
+        Génère les rappels des examens obligatoires (8 jours, 1, 2, 4, 9, 12, 24 mois) pour {child.nom}, avec une notification 7 jours avant chacun.
       </div>
       <button className="btn btn-secondary btn-sm" onClick={handleGenerate}>Générer les visites</button>
     </div>
@@ -275,9 +314,9 @@ export default function RappelsTool() {
       {activeChild && <MedicalVisitsBanner child={activeChild} rappels={store.rappels} />}
 
       <div className="flex-between mt-16">
-        <div className="section-title" style={{ marginBottom: 0 }}>🎯 Rappels</div>
+        <div className="section-title" style={{ marginBottom: 0 }}>Rappels</div>
         {canEdit && (
-          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}>＋ Ajouter</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}><Icon name="plus" size={16} /> Ajouter</button>
         )}
       </div>
 
@@ -288,7 +327,7 @@ export default function RappelsTool() {
 
       {sorted.length === 0 ? (
         <div className="empty-state">
-          <div className="emoji">🎯</div>
+          <div className="emoji"><UiIcon value="🎯" size={40} /></div>
           <div className="title">Rien à faire</div>
           <div className="desc">Aucun rappel pour le moment. Ajoute un RDV, une course, ou génère les visites médicales ci-dessus.</div>
         </div>

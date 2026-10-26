@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, getActiveChild, ageInMonths } from '../store.jsx';
-import { useToast, scheduleNotif, requestNotifPermission, fireConfetti } from '../utils.jsx';
+import { useToast, scheduleNotif, requestNotifPermission, fireConfetti, parseLocalDate } from '../utils.jsx';
 import { DEV_CATEGORIES, DEV_JALONS } from '../data/developpement.js';
 
+import { Icon, UiIcon } from '../icons.jsx';
 // ----------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------
@@ -38,7 +39,7 @@ function JalonCard({ jalon, done, doneDate, onToggle, ageM }) {
         background: done ? 'var(--accent-sage)' : `${cat?.color}22` || 'var(--border)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem',
       }}>
-        {done ? '✅' : jalon.emoji}
+        {done ? <Icon name="check" size={20} /> : jalon.emoji}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -115,10 +116,10 @@ export default function DeveloppementTool() {
           .sort((a, b) => a.ageMin - b.ageMin)[0];
 
         if (nextJalon) {
-          const birthDate = new Date(activeChild.birthdate);
-          const notifDate = new Date(birthDate);
+          const notifDate = parseLocalDate(activeChild.birthdate);
           notifDate.setDate(notifDate.getDate() + Math.round((nextJalon.ageMin / 4) * 30.44));
           notifDate.setDate(notifDate.getDate() - 14); // 2 semaines avant
+          notifDate.setHours(9, 0, 0, 0); // 9 h, pas en pleine nuit
 
           if (notifDate > new Date()) {
             await scheduleNotif({
@@ -180,7 +181,7 @@ export default function DeveloppementTool() {
   if (!activeChild) {
     return (
       <div className="empty-state">
-        <div className="emoji">👶</div>
+        <div className="emoji"><UiIcon value="👶" size={40} /></div>
         <div className="title">Aucun profil enfant</div>
         <div className="desc">Ajoute un profil enfant dans Réglages pour suivre son développement.</div>
       </div>
@@ -230,17 +231,17 @@ export default function DeveloppementTool() {
       {/* Options d'affichage */}
       <div style={{ display:'flex', gap:8, marginBottom:12, alignItems:'center', flexWrap:'wrap' }}>
         <button className={`chip ${showDone?'active':''}`} onClick={()=>setShowDone(s=>!s)}>
-          {showDone?'☑️':'☐'} Acquises
+          <Icon name={showDone ? 'checkSquare' : 'square'} size={14} /> Acquises
         </button>
         <button className={`chip ${showAll?'active':''}`} onClick={()=>setShowAll(s=>!s)}>
-          {showAll?'📋 Tout':'📍 Autour de l\'âge'}
+          {showAll ? <><Icon name="clipboard" size={14} /> Tout</> : <><Icon name="pin" size={14} /> Autour de l'âge</>}
         </button>
       </div>
 
       {/* Catégories paramétrables */}
       <details style={{ marginBottom:12 }}>
         <summary style={{ fontSize:'.75rem', color:'var(--text-soft)', cursor:'pointer', fontWeight:600 }}>
-          ⚙️ Catégories à suivre
+          <Icon name="sliders" size={14} /> Catégories à suivre
         </summary>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:8 }}>
           {DEV_CATEGORIES.map(c => (
@@ -266,7 +267,7 @@ export default function DeveloppementTool() {
       {/* Liste jalons */}
       {visibleJalons.length === 0 ? (
         <div className="empty-state">
-          <div className="emoji">🎯</div>
+          <div className="emoji"><UiIcon value="🎯" size={40} /></div>
           <div className="title">Aucune étape à afficher</div>
           <div className="desc">Ajuste les filtres ou active "Tout" pour voir tous les jalons.</div>
         </div>

@@ -11,7 +11,9 @@ import OutilsTab from './Outils.jsx';
 import ReglagesTab from './Reglages.jsx';
 import { entryTitle } from './journal/entryTypes.js';
 import { ChildSwitcherSheet, TestChildForm, TestModeBanner } from './ChildManager.jsx';
-import { loadTimerState, saveTimerState, switchSide, teteeFromTimer, syncTimerNotif, initTimerNotifActions, adoptNativeTimerState, onAppResume } from './timer.js';
+import { loadTimerState, saveTimerState, switchSide, teteeFromTimer, syncTimerNotif, initTimerNotifActions, adoptNativeTimerState, onAppResume, setTimerNotifPolicy } from './timer.js';
+import { startLiveTimer, stopLiveTimer } from './liveTimer.js';
+import { syncSleepNotif, readNativeWakes, wakeFields } from './sleepNotif.js';
 
 const TABS = [
   { key: 'journal', label: 'Journal', icon: 'book' },
@@ -236,10 +238,67 @@ function AppShell() {
     return () => window.removeEventListener('omnibaby-timer', h);
   }, []);
 
+  // ── Chronos partagés avec l'autre parent (tétée en cours, sommeil) ──
+  const partageOn = store.settings?.notifs?.partage !== false;
+  const myUid = firebaseUser?.uid;
+  useEffect(() => {
+    const policy = (st) => partageOn || !st.startedBy || st.startedBy === myUid;
+    setTimerNotifPolicy(policy);
+    const st = loadTimerState();
+    syncTimerNotif(st && policy(st) ? st : null);
+  }, [partageOn, myUid]);
+  useEffect(() => {
+    if (!store.familyId || !myUid) { stopLiveTimer(); return undefined; }
+    startLiveTimer(store.familyId, {
+      onError: () => showToast('Tétée partagée indisponible : publie les nouvelles règles Firebase (voir README)', '⚠️', { duration: 8000 }),
+    });
+    return () => stopLiveTimer();
+  }, [store.familyId, myUid]);
+
+  // Sommeil en cours (le plus récent) → notification chrono + « Réveil »
+  const sleeping = useMemo(() => (store.entries || [])
+    .filter((e) => e.type === 'sommeil' && e.enCours)
+    .sort((a, b) => toTime(b.debut || b.date) - toTime(a.debut || a.date))[0] || null, [store.entries]);
+  useEffect(() => {
+    const show = sleeping && (partageOn || !sleeping.createdBy || sleeping.createdBy === myUid);
+    const child = sleeping && store.children.find((c) => c.id === sleeping.childId);
+    syncSleepNotif(show ? sleeping : null, child?.nom);
+  }, [sleeping, partageOn, myUid, store.children]);
+
+  // Réveils notés depuis la notification (écran verrouillé) → entrée terminée
+  const endSleep = (entryId, wakeAt) => {
+    let done = false;
+    update((draft) => {
+      const e = draft.entries.find((x) => String(x.id) === String(entryId));
+      if (e && e.enCours) { Object.assign(e, wakeFields(e, wakeAt), authorFields(firebaseUser, 'updated')); done = true; }
+      return draft;
+    });
+    return done;
+  };
+  const wakesRef = useRef(null);
+  wakesRef.current = async () => {
+    const wakes = await readNativeWakes();
+    const n = wakes.filter((w) => endSleep(w.entryId, w.wakeAt)).length;
+    if (n) showToast(n > 1 ? `${n} réveils enregistrés` : 'Réveil enregistré', '✅');
+  };
+  // Pendant un chrono : relire régulièrement ce qu'Android a pu noter
+  // (bouton touché dans le volet alors que l'appli reste ouverte)
+  useEffect(() => {
+    if (!sleeping && !timerRunning) return undefined;
+    const t = setInterval(() => { wakesRef.current?.(); adoptNativeTimerState(); }, 10000);
+    return () => clearInterval(t);
+  }, [!!sleeping, timerRunning]);
+
   // Boutons de la notification « Tétée en cours ». Le gestionnaire passe
   // par une ref pour toujours voir l'enfant actif et le compte courants.
   const timerActionRef = useRef(null);
-  timerActionRef.current = async (action) => {
+  timerActionRef.current = async (action, extra) => {
+    // Sommeil : « Réveil » sans le code Android, ou toucher la notification
+    if (action === 'wake') {
+      if (extra?.entryId != null && canEdit && endSleep(extra.entryId, Date.now())) showToast('Réveil enregistré', '✅');
+      return;
+    }
+    if (action === 'openSleep') { setActiveTab('dodo'); return; }
     // Un changement de côté a pu être fait depuis la notification
     await adoptNativeTimerState();
     const state = loadTimerState();
@@ -248,8 +307,9 @@ function AppShell() {
       saveTimerState(switchSide(state));
       return;
     }
-    if (action === 'finish' && activeChild && canEdit) {
-      const entry = { id: genId(), childId: activeChild.id, ...teteeFromTimer(state), ...authorFields(firebaseUser, 'created') };
+    const childId = state.childId || activeChild?.id;
+    if (action === 'finish' && childId && canEdit) {
+      const entry = { id: genId(), childId, ...teteeFromTimer(state), ...authorFields(firebaseUser, 'created') };
       update((draft) => { draft.entries.push(entry); return draft; });
       saveTimerState(null);
       setToolReturnTab(null);
@@ -264,13 +324,14 @@ function AppShell() {
   useEffect(() => {
     let off = () => {};
     let alive = true;
-    initTimerNotifActions((a) => timerActionRef.current?.(a)).then((fn) => { if (alive) off = fn; else fn(); });
+    initTimerNotifActions((a, extra) => timerActionRef.current?.(a, extra)).then((fn) => { if (alive) off = fn; else fn(); });
     // Au lancement : reprendre un changement de côté fait depuis la
     // notification, sinon remettre la notification en place (ex. après
     // redémarrage du téléphone)
     adoptNativeTimerState().then((adopted) => { if (!adopted) syncTimerNotif(loadTimerState()); });
+    wakesRef.current?.();
     let offResume = () => {};
-    onAppResume(() => adoptNativeTimerState()).then((fn) => { if (alive) offResume = fn; else fn(); });
+    onAppResume(() => { adoptNativeTimerState(); wakesRef.current?.(); }).then((fn) => { if (alive) offResume = fn; else fn(); });
     return () => { alive = false; off(); offResume(); };
   }, []);
 
@@ -285,6 +346,18 @@ function AppShell() {
     setOpenToolKey(k);
     if (k === null && toolReturnTab) { setActiveTab(toolReturnTab); setToolReturnTab(null); }
   };
+  // « Nouveau tire-lait » depuis le Stock de lait → formulaire du Journal
+  useEffect(() => {
+    const h = (e) => {
+      setToolReturnTab(null);
+      setOpenToolKey(null);
+      setActiveTab('journal');
+      setJournalIntent({ kind: 'new', prefill: e.detail?.prefill || null });
+    };
+    window.addEventListener('omnibaby-new-entry', h);
+    return () => window.removeEventListener('omnibaby-new-entry', h);
+  }, []);
+
   useEffect(() => {
     const h = () => openMinuteur(activeTab === 'outils' ? null : activeTab);
     window.addEventListener('omnibaby-open-minuteur', h);

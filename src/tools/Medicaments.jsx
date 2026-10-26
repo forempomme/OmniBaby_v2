@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
-import { formatDateFR, ConfirmInline, useToast, pad2, scheduleNotif, cancelNotif, requestNotifPermission, nextOccurrence } from '../utils.jsx';
+import { formatDateFR, ConfirmInline, useToast, pad2, scheduleNotif, cancelNotif, requestNotifPermission } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 
+import { Icon, UiIcon } from '../icons.jsx';
 // ----------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------
@@ -12,31 +13,68 @@ function nowHM() {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-// Returns true if prochaineDose (HH:MM, today) is in the past
-function isDoseDue(prochaineDose) {
-  if (!prochaineDose) return false;
-  return prochaineDose <= nowHM();
-}
+const hm = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
-function addHoursToTime(timeHM, hours) {
-  const [h, m] = timeHM.split(':').map(Number);
-  const d = new Date();
+// ----------------------------------------------------------------------
+// Prochaine dose = instant complet (prochaineDoseAt, ISO). Jusqu'à la
+// v3.13.1 seule l'heure « HH:MM » était gardée : une dose donnée à 22 h
+// toutes les 8 h donnait « 06:00 », affichée aussitôt « Dose due »
+// (06:00 < 22:00) → risque de redonner une dose.
+// ----------------------------------------------------------------------
+export function doseAt(medoc, now = new Date()) {
+  if (medoc.prochaineDoseAt) {
+    const d = new Date(medoc.prochaineDoseAt);
+    if (!isNaN(d.getTime())) return d;
+  }
+  // Anciennes données : dernière prise + fréquence, sinon l'heure du jour
+  if (medoc.lastDoseDate && medoc.frequenceHeures) {
+    const d = new Date(new Date(medoc.lastDoseDate).getTime() + medoc.frequenceHeures * 3600000);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (!medoc.prochaineDose) return null;
+  const [h, m] = String(medoc.prochaineDose).split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  const d = new Date(now);
   d.setHours(h, m, 0, 0);
-  d.setTime(d.getTime() + hours * 60 * 60 * 1000);
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return d;
 }
 
-// Notification de la prochaine dose. L'heure est stockée en « HH:MM » :
-// avant la v3.10, new Date("21:00") était invalide et rien n'était programmé.
+export function isDoseDue(medoc, now = new Date()) {
+  const d = doseAt(medoc, now);
+  return !!d && d.getTime() <= now.getTime();
+}
+
+// Heure saisie « HH:MM » → instant : aujourd'hui si elle est passée depuis
+// moins de 2 h (dose en retard), sinon la prochaine occurrence
+export function doseFromTime(hhmm, now = new Date()) {
+  const [h, m] = String(hhmm || '').split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  const d = new Date(now);
+  d.setHours(h, m, 0, 0);
+  if (d.getTime() < now.getTime() - 2 * 3600000) d.setDate(d.getDate() + 1);
+  return d;
+}
+
+// « à 06:00 », « demain à 06:00 », « le 27/10 à 06:00 »
+export function doseWhen(at, now = new Date()) {
+  if (!at) return '';
+  const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diff = Math.round((day(at) - day(now)) / 86400000);
+  if (diff === 0) return `à ${hm(at)}`;
+  if (diff === 1) return `demain à ${hm(at)}`;
+  if (diff === -1) return `hier à ${hm(at)}`;
+  return `le ${pad2(at.getDate())}/${pad2(at.getMonth() + 1)} à ${hm(at)}`;
+}
+
 function medocNotifId(id) {
   return `medoc_${id}`;
 }
 
-function scheduleDoseNotif(medoc, enabled) {
+export function scheduleDoseNotif(medoc, enabled) {
   cancelNotif(medocNotifId(medoc.id));
   if (!enabled) return;
-  const at = nextOccurrence(medoc.prochaineDose);
-  if (!at) return;
+  const at = doseAt(medoc);
+  if (!at || at.getTime() <= Date.now()) return;
   requestNotifPermission().then((granted) => {
     if (!granted) return;
     scheduleNotif({
@@ -69,6 +107,12 @@ function medocDefaults() {
   };
 }
 
+// Instant retenu pour la prochaine prise saisie dans le formulaire
+function formDoseAt(form, editing, now = new Date()) {
+  if (editing && form.prochaineDose === editing.prochaineDose) return doseAt(editing, now);
+  return doseFromTime(form.prochaineDose, now);
+}
+
 function MedocForm({ open, onClose, child, editing }) {
   const { store, update, nextId } = useStore();
   const showToast = useToast();
@@ -88,10 +132,12 @@ function MedocForm({ open, onClose, child, editing }) {
       return;
     }
     const id = editing ? editing.id : nextId();
-    const saved = editing ? { ...editing, ...form, id } : { ...form, id, childId: child.id, lastDoseDate: null };
+    const at = formDoseAt(form, editing);
+    const fields = { ...form, prochaineDoseAt: at ? at.toISOString() : null };
+    const saved = editing ? { ...editing, ...fields, id } : { ...fields, id, childId: child.id, lastDoseDate: null };
     update((draft) => {
       const idx = draft.medicaments.findIndex((m) => m.id === id);
-      if (idx !== -1) draft.medicaments[idx] = { ...draft.medicaments[idx], ...form, id };
+      if (idx !== -1) draft.medicaments[idx] = { ...draft.medicaments[idx], ...fields, id };
       else draft.medicaments.push(saved);
       return draft;
     });
@@ -123,13 +169,16 @@ function MedocForm({ open, onClose, child, editing }) {
       <div className="field">
         <label>Heure de la prochaine prise</label>
         <input type="time" value={form.prochaineDose} onChange={(e) => set('prochaineDose', e.target.value)} />
+        {formDoseAt(form, editing) && (
+          <div className="muted" style={{ fontSize: '0.78rem', marginTop: 4 }}>→ prochaine prise {doseWhen(formDoseAt(form, editing))}</div>
+        )}
       </div>
       <div className="field">
         <label>Notes (optionnel)</label>
         <textarea rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Avant/après repas, prescription..." />
       </div>
       <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>
-        {editing ? 'Enregistrer ✓' : 'Ajouter ✓'}
+        {editing ? 'Enregistrer' : 'Ajouter'}
       </button>
     </Modal>
   );
@@ -138,33 +187,31 @@ function MedocForm({ open, onClose, child, editing }) {
 // ----------------------------------------------------------------------
 // Medication card
 // ----------------------------------------------------------------------
-function MedocCard({ medoc, onEdit, onDelete, canEdit }) {
+function MedocCard({ medoc, onEdit, onDelete, canEdit, now }) {
   const { store, update } = useStore();
   const showToast = useToast();
-  const due = isDoseDue(medoc.prochaineDose);
+  const due = isDoseDue(medoc, now);
+  const at = doseAt(medoc, now);
 
   const handleDoseGiven = (e) => {
     e.stopPropagation();
-    const newNext = addHoursToTime(nowHM(), medoc.frequenceHeures);
+    const given = new Date();
+    const next = new Date(given.getTime() + medoc.frequenceHeures * 3600000);
+    const fields = { lastDoseDate: given.toISOString(), prochaineDose: hm(next), prochaineDoseAt: next.toISOString() };
     update((draft) => {
       const idx = draft.medicaments.findIndex((m) => m.id === medoc.id);
-      if (idx !== -1) {
-        draft.medicaments[idx].lastDoseDate = new Date().toISOString();
-        draft.medicaments[idx].prochaineDose = newNext;
-      }
+      if (idx !== -1) Object.assign(draft.medicaments[idx], fields);
       return draft;
     });
-    scheduleDoseNotif({ ...medoc, prochaineDose: newNext }, store.settings?.notifs?.medoc !== false);
-    showToast(`Prochaine dose à ${newNext}`, '💊');
+    scheduleDoseNotif({ ...medoc, ...fields }, store.settings?.notifs?.medoc !== false);
+    showToast(`Prochaine dose ${doseWhen(next, given)}`, '💊');
   };
 
   return (
     <div className="card appear" style={{ borderColor: due ? 'var(--danger)' : 'var(--border)', cursor: canEdit ? 'pointer' : 'default' }} onClick={() => canEdit && onEdit()}>
       <div className="flex-between">
         <div className="flex-row">
-          <div className="entry-icon" style={{ background: due ? 'var(--danger-soft)' : 'var(--primary-soft)', color: due ? 'var(--danger)' : 'var(--primary-deep)' }}>
-            💊
-          </div>
+          <div className="entry-icon" style={{ background: due ? 'var(--danger-soft)' : 'var(--primary-soft)', color: due ? 'var(--danger)' : 'var(--primary-deep)' }}><UiIcon value="💊" size={20} /></div>
           <div>
             <div className="entry-title">{medoc.nom}</div>
             <div className="entry-sub">{medoc.dose ? `${medoc.dose} · ` : ''}{FREQUENCES.find((f) => f.value === medoc.frequenceHeures)?.label || `Toutes les ${medoc.frequenceHeures}h`}</div>
@@ -180,9 +227,9 @@ function MedocCard({ medoc, onEdit, onDelete, canEdit }) {
       <div className="flex-between mt-8">
         <div>
           {due ? (
-            <span style={{ color: 'var(--danger)', fontWeight: 700, fontSize: '0.85rem' }}>⏰ Dose due ({medoc.prochaineDose})</span>
+            <span style={{ color: 'var(--danger)', fontWeight: 700, fontSize: '0.85rem' }}><UiIcon value="⏰" size={16} className="inline-ic" /> Dose due ({doseWhen(at, now)})</span>
           ) : (
-            <span className="muted" style={{ fontSize: '0.85rem' }}>Prochaine dose à {medoc.prochaineDose}</span>
+            <span className="muted" style={{ fontSize: '0.85rem' }}>Prochaine dose {doseWhen(at, now)}</span>
           )}
           {medoc.lastDoseDate && (
             <div className="muted" style={{ fontSize: '0.75rem', marginTop: 2 }}>
@@ -191,7 +238,7 @@ function MedocCard({ medoc, onEdit, onDelete, canEdit }) {
           )}
         </div>
         {canEdit && (
-          <button className="btn btn-secondary btn-sm" onClick={handleDoseGiven}>✓ Dose donnée</button>
+          <button className="btn btn-secondary btn-sm" onClick={handleDoseGiven}><Icon name="check" size={16} /> Dose donnée</button>
         )}
       </div>
 
@@ -209,6 +256,12 @@ export default function MedicamentsTool() {
   const activeChild = getActiveChild(store);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  // Horloge : « Dose due » apparaît à l'heure, sans rouvrir l'écran
+  const [now, setNow] = useState(() => new Date());
+  React.useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role !== 'lecture';
@@ -219,13 +272,8 @@ export default function MedicamentsTool() {
   );
 
   const sorted = useMemo(
-    () => [...childMedocs].sort((a, b) => {
-      const aDue = isDoseDue(a.prochaineDose) ? 0 : 1;
-      const bDue = isDoseDue(b.prochaineDose) ? 0 : 1;
-      if (aDue !== bDue) return aDue - bDue;
-      return (a.prochaineDose || '').localeCompare(b.prochaineDose || '');
-    }),
-    [childMedocs]
+    () => [...childMedocs].sort((a, b) => (doseAt(a, now)?.getTime() ?? Infinity) - (doseAt(b, now)?.getTime() ?? Infinity)),
+    [childMedocs, now]
   );
 
   const handleDelete = (id) => {
@@ -240,31 +288,31 @@ export default function MedicamentsTool() {
   if (!activeChild) {
     return (
       <div className="empty-state">
-        <div className="emoji">👶</div>
+        <div className="emoji"><UiIcon value="👶" size={40} /></div>
         <div className="title">Aucun profil enfant</div>
         <div className="desc">Ajoute un profil enfant dans Réglages pour suivre ses traitements.</div>
       </div>
     );
   }
 
-  const dueCount = sorted.filter((m) => isDoseDue(m.prochaineDose)).length;
+  const dueCount = sorted.filter((m) => isDoseDue(m, now)).length;
 
   return (
     <div>
       <div className="flex-between">
         <div className="muted" style={{ fontSize: '0.85rem' }}>
           {dueCount > 0
-            ? `⏰ ${dueCount} dose${dueCount > 1 ? 's' : ''} due${dueCount > 1 ? 's' : ''}`
+            ? <><Icon name="alert" size={14} /> {dueCount} dose{dueCount > 1 ? 's' : ''} due{dueCount > 1 ? 's' : ''}</>
             : 'Traitements en cours pour ' + activeChild.nom}
         </div>
         {canEdit && (
-          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}>＋ Ajouter</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}><Icon name="plus" size={16} /> Ajouter</button>
         )}
       </div>
 
       {sorted.length === 0 ? (
         <div className="empty-state">
-          <div className="emoji">💊</div>
+          <div className="emoji"><UiIcon value="💊" size={40} /></div>
           <div className="title">Aucun traitement en cours</div>
           <div className="desc">Ajoute un médicament pour suivre les doses et recevoir une alerte quand la prochaine est due.</div>
         </div>
@@ -275,6 +323,7 @@ export default function MedicamentsTool() {
               key={m.id}
               medoc={m}
               canEdit={canEdit}
+              now={now}
               onEdit={() => { setEditing(m); setFormOpen(true); }}
               onDelete={() => handleDelete(m.id)}
             />

@@ -4,13 +4,20 @@ import { toISODateTime, toISODate, toLocalDT, useToast } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 import { ENTRY_TYPES, STOOL_COLORS, stoolColor } from './entryTypes.js';
 import { Icon } from '../icons.jsx';
-import { loadTimerState, startTeteeTimer, suggestedSide } from '../timer.js';
+import { loadTimerState, startTeteeTimer, suggestedSide, timerMeta } from '../timer.js';
+import { scheduleLaitNotif } from '../tools/StockLait.jsx';
 
 const COUCHE_OPTIONS = [
   { key: 'pipi', label: 'Pipi' },
   { key: 'selles', label: 'Selles' },
   { key: 'mixte', label: 'Les deux' },
   { key: 'seche', label: 'Sèche' },
+];
+
+const RANGEMENTS = [
+  { key: 'frigo', label: 'Frigo' },
+  { key: 'congel', label: 'Congélateur' },
+  { key: 'donne', label: 'Donné tout de suite' },
 ];
 
 const COTES = [
@@ -120,6 +127,11 @@ function applyFields(base, type, f) {
     out.contenu = f.contenu;
     if ((f.contenu === 'selles' || f.contenu === 'mixte') && f.couleur) out.couleur = f.couleur;
     else delete out.couleur;
+  } else if (type === 'tirelait') {
+    out.cote = f.cote;
+    out.quantite = Number(f.quantite) || 0;
+    if (f.duree) out.duree = Number(f.duree); else delete out.duree;
+    out.rangement = f.rangement || 'frigo';
   } else if (type === 'autre') {
     out.note = f.note;
   }
@@ -155,6 +167,7 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
     contenu: prefill?.contenu || 'pipi',
     couleur: '',
     note: '',
+    rangement: prefill?.rangement || 'frigo',
   }), [prefill, defaultMl, open, lastCote]);
 
   const [f, setF] = useState(initial);
@@ -176,7 +189,7 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
   const launchChrono = () => {
     if (!activeChild) { showToast('Crée d’abord le profil de bébé', '⚠️'); return; }
     onClose();
-    startTeteeTimer(f.cote === 'droit' ? 'droit' : 'gauche');
+    startTeteeTimer(f.cote === 'droit' ? 'droit' : 'gauche', timerMeta(activeChild, firebaseUser));
   };
   const dateField = (
     <div className="field">
@@ -200,6 +213,7 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
       showToast('Indique la quantité en ml', '⚠️'); return;
     }
     if (f.type === 'autre' && !f.note.trim()) { showToast('Écris une note', '⚠️'); return; }
+    if (f.type === 'tirelait' && !(Number(f.quantite) > 0)) { showToast('Indique la quantité tirée en ml', '⚠️'); return; }
     const entry = applyFields({
       id: nextId(),
       childId: activeChild.id,
@@ -208,15 +222,23 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
       ...authorFields(firebaseUser, 'created'),
     }, f.type, f);
 
+    // Tire-lait rangé : un pot entre dans le stock (Outils → Stock de lait)
+    const pot = entry.type === 'tirelait' && entry.rangement !== 'donne' ? {
+      id: nextId(), childId: activeChild.id, date: entry.date, quantite: entry.quantite, cote: entry.cote,
+      lieu: entry.rangement === 'congel' ? 'congel' : 'frigo', depuis: entry.date, sessionId: entry.id,
+      ...authorFields(firebaseUser, 'created'),
+    } : null;
     update((draft) => {
       draft.entries.push(entry);
+      if (pot) draft.lait = (draft.lait || []).concat(pot);
       if (entry.type === 'biberon' && entry.vitamineD) {
         const c = draft.children.find((x) => x.id === activeChild.id);
         if (c) c.lastVitDDate = toISODate(new Date(entry.date));
       }
       return draft;
     });
-    showToast('Entrée enregistrée', '✅');
+    if (pot) scheduleLaitNotif(pot, store.settings?.notifs?.lait !== false);
+    showToast(pot ? `Tire-lait enregistré · ${pot.quantite} ml ${pot.lieu === 'congel' ? 'au congélateur' : 'au frigo'}` : 'Entrée enregistrée', '✅');
     onClose();
   };
 
@@ -249,6 +271,30 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
       )}
       {f.type === 'couche' && <StoolPicker f={f} set={set} child={activeChild} />}
 
+      {f.type === 'tirelait' && (
+        <>
+          <div className="field">
+            <label>Côté</label>
+            <Pills options={COTES} value={f.cote} onChange={(v) => set('cote', v)} />
+          </div>
+          <div className="field-row">
+            <div className="field" style={{ flex: 1 }}>
+              <label>Quantité (ml)</label>
+              <input type="number" inputMode="numeric" value={f.quantite} onChange={(e) => set('quantite', e.target.value)} placeholder="150" />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>Durée (min)</label>
+              <input type="number" inputMode="numeric" value={f.duree} onChange={(e) => set('duree', e.target.value)} placeholder="20" />
+            </div>
+          </div>
+          <div className="field">
+            <label>Rangement</label>
+            <Pills options={RANGEMENTS} value={f.rangement} onChange={(v) => set('rangement', v)} />
+          </div>
+        </>
+      )}
+
+
       {f.type === 'autre' && (
         <div className="field">
           <label>Note</label>
@@ -280,6 +326,7 @@ export function EditEntryModal({ entry, onClose }) {
     vitamineD: !!entry.vitamineD,
     contenu: entry.contenu || 'pipi',
     couleur: entry.couleur || '',
+    rangement: entry.rangement || 'frigo',
     note: entry.note || '',
   }));
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
@@ -315,6 +362,27 @@ export function EditEntryModal({ entry, onClose }) {
         </div>
       )}
       {entry.type === 'couche' && <StoolPicker f={f} set={set} child={child} />}
+
+      {entry.type === 'tirelait' && (
+        <>
+          <div className="field">
+            <label>Côté</label>
+            <Pills options={COTES} value={f.cote} onChange={(v) => set('cote', v)} />
+          </div>
+          <div className="field-row">
+            <div className="field" style={{ flex: 1 }}>
+              <label>Quantité (ml)</label>
+              <input type="number" inputMode="numeric" value={f.quantite} onChange={(e) => set('quantite', e.target.value)} placeholder="150" />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>Durée (min)</label>
+              <input type="number" inputMode="numeric" value={f.duree} onChange={(e) => set('duree', e.target.value)} placeholder="20" />
+            </div>
+          </div>
+          
+        </>
+      )}
+
 
       {entry.type === 'autre' && (
         <div className="field">

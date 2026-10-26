@@ -4,6 +4,7 @@ import { useToast, ConfirmInline } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 import { avatarColor, AVATAR_COLOR_KEYS, initials, hashPin } from '../Auth.jsx';
 
+import { Icon, UiIcon } from '../icons.jsx';
 const ROLES = [
   { key: 'admin', label: 'Admin', icon: '👑', desc: 'Accès total : profils, utilisateurs, données, réinitialisation' },
   { key: 'editeur', label: 'Éditeur', icon: '✏️', desc: 'Peut ajouter et modifier les entrées' },
@@ -83,12 +84,12 @@ function UserForm({ open, onClose, editing, isLastUser }) {
               style={{ width: '100%', cursor: 'pointer', border: form.role === r.key ? '1.5px solid var(--primary)' : '1px solid var(--border)' }}
               onClick={() => set('role', r.key)}
               disabled={editing && isLastUser && r.key !== 'admin'}>
-              <div className="entry-icon" style={{ background: 'var(--primary-soft)', color: 'var(--primary-deep)' }}>{r.icon}</div>
+              <div className="entry-icon" style={{ background: 'var(--primary-soft)', color: 'var(--primary-deep)' }}><UiIcon value={r.icon} size={20} /></div>
               <div className="entry-body">
                 <div className="entry-title" style={{ fontSize: '0.88rem' }}>{r.label}</div>
                 <div className="entry-sub">{r.desc}</div>
               </div>
-              {form.role === r.key && <div style={{ color: 'var(--primary)' }}>✓</div>}
+              {form.role === r.key && <div style={{ color: 'var(--primary)' }}><UiIcon value="✓" size={20} /></div>}
             </button>
           ))}
         </div>
@@ -100,7 +101,7 @@ function UserForm({ open, onClose, editing, isLastUser }) {
       </div>
       {error && <div style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: 12 }}>{error}</div>}
       <button className="btn btn-primary btn-block mt-8" onClick={handleSubmit}>
-        {editing ? 'Enregistrer ✓' : 'Ajouter ✓'}
+        {editing ? 'Enregistrer' : 'Ajouter'}
       </button>
     </Modal>
   );
@@ -130,9 +131,9 @@ export default function FamilleTool() {
       </div>
 
       <div className="flex-between mt-16">
-        <div className="section-title" style={{ marginBottom: 0 }}>👨‍👩‍👧 Membres</div>
+        <div className="section-title" style={{ marginBottom: 0 }}>Membres</div>
         {isAdmin && (
-          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}>＋ Ajouter</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}><Icon name="plus" size={16} /> Ajouter</button>
         )}
       </div>
 
@@ -152,7 +153,7 @@ export default function FamilleTool() {
                   {u.nom}
                   {u.id === session?.userId && <span className="muted" style={{ fontWeight: 400 }}> · toi</span>}
                 </div>
-                <div className="entry-sub">{roleDef.icon} {roleDef.label}</div>
+                <div className="entry-sub"><UiIcon value={roleDef.icon} size={13} className="inline-ic" /> {roleDef.label}</div>
               </div>
               {isAdmin && !isLastUser && (
                 <div onClick={(e) => e.stopPropagation()}>

@@ -20,7 +20,7 @@ const PKG = join(ROOT, 'node_modules/@capacitor/local-notifications');
 const DIR = join(PKG, 'android/src/main/java/com/capacitorjs/plugins/localnotifications');
 const MANAGER = join(DIR, 'LocalNotificationManager.java');
 const PLUGIN_MANIFEST = join(PKG, 'android/src/main/AndroidManifest.xml');
-const MARK = '// OMNIBABY_CHRONO_V2';
+const MARK = '// OMNIBABY_CHRONO_V3';
 const RECEIVER = '<receiver android:name="com.capacitorjs.plugins.localnotifications.OmniBabyChronoReceiver" android:exported="false" />';
 const ANCHOR = 'createActionIntents(localNotification, mBuilder);';
 
@@ -40,10 +40,10 @@ if (src.includes(MARK)) {
   if (count !== 1) warn(`ancre trouvée ${count} fois dans LocalNotificationManager.java (plugin ${version})`);
   const manifest = readFileSync(PLUGIN_MANIFEST, 'utf8');
   if (!manifest.includes('</application>')) warn('manifeste du plugin inattendu');
-  const snippet = `${MARK} — grand chrono + « Changer de côté » natif (android-plugin/)
+  const snippet = `${MARK} — chronos tétée/sommeil + boutons natifs (android-plugin/)
         try {
             JSObject obExtra = localNotification.getExtra();
-            if (obExtra != null && obExtra.has("obState")
+            if (obExtra != null && (obExtra.has("obState") || obExtra.has("obSleep"))
                 && OmniBabyChrono.apply(context, mBuilder, obExtra)) {
                 String obFinishOnly = obExtra.optString("nativeActionTypeId", "");
                 if (!obFinishOnly.isEmpty()) localNotification.setActionTypeId(obFinishOnly);

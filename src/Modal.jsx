@@ -1,3 +1,4 @@
+import { Icon, UiIcon } from './icons.jsx';
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -75,8 +76,8 @@ export function Modal({ open, onClose, title, icon, children, full = false, dirt
       <div className="modal-backdrop" onClick={handleClose} />
       <div className={`modal-panel ${full ? 'full' : ''}`}>
         <div className="modal-header">
-          <h2>{icon && <span>{icon}</span>} {title}</h2>
-          <button className="modal-close" onClick={handleClose} aria-label="Fermer">✕</button>
+          <h2>{icon && <span className="modal-title-icon"><UiIcon value={icon} size={20} /></span>} {title}</h2>
+          <button className="modal-close" onClick={handleClose} aria-label="Fermer"><Icon name="x" size={20} /></button>
         </div>
         <div className="modal-body">
           {children}
@@ -90,7 +91,7 @@ export function Modal({ open, onClose, title, icon, children, full = false, dirt
                 background: 'var(--surface)', borderRadius: 'var(--radius-lg)',
                 padding: '20px 24px', textAlign: 'center', maxWidth: 260,
               }}>
-                <div style={{ fontSize: '1.4rem', marginBottom: 8 }}>⚠️</div>
+                <div style={{ fontSize: '1.4rem', marginBottom: 8 }}><UiIcon value="⚠️" size={20} /></div>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, marginBottom: 6 }}>
                   Abandonner les modifications ?
                 </div>

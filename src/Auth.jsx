@@ -13,7 +13,7 @@ import {
   useStore, genId, generateFamilyCode, familyCodeRef, sharedSettings, SYNC_TABLES,
 } from './store.jsx';
 import { useToast, toISODate } from './utils.jsx';
-import { Icon } from './icons.jsx';
+import { Icon, UiIcon } from './icons.jsx';
 
 const AVATAR_COLORS = {
   purple: '#9B7EBD', orange: '#E0A458', green: '#7C9885',
@@ -128,7 +128,7 @@ function PinPad({ onDigit, onDelete, onBiometric, showBiometric }) {
       </div>
       {showBiometric && (
         <button className="biometric-btn" onClick={onBiometric}>
-          <span className="icon">🔐</span> Empreinte digitale
+          <span className="icon"><UiIcon value="🔐" size={20} /></span> Empreinte digitale
         </button>
       )}
     </>
@@ -180,7 +180,7 @@ function OnboardingScreen({ onDone }) {
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-        <div style={{ fontSize: '4rem', lineHeight: 1 }}>{current.emoji}</div>
+        <div className="onb-icon"><UiIcon value={current.emoji} size={52} /></div>
         <h1 className="setup-title" style={{ fontSize: '1.5rem' }}>{current.title}</h1>
         <p className="setup-desc" style={{ maxWidth: 290 }}>{current.desc}</p>
       </div>
@@ -646,7 +646,7 @@ function LockScreen({ onUnlocked }) {
 
   return (
     <div className="lock-screen">
-      <div className="lock-logo">🍼</div>
+      <div className="lock-logo"><UiIcon value="🍼" size={20} /></div>
       <div className="lock-title">OmniBaby</div>
       <div className="lock-sub">Qui es-tu ?</div>
       <div className="profile-row">
@@ -671,14 +671,14 @@ function LockScreen({ onUnlocked }) {
         marginTop: 16, background: 'none', border: 'none',
         color: 'rgba(255,255,255,.7)', fontSize: '.82rem', cursor: 'pointer', minHeight: 44,
       }}>
-        🧑‍🍼 Fiche de garde (sans PIN)
+        <Icon name="baby" size={16} /> Fiche de garde (sans PIN)
       </button>
       {babySitterOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,.55)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
           <div style={{ background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '16px 16px 32px', maxHeight: '80vh', overflowY: 'auto', textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1rem', color: 'var(--text)' }}>Fiche de garde</div>
-              <button onClick={() => setBabySitterOpen(false)} aria-label="Fermer" style={{ background: 'var(--surface-2)', border: 'none', borderRadius: 'var(--radius-pill)', width: 40, height: 40, cursor: 'pointer', color: 'var(--text)' }}>✕</button>
+              <button onClick={() => setBabySitterOpen(false)} aria-label="Fermer" style={{ background: 'var(--surface-2)', border: 'none', borderRadius: 'var(--radius-pill)', width: 40, height: 40, cursor: 'pointer', color: 'var(--text)' }}><UiIcon value="✕" size={20} /></button>
             </div>
             <BabySitterContent store={store} />
           </div>

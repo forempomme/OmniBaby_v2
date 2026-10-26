@@ -7,6 +7,7 @@ import { formatTimeFR, toTime } from '../utils.jsx';
 // ----------------------------------------------------------------------
 export const ENTRY_TYPES = {
   biberon: { label: 'Biberon / Tétée', short: 'Repas', icon: '🍼', svg: 'bottle', color: 'var(--primary-soft)', iconColor: 'var(--primary)' },
+  tirelait: { label: 'Tire-lait', short: 'Tire-lait', icon: 'pump', svg: 'pump', color: 'var(--accent-sky-soft)', iconColor: 'var(--accent-sky)' },
   couche: { label: 'Couche', short: 'Change', icon: '🧷', svg: 'droplet', color: 'var(--accent-sage-soft)', iconColor: 'var(--accent-sage)' },
   sommeil: { label: 'Sommeil', short: 'Sommeil', icon: '🌙', svg: 'moon', color: 'var(--accent-sky-soft)', iconColor: 'var(--accent-sky)' },
   autre: { label: 'Autre', short: 'Note', icon: '📝', svg: 'note', color: 'var(--accent-sun-soft)', iconColor: 'var(--accent-sun)' },
@@ -62,6 +63,8 @@ export function entryTitle(e) {
       return `Biberon${e.quantite ? ` · ${e.quantite} ml` : ''}`;
     case 'couche':
       return `Change${e.contenu ? ' · ' + (COUCHE_LABELS[e.contenu] || e.contenu) : ''}`;
+    case 'tirelait':
+      return `Tire-lait${e.quantite ? ` · ${e.quantite} ml` : ''}`;
     case 'sommeil': {
       const kind = e.sousType === 'nuit' ? 'Nuit' : 'Sieste';
       if (e.enCours) return `${kind} · en cours`;
@@ -79,7 +82,13 @@ export function entryDetail(e) {
     case 'biberon':
       if (e.mode === 'sein' && e.duree) parts.push(formatMinutes(e.duree));
       if (e.mode !== 'sein' && e.duree) parts.push(`en ${formatMinutes(e.duree)}`);
+      if (e.laitMaternel) parts.push('lait maternel');
       if (e.vitamineD) parts.push('vitamine D');
+      break;
+    case 'tirelait':
+      if (e.cote) parts.push(COTE_LABELS[e.cote] || e.cote);
+      if (e.duree) parts.push(formatMinutes(e.duree));
+      if (e.rangement) parts.push({ frigo: 'au frigo', congel: 'au congélateur', donne: 'donné tout de suite' }[e.rangement] || e.rangement);
       break;
     case 'sommeil':
       if (e.enCours) parts.push(`Depuis ${formatTimeFR(entryStart(e))}`);

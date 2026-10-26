@@ -1,7 +1,8 @@
 import React from 'react';
 import { useStore, getActiveChild, formatAge } from '../store.jsx';
-import { useToast } from '../utils.jsx';
+import { useToast, toISODate } from '../utils.jsx';
 
+import { Icon, UiIcon } from '../icons.jsx';
 // ----------------------------------------------------------------------
 // Call button
 // ----------------------------------------------------------------------
@@ -9,7 +10,7 @@ function CallButton({ tel }) {
   if (!tel) return null;
   return (
     <a className="btn btn-primary btn-sm" href={`tel:${tel.replace(/\s+/g, '')}`}>
-      📞 Appeler
+      <Icon name="phone" size={16} /> Appeler
     </a>
   );
 }
@@ -42,7 +43,7 @@ export default function UrgenceTool() {
   if (!activeChild) {
     return (
       <div className="empty-state">
-        <div className="emoji">👶</div>
+        <div className="emoji"><UiIcon value="👶" size={40} /></div>
         <div className="title">Aucun profil enfant</div>
         <div className="desc">Ajoute un profil enfant dans Réglages pour créer sa fiche d'urgence.</div>
       </div>
@@ -126,7 +127,7 @@ export default function UrgenceTool() {
 
       // Partage
       const safe = String(activeChild.nom || 'bebe').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-');
-      await sharePdf(doc, `fiche-garde-${safe}-${new Date().toISOString().slice(0,10)}.pdf`);
+      await sharePdf(doc, `fiche-garde-${safe}-${toISODate()}.pdf`);
       showToast('Fiche partagée', '📄');
     } catch(e) { showToast('Erreur : '+e.message, '⚠️'); }
   };
@@ -136,7 +137,7 @@ export default function UrgenceTool() {
       {/* Bouton partage en haut */}
       <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
         <button className="btn btn-secondary btn-sm" onClick={handleSharePDF}>
-          📄 Partager la fiche
+          <Icon name="share" size={16} /> Partager la fiche
         </button>
       </div>
       <div className="card appear" style={{ textAlign: 'center', background: 'var(--primary)', color: 'var(--on-primary)', border: 'none' }}>
@@ -149,13 +150,13 @@ export default function UrgenceTool() {
 
       {hasAllergies && (
         <div className="card appear" style={{ background: 'var(--danger-soft)', border: 'none' }}>
-          <div style={{ fontWeight: 700, color: 'var(--danger)', fontSize: '0.9rem' }}>⚠️ Allergies</div>
+          <div style={{ fontWeight: 700, color: 'var(--danger)', fontSize: '0.9rem' }}><UiIcon value="⚠️" size={16} className="inline-ic" /> Allergies</div>
           <div style={{ marginTop: 4, fontWeight: 600 }}>{activeChild.allergies}</div>
         </div>
       )}
 
       <div className="card appear">
-        <div className="section-title" style={{ marginBottom: 4 }}>🩺 Informations médicales</div>
+        <div className="section-title" style={{ marginBottom: 4 }}>Informations médicales</div>
         <InfoRow icon="🩸" label="Groupe sanguin" value={activeChild.groupeSanguin} />
         <InfoRow icon="⚠️" label="Allergies" value={activeChild.allergies || 'Aucune connue'} />
         <InfoRow icon="👨‍⚕️" label="Médecin / pédiatre" value={activeChild.medecinNom} tel={activeChild.medecinTel} />
@@ -165,7 +166,7 @@ export default function UrgenceTool() {
       </div>
 
       <div className="card appear">
-        <div className="section-title" style={{ marginBottom: 4 }}>📞 Contact d'urgence</div>
+        <div className="section-title" style={{ marginBottom: 4 }}>Contact d'urgence</div>
         <InfoRow icon="👤" label="Nom" value={activeChild.contactUrgenceNom} tel={activeChild.contactUrgenceTel} />
         {activeChild.contactUrgenceTel && (
           <div className="muted" style={{ fontSize: '0.78rem', paddingTop: 6 }}>{activeChild.contactUrgenceTel}</div>
@@ -173,7 +174,7 @@ export default function UrgenceTool() {
       </div>
 
       <div className="card appear">
-        <div className="section-title" style={{ marginBottom: 6 }}>📝 Notes médicales</div>
+        <div className="section-title" style={{ marginBottom: 6 }}>Notes médicales</div>
         {activeChild.notesMedicales ? (
           <div style={{ fontSize: '0.88rem', whiteSpace: 'pre-wrap' }}>{activeChild.notesMedicales}</div>
         ) : (
@@ -182,9 +183,9 @@ export default function UrgenceTool() {
       </div>
 
       <div className="card appear" style={{ background: 'var(--danger-soft)', border: 'none', textAlign: 'center' }}>
-        <div style={{ fontWeight: 700, color: 'var(--danger)' }}>🚨 Urgence vitale</div>
+        <div style={{ fontWeight: 700, color: 'var(--danger)' }}><UiIcon value="🚨" size={16} className="inline-ic" /> Urgence vitale</div>
         <div className="muted" style={{ fontSize: '0.8rem', margin: '6px 0 10px' }}>En cas d'urgence vitale, contacte les secours :</div>
-        <a className="btn btn-danger btn-block" href="tel:15">📞 SAMU — 15</a>
+        <a className="btn btn-danger btn-block" href="tel:15"><UiIcon value="📞" size={16} className="inline-ic" /> SAMU — 15</a>
       </div>
 
       <div className="muted text-center" style={{ fontSize: '0.78rem', marginBottom: 16 }}>

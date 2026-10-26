@@ -5,6 +5,7 @@ import { formatDateFR, formatDateTimeFR, toTime } from '../utils.jsx';
 import { ENTRY_TYPES } from '../Journal.jsx';
 import { ALIMENT_STATUTS, ALIMENT_CATEGORIES } from '../data/diversification.js';
 
+import { UiIcon } from '../icons.jsx';
 // ----------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------
@@ -58,7 +59,7 @@ function ResultItem({ source, title, subtitle, time, query }) {
   return (
     <div className="swipe-content" style={{ cursor: 'default' }}>
       <div className="entry-icon" style={{ background: COLORS[source] || 'var(--primary-soft)', color: ICON_COLORS[source] || 'var(--primary-deep)' }}>
-        {def.icon}
+        <UiIcon value={def.icon} size={20} />
       </div>
       <div className="entry-body">
         <div className="entry-title">{highlight(title, query)}</div>
@@ -234,20 +235,20 @@ export default function RechercheTool() {
       <div className="chip-row">
         {Object.entries(SOURCE_DEFS).map(([key, def]) => (
           <button key={key} className={`chip ${activeSources.includes(key) ? 'active' : ''}`} onClick={() => toggleSource(key)}>
-            {def.icon} {def.label}
+            <UiIcon value={def.icon} size={14} className="inline-ic" /> {def.label}
           </button>
         ))}
       </div>
 
       {!query.trim() ? (
         <div className="empty-state">
-          <div className="emoji">🔍</div>
+          <div className="emoji"><UiIcon value="🔍" size={40} /></div>
           <div className="title">Recherche globale</div>
           <div className="desc">Tape un mot-clé pour chercher dans le journal, les aliments, vaccins, médicaments, rappels et le journal de bord{activeChild ? ` de ${activeChild.nom}` : ''}.</div>
         </div>
       ) : results.length === 0 ? (
         <div className="empty-state">
-          <div className="emoji">🤷</div>
+          <div className="emoji"><UiIcon value="🤷" size={40} /></div>
           <div className="title">Aucun résultat</div>
           <div className="desc">Aucune correspondance pour "{query}". Essaie un autre mot-clé ou active d'autres catégories.</div>
         </div>

@@ -3,6 +3,7 @@ import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
 import { toISODate, formatDateFR, groupByDay, dayLabel, useToast, ConfirmInline, toTime } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 
+import { Icon, UiIcon } from '../icons.jsx';
 const TAGS = [
   { key: 'etape', label: 'Étape', icon: '⭐', color: 'var(--accent-sun)', bg: 'var(--accent-sun-soft)' },
   { key: 'souvenir', label: 'Souvenir', icon: '📸', color: 'var(--accent-sky)', bg: 'var(--accent-sky-soft)' },
@@ -67,7 +68,7 @@ function EntryForm({ open, onClose, child, editing }) {
         <div className="pill-group">
           {TAGS.map((t) => (
             <button key={t.key} className={`pill-choice ${form.tag === t.key ? 'selected' : ''}`} onClick={() => set('tag', t.key)}>
-              {t.icon} {t.label}
+              <UiIcon value={t.icon} size={14} className="inline-ic" /> {t.label}
             </button>
           ))}
         </div>
@@ -81,7 +82,7 @@ function EntryForm({ open, onClose, child, editing }) {
         <textarea rows={4} value={form.note} onChange={(e) => set('note', e.target.value)} placeholder="Décris ce moment précieux..." />
       </div>
       <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>
-        {editing ? 'Enregistrer ✓' : 'Ajouter ✨'}
+        {editing ? 'Enregistrer' : 'Ajouter'}
       </button>
     </Modal>
   );
@@ -93,7 +94,7 @@ function JournalCard({ entry, onEdit, onDelete, canEdit }) {
     <div className="card appear" style={{ cursor: canEdit ? 'pointer' : 'default' }} onClick={() => canEdit && onEdit()}>
       <div className="flex-between">
         <div className="flex-row" style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>{tagDef.icon}</span>
+          <span style={{ flexShrink: 0, color: tagDef.color }}><UiIcon value={tagDef.icon} size={22} /></span>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {entry.titre || '(sans titre)'}
           </span>
@@ -111,7 +112,7 @@ function JournalCard({ entry, onEdit, onDelete, canEdit }) {
       )}
       <div className="flex-between mt-8">
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: tagDef.bg, color: tagDef.color, padding: '3px 10px', borderRadius: 'var(--radius-pill)', fontSize: '0.72rem', fontWeight: 700 }}>
-          {tagDef.icon} {tagDef.label}
+          <UiIcon value={tagDef.icon} size={13} className="inline-ic" /> {tagDef.label}
         </span>
         <span className="muted" style={{ fontSize: '0.75rem' }}>{formatDateFR(entry.date)}</span>
       </div>
@@ -160,7 +161,7 @@ export default function JournalBordTool() {
   if (!activeChild) {
     return (
       <div className="empty-state">
-        <div className="emoji">👶</div>
+        <div className="emoji"><UiIcon value="👶" size={40} /></div>
         <div className="title">Aucun profil enfant</div>
         <div className="desc">Ajoute un profil enfant dans Réglages pour tenir son journal de bord.</div>
       </div>
@@ -176,7 +177,7 @@ export default function JournalBordTool() {
             : `Journal de bord de ${activeChild.nom}`}
         </div>
         {canEdit && (
-          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}>＋ Ajouter</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}><Icon name="plus" size={16} /> Ajouter</button>
         )}
       </div>
 
@@ -188,14 +189,14 @@ export default function JournalBordTool() {
         <button className={`chip ${filterTag === 'tous' ? 'active' : ''}`} onClick={() => setFilterTag('tous')}>Tous</button>
         {TAGS.map((t) => (
           <button key={t.key} className={`chip ${filterTag === t.key ? 'active' : ''}`} onClick={() => setFilterTag(t.key)}>
-            {t.icon} {t.label}
+            <UiIcon value={t.icon} size={14} className="inline-ic" /> {t.label}
           </button>
         ))}
       </div>
 
       {filtered.length === 0 ? (
         <div className="empty-state">
-          <div className="emoji">📸</div>
+          <div className="emoji"><UiIcon value="📸" size={40} /></div>
           <div className="title">{childJournal.length === 0 ? 'Aucun souvenir' : 'Aucun résultat'}</div>
           <div className="desc">
             {childJournal.length === 0

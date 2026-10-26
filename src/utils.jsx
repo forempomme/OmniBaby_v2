@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useCallback } from 'react';
-import { Icon } from './icons.jsx';
+import { Icon, UiIcon } from './icons.jsx';
 
 // ----------------------------------------------------------------------
 // Dates
@@ -10,6 +10,15 @@ export function pad2(n) {
 
 export function toISODate(d = new Date()) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+// « YYYY-MM-DD » → minuit HEURE LOCALE (new Date('YYYY-MM-DD') donne
+// minuit UTC, soit 1 h ou 2 h du matin en France : âge faux d'un jour
+// la nuit, rappels programmés en pleine nuit). Autres formats : Date().
+export function parseLocalDate(value) {
+  if (value instanceof Date) return new Date(value.getTime());
+  const m = typeof value === 'string' && value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(value);
 }
 
 // Format « datetime-local » (heure locale, sans fuseau)
@@ -139,7 +148,7 @@ export function ToastProvider({ children }) {
       {children}
       {toast && (
         <div className={`toast ${toast.action ? 'toast-action' : ''}`} role="status" key={toast.key}>
-          {!toast.action && <span>{toast.icon}</span>}
+          {!toast.action && <span className="toast-icon"><UiIcon value={toast.icon} size={18} /></span>}
           <span className="toast-msg">{toast.message}</span>
           {toast.action && <button className="toast-btn" onClick={runAction}>{toast.action.label}</button>}
           {toast.action && <span className="toast-progress" style={{ animationDuration: `${toast.duration}ms` }} />}
@@ -164,7 +173,7 @@ export function ConfirmInline({ onConfirm, icon = '🗑️' }) {
   if (!confirming) {
     return (
       <button className="btn btn-ghost btn-sm" aria-label="Supprimer" onClick={(e) => { e.stopPropagation(); setConfirming(true); }}>
-        ✕
+        <Icon name="x" size={18} />
       </button>
     );
   }
@@ -178,7 +187,7 @@ export function ConfirmInline({ onConfirm, icon = '🗑️' }) {
         className="btn btn-danger btn-sm"
         onClick={(e) => { e.stopPropagation(); onConfirm(); setConfirming(false); }}
       >
-        {icon} Confirmer
+        <UiIcon value={icon} size={15} /> Confirmer
       </button>
     </span>
   );
@@ -362,16 +371,6 @@ function notifNumericId(id) {
   let h = 0x811c9dc5;
   for (const ch of String(id)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
   return (h % 2147483646) + 1;
-}
-
-// Prochaine occurrence d'une heure « HH:MM » (aujourd'hui, sinon demain)
-export function nextOccurrence(hhmm, now = new Date()) {
-  const [h, m] = String(hhmm || '').split(':').map(Number);
-  if (isNaN(h) || isNaN(m)) return null;
-  const d = new Date(now);
-  d.setHours(h, m, 0, 0);
-  if (d <= now) d.setDate(d.getDate() + 1);
-  return d;
 }
 
 export async function requestNotifPermission() {

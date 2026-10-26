@@ -26,8 +26,11 @@ import com.getcapacitor.JSObject;
 public class OmniBabyChrono {
 
     static final int NOTIF_ID = 424242;
+    static final int SLEEP_NOTIF_ID = 424243;
     static final String STATE_KEY = "omnibaby_state";
+    static final String SLEEP_KEY = "omnibaby_sleep";
     static final String ACTION_SWITCH = "com.omnibaby.TETEE_SWITCH";
+    static final String ACTION_WAKE = "com.omnibaby.SOMMEIL_WAKE";
 
     private static int id(Context c, String name, String type) {
         return c.getResources().getIdentifier(name, type, c.getPackageName());
@@ -58,12 +61,54 @@ public class OmniBabyChrono {
         return views;
     }
 
-    static PendingIntent switchIntent(Context context) {
+    static PendingIntent receiverIntent(Context context, String action, int requestCode) {
         Intent intent = new Intent(context, OmniBabyChronoReceiver.class);
-        intent.setAction(ACTION_SWITCH);
+        intent.setAction(action);
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) flags |= PendingIntent.FLAG_IMMUTABLE;
-        return PendingIntent.getBroadcast(context, NOTIF_ID + 1, intent, flags);
+        return PendingIntent.getBroadcast(context, requestCode, intent, flags);
+    }
+
+    static PendingIntent switchIntent(Context context) {
+        return receiverIntent(context, ACTION_SWITCH, NOTIF_ID + 1);
+    }
+
+    /**
+     * Vues du sommeil : chrono qui avance (en cours) ou figé (réveil noté).
+     * @param wakeAt 0 si le sommeil est en cours
+     */
+    static RemoteViews[] sleepViews(Context context, ObSleep s, long now, long wakeAt) {
+        int small = id(context, "omnibaby_sleep", "layout");
+        int big = id(context, "omnibaby_sleep_big", "layout");
+        if (small == 0 || big == 0) return null;
+        long end = wakeAt > 0 ? wakeAt : now;
+        long base = SystemClock.elapsedRealtime() - (end - s.startedAt);
+        RemoteViews[] views = {
+            new RemoteViews(context.getPackageName(), small),
+            new RemoteViews(context.getPackageName(), big),
+        };
+        for (RemoteViews rv : views) {
+            rv.setChronometer(id(context, "ob_total", "id"), base, null, wakeAt == 0);
+            rv.setTextViewText(id(context, "ob_detail", "id"), wakeAt > 0 ? s.wokeText(wakeAt) : s.sleepingText());
+            int status = id(context, "ob_status", "id");
+            if (status != 0) rv.setTextViewText(status, wakeAt > 0 ? s.wokeTitle(wakeAt) : s.statusText());
+        }
+        return views;
+    }
+
+    /** Sommeil en cours : chrono + « Réveil » natif. @return true si appliqué */
+    static boolean applySleep(Context context, NotificationCompat.Builder builder, String json) throws Exception {
+        ObSleep s = ObSleep.parse(json);
+        RemoteViews[] v = sleepViews(context, s, System.currentTimeMillis(), 0);
+        if (v == null) return false;
+        builder.setCustomContentView(v[0]);
+        builder.setCustomBigContentView(v[1]);
+        builder.setStyle(new NotificationCompat.DecoratedCustomViewStyle());
+        builder.setShowWhen(false);
+        builder.getExtras().putString(SLEEP_KEY, s.toJson());
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false;
+        builder.addAction(R.drawable.ic_transparent, "Réveil", receiverIntent(context, ACTION_WAKE, SLEEP_NOTIF_ID + 1));
+        return true;
     }
 
     /**
@@ -72,6 +117,8 @@ public class OmniBabyChrono {
      * le plugin ne doit alors ajouter que « Terminer ».
      */
     public static boolean apply(Context context, NotificationCompat.Builder builder, JSObject ex) throws Exception {
+        String sleep = ex.optString("obSleep", "");
+        if (!sleep.isEmpty()) return applySleep(context, builder, sleep);
         String json = ex.optString("obState", "");
         if (json.isEmpty()) return false;
         ObTimer t = ObTimer.parse(json);

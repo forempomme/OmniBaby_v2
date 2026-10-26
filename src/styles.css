@@ -1954,3 +1954,79 @@ button, .quick-btn, .tool-card, .chip, .pill-choice, .tab-btn {
   user-select: none;
   -webkit-touch-callout: none;
 }
+
+/* ── v3.14 : icônes de l'appli à la place des emoji ───────────────── */
+.inline-ic { display: inline-block; vertical-align: -0.18em; margin-right: 2px; }
+.modal-title-icon { display: inline-flex; width: 32px; height: 32px; border-radius: 10px; align-items: center; justify-content: center; background: var(--primary-soft); color: var(--primary); vertical-align: middle; }
+.modal-title-icon .modal-tool-icon { background: none; }
+.toast-icon { display: inline-flex; color: var(--accent-sage); }
+.toast-icon .ui-warn { color: var(--accent-sun); }
+.toast-icon .ui-danger { color: var(--danger); }
+.empty-state .emoji { display: flex; justify-content: center; color: var(--text-soft); opacity: 0.8; }
+.empty-state .emoji svg { stroke-width: 1.6; }
+.onb-icon { display: flex; justify-content: center; color: var(--primary); }
+.lock-logo svg { width: 36px; height: 36px; }
+.lock-logo { color: var(--primary); }
+
+/* ── v3.14 : Minuteur (anneau) ───────────────────────────────────── */
+.mm { padding-top: 4px; }
+.mm-by { display: flex; gap: 6px; align-items: center; justify-content: center; font-size: .82rem; color: var(--text-soft); margin-bottom: 4px; }
+.mm-ring { width: 230px; height: 230px; display: block; margin: 0 auto; }
+.mm-ring circle { fill: none; stroke-width: 14; stroke-linecap: round; }
+.mm-ring .mm-ring-bg { stroke: var(--border); stroke-linecap: butt; }
+.mm-ring .mm-ring-g { stroke: var(--primary); }
+.mm-ring .mm-ring-d { stroke: var(--accent-sky); }
+.mm-ring-time { fill: var(--text); font: 700 40px var(--font-mono); }
+.mm-ring-sub { fill: var(--text-soft); font-size: 13px; }
+.mm-legend { display: flex; justify-content: center; gap: 18px; font-size: .78rem; color: var(--text-soft); font-family: var(--font-mono); }
+.mm-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.mm-legend i.g { background: var(--primary); } .mm-legend i.d { background: var(--accent-sky); }
+.mm-sides { display: flex; gap: 10px; margin-top: 14px; }
+.mm-side { flex: 1; display: flex; gap: 10px; align-items: center; text-align: left; border: 1.5px solid var(--border); border-radius: 18px; padding: 12px 10px; background: var(--surface); color: var(--text); min-height: 72px; }
+.mm-side.on { border: 2px solid var(--primary); background: var(--primary-soft); }
+.mm-side.droit.on { border-color: var(--accent-sky); background: var(--accent-sky-soft); }
+.mm-side.suggested { border-style: dashed; border-color: var(--primary); }
+.mm-letter { width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; background: var(--primary-soft); color: var(--primary); }
+.mm-side.droit .mm-letter { background: var(--accent-sky-soft); color: var(--accent-sky); }
+.mm-side-body { display: flex; flex-direction: column; min-width: 0; }
+.mm-side-body b { font-size: .95rem; }
+.mm-side-time { font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700; }
+.mm-side.on .mm-side-time { color: var(--primary); }
+.mm-side.droit.on .mm-side-time { color: var(--accent-sky); }
+.mm-side-tag { font-size: .7rem; color: var(--text-soft); }
+.mm-actions { display: flex; gap: 8px; margin-top: 14px; }
+.mm-actions .btn { flex: 1; display: inline-flex; justify-content: center; gap: 6px; }
+.mm-cancel { display: block; margin: 10px auto 0; background: none; border: none; color: var(--text-soft); font-size: .8rem; text-decoration: underline; }
+.mm-confirm { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 10px; font-size: .85rem; }
+.mm-hint { text-align: center; font-size: .78rem; color: var(--text-soft); margin-top: 12px; }
+.mm-saved { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 14px; padding: 10px 12px; border-radius: 14px; background: var(--accent-sage-soft); font-size: .85rem; }
+.mm-saved span { display: inline-flex; gap: 6px; align-items: center; color: var(--accent-sage); font-weight: 600; }
+
+/* ── v3.14 : tétée lancée par l'autre parent ─────────────────────── */
+.live-banner { display: flex; gap: 10px; align-items: center; padding: 10px 12px; margin-bottom: 12px; border-radius: 16px; border: 1.5px solid var(--primary); background: var(--primary-soft); }
+.live-banner-icon { width: 36px; height: 36px; flex-shrink: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--surface); color: var(--primary); }
+.live-banner-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.live-banner-body b { font-size: .9rem; }
+.live-banner-body span { font-size: .78rem; color: var(--text-soft); }
+.mono { font-family: var(--font-mono); }
+
+/* ── v3.14 : stock de lait ───────────────────────────────────────── */
+.lait-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.lait-kpis > div { background: var(--surface-2); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.lait-kpis b { font-size: 1.3rem; }
+.lait-kpis span { font-size: .74rem; color: var(--text-soft); display: inline-flex; gap: 4px; align-items: center; }
+.ti { display: inline-flex; width: 34px; height: 34px; flex-shrink: 0; border-radius: 11px; align-items: center; justify-content: center; }
+.ti.tone-sky { background: var(--accent-sky-soft); color: var(--accent-sky); }
+.ti.tone-sun { background: var(--accent-sun-soft); color: var(--accent-sun); }
+.ti.tone-danger { background: var(--danger-soft); color: var(--danger); }
+.pot { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); margin-bottom: 8px; overflow: hidden; }
+.pot.soon { border: 1.5px solid var(--accent-sun); }
+.pot.expired { border: 1.5px solid var(--danger); opacity: .85; }
+.pot-main { width: 100%; display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: none; border: none; color: var(--text); text-align: left; }
+.pot-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pot-body b { font-size: .92rem; }
+.pot-body > span { font-size: .76rem; color: var(--text-soft); }
+.pot-exp.soon { color: var(--accent-sun); font-weight: 700; }
+.pot-exp.expired { color: var(--danger); font-weight: 700; }
+.pot-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 12px; }
+.note-muted { font-size: .74rem; color: var(--text-soft); line-height: 1.45; }

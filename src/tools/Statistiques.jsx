@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild, ageInMonths, HISTORY_WINDOW_DAYS } from '../store.jsx';
 import { useFullHistory, HistoryNotice } from '../HistoryNotice.jsx';
 import { toISODate, useToast, toTime, formatDateFR } from '../utils.jsx';
-import { Icon } from '../icons.jsx';
+import { Icon, UiIcon } from '../icons.jsx';
 import { estimatePercentile, WEIGHT_LMS, HEIGHT_LMS, HEAD_LMS } from '../data/who-growth.js';
 
 const PERIODS = [
@@ -293,7 +293,7 @@ function exportCSV(entries, childName) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `omnibaby-${childName}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `omnibaby-${childName}-${toISODate()}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -343,7 +343,7 @@ export default function StatistiquesTool() {
   if (!activeChild) {
     return (
       <div className="empty-state">
-        <div className="emoji">👶</div>
+        <div className="emoji"><UiIcon value="👶" size={40} /></div>
         <div className="title">Aucun profil enfant</div>
         <div className="desc">Ajoute un profil enfant dans Réglages pour voir ses statistiques.</div>
       </div>
@@ -386,7 +386,7 @@ export default function StatistiquesTool() {
 
           {!hasJournalData ? (
             <div className="empty-state">
-              <div className="emoji">📊</div>
+              <div className="emoji"><UiIcon value="📊" size={40} /></div>
               <div className="title">Pas encore de données</div>
               <div className="desc">Ajoute des entrées dans le Journal pour voir les statistiques.</div>
             </div>
@@ -406,7 +406,7 @@ export default function StatistiquesTool() {
         <>
           {!hasMesures ? (
             <div className="empty-state">
-              <div className="emoji">📏</div>
+              <div className="emoji"><UiIcon value="📏" size={40} /></div>
               <div className="title">Aucune mesure</div>
               <div className="desc">Ajoute des mesures dans l'onglet Santé pour voir les courbes de croissance.</div>
             </div>

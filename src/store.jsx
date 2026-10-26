@@ -8,6 +8,7 @@ import {
   serverTimestamp, query, where, getDocs,
 } from './firebase.js';
 import { countReads, readsForSnapshot } from './readCounter.js';
+import { parseLocalDate } from './utils.jsx';
 
 const STORE_KEY = 'omnibaby_store_v3';
 const SESSION_KEY = 'omnibaby_session_v3';
@@ -18,6 +19,7 @@ const SESSION_KEY = 'omnibaby_session_v3';
 export const SYNC_TABLES = [
   'entries', 'mesures', 'vaccins', 'medicaments',  // sommeils fusionné dans entries v3.3.0
   'temperatures', 'aliments', 'journal', 'rappels',
+  'lait', // v3.14 : stock de lait (tire-lait)
 ];
 
 // Tables volumineuses : écoute limitée aux 60 derniers jours (moins de
@@ -94,6 +96,7 @@ export function emptyStore() {
     aliments: [],
     journal: [],
     rappels: [],
+    lait: [],
     etapesDiv: {},
     nextId: 1,
     settings: {
@@ -101,8 +104,10 @@ export function emptyStore() {
       journalCompact: false,
       biometrie: true,
       notifs: {
+        // biberon/couche/sommeil/activite : anciens interrupteurs sans effet
+        // (retirés des Réglages en v3.13.2), conservés pour compatibilité
         biberon: true, couche: true, sommeil: true,
-        vaccin: true, medoc: true, activite: false,
+        vaccin: true, medoc: true, activite: false, rappels: true, partage: true, lait: true,
       },
       lastExportDate: null,
     },
@@ -634,18 +639,20 @@ export function filterByActiveChild(list, activeChildId) {
   return (list || []).filter((i) => i.childId == null || i.childId === activeChildId);
 }
 
-export function ageInMonths(birthdate) {
+export function ageInMonths(birthdate, now = new Date()) {
   if (!birthdate) return null;
-  const b = new Date(birthdate);
-  const now = new Date();
+  const b = parseLocalDate(birthdate);
   let months = (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
   if (now.getDate() < b.getDate()) months -= 1;
   return Math.max(0, months);
 }
 
-export function ageInDays(birthdate) {
+export function ageInDays(birthdate, now = new Date()) {
   if (!birthdate) return null;
-  return Math.max(0, Math.floor((new Date() - new Date(birthdate)) / (1000 * 60 * 60 * 24)));
+  // Jours calendaires (insensible aux changements d'heure)
+  const b = parseLocalDate(birthdate);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.max(0, Math.round((today - new Date(b.getFullYear(), b.getMonth(), b.getDate())) / 86400000));
 }
 
 export function formatAge(birthdate) {

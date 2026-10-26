@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild, ageInMonths } from '../store.jsx';
-import { useToast, fireConfetti, ConfirmInline, Accordion } from '../utils.jsx';
+import { useToast, fireConfetti, ConfirmInline, Accordion, toISODate } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 import { DIVERSIFICATION_STAGES, ALIMENT_CATEGORIES, ALIMENT_STATUTS } from '../data/diversification.js';
 
+import { Icon, UiIcon } from '../icons.jsx';
 // ----------------------------------------------------------------------
 // Aliments pré-remplis (seed au premier lancement pour un enfant)
 // Tous en statut "a_tester" — l'utilisateur met à jour au fil des essais
@@ -77,7 +78,7 @@ function FeedingAdvice({ child, embedded = false }) {
 
   return (
     <div className={embedded ? '' : 'card appear'}>
-      <div className="section-title" style={{ marginBottom: 6, display: embedded ? 'none' : 'flex' }}>🥛 Conseils selon l'âge</div>
+      <div className="section-title" style={{ marginBottom: 6, display: embedded ? 'none' : 'flex' }}>Conseils selon l'âge</div>
       <div className="muted" style={{ fontSize: '0.85rem' }}>{milkAdvice}</div>
     </div>
   );
@@ -104,7 +105,7 @@ function DiversificationSection({ child, etapesDiv, canEdit, embedded = false })
     const checked = !etapesDiv[stepId];
     update((draft) => {
       if (checked) {
-        draft.etapesDiv[stepId] = new Date().toISOString().slice(0, 10); // date ISO
+        draft.etapesDiv[stepId] = toISODate(); // date du jour, heure locale
       } else {
         delete draft.etapesDiv[stepId];
       }
@@ -115,7 +116,7 @@ function DiversificationSection({ child, etapesDiv, canEdit, embedded = false })
 
   return (
     <div className={embedded ? '' : 'card appear'}>
-      <div className="section-title" style={{ marginBottom: 4, display: embedded ? 'none' : 'flex' }}>🥦 Étapes 0-3 ans</div>
+      <div className="section-title" style={{ marginBottom: 4, display: embedded ? 'none' : 'flex' }}>Étapes 0-3 ans</div>
       <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 10 }}>
         PNNS4 · HCSP 2020 · OMS 2023 — inclut hygiène dentaire et protection solaire
       </div>
@@ -249,7 +250,7 @@ function AlimentForm({ open, onClose, child, editing, onDelete }) {
         <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Réaction, texture, contexte..." />
       </div>
       <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>
-        {editing ? 'Enregistrer ✓' : 'Ajouter ✓'}
+        {editing ? 'Enregistrer' : 'Ajouter'}
       </button>
       {editing && onDelete && (
         <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center' }}>
@@ -308,7 +309,7 @@ function AlimentsGrid({ child, aliments, canEdit, embedded = false }) {
   return (
     <div className={embedded ? '' : 'card appear'}>
       <div className="flex-between">
-        <div className="section-title" style={{ marginBottom: 0 }}>🍽️ Aliments testés</div>
+        <div className="section-title" style={{ marginBottom: 0 }}>Aliments testés</div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <button
             onClick={() => setGridCols(c => c === 3 ? 4 : 3)}
@@ -321,7 +322,7 @@ function AlimentsGrid({ child, aliments, canEdit, embedded = false }) {
             {gridCols === 3 ? '⊞ 4' : '⊟ 3'}
           </button>
           {canEdit && (
-            <button className="btn btn-secondary btn-sm" onClick={openAdd}>＋ Ajouter</button>
+            <button className="btn btn-secondary btn-sm" onClick={openAdd}><Icon name="plus" size={16} /> Ajouter</button>
           )}
         </div>
       </div>
@@ -358,7 +359,7 @@ function AlimentsGrid({ child, aliments, canEdit, embedded = false }) {
 
       {filtered.length === 0 ? (
         <div className="empty-state" style={{ padding: '20px 12px' }}>
-          <div className="emoji">🥦</div>
+          <div className="emoji"><UiIcon value="🥦" size={40} /></div>
           <div className="desc">
             {aliments.length === 0
               ? 'Ajoute le premier aliment testé par ' + child.nom + ' !'
@@ -453,10 +454,35 @@ function AlimentsGrid({ child, aliments, canEdit, embedded = false }) {
 }
 
 // ----------------------------------------------------------------------
+// Liste d'aliments pré-remplie : créée une seule fois par enfant.
+// Doublons possibles avant la v3.13.2 (les deux téléphones la créaient
+// s'ils ouvraient Alimentation avant la fin de la synchro) : on retire
+// les copies jamais modifiées, en gardant une par aliment (de préférence
+// celle que vous avez modifiée).
+// ----------------------------------------------------------------------
+export function seededDuplicates(aliments, childId) {
+  const groups = new Map();
+  for (const a of aliments || []) {
+    if (a.childId !== childId || !a.seeded) continue;
+    const k = (a.nom || '').trim().toLowerCase();
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(a);
+  }
+  const untouched = (a) => a.statut === 'a_tester' && !a.notes;
+  const remove = [];
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const keep = list.find((a) => !untouched(a)) || list[0];
+    for (const a of list) if (a !== keep && untouched(a)) remove.push(a.id);
+  }
+  return remove;
+}
+
+// ----------------------------------------------------------------------
 // Main Alimentation module
 // ----------------------------------------------------------------------
 export default function AlimentationTool() {
-  const { store, update, session } = useStore();
+  const { store, update, session, nextId, syncStatus, firebaseUser } = useStore();
   const activeChild = getActiveChild(store);
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role !== 'lecture';
@@ -466,15 +492,23 @@ export default function AlimentationTool() {
     [store.aliments, store.activeChildId]
   );
 
-  // Seed les aliments pré-remplis au premier accès pour cet enfant
+  // Aliments pré-remplis au premier accès pour cet enfant, seulement une
+  // fois la synchro terminée (sinon : liste créée en double par l'autre parent)
+  const syncReady = !store.familyId || !firebaseUser || syncStatus === 'synced';
   React.useEffect(() => {
-    if (!activeChild || !canEdit) return;
+    if (!activeChild || !canEdit || !syncReady) return;
+    const dupes = seededDuplicates(store.aliments, activeChild.id);
+    if (dupes.length) {
+      const drop = new Set(dupes);
+      update((draft) => { draft.aliments = draft.aliments.filter((a) => !drop.has(a.id)); return draft; });
+      return;
+    }
     const hasAliments = store.aliments.some((a) => a.childId === activeChild.id);
     if (hasAliments) return;
     update((draft) => {
       ALIMENTS_SEED.forEach((seed) => {
         draft.aliments.push({
-          id: draft.nextId++,
+          id: nextId(), // identifiant unique (avant : compteur par téléphone)
           childId: activeChild.id,
           nom: seed.nom,
           categorie: seed.categorie,
@@ -486,12 +520,12 @@ export default function AlimentationTool() {
       });
       return draft;
     });
-  }, [activeChild?.id]);
+  }, [activeChild?.id, syncReady]);
 
   if (!activeChild) {
     return (
       <div className="empty-state">
-        <div className="emoji">👶</div>
+        <div className="emoji"><UiIcon value="👶" size={40} /></div>
         <div className="title">Aucun profil enfant</div>
         <div className="desc">Ajoute un profil enfant dans Réglages pour suivre son alimentation.</div>
       </div>

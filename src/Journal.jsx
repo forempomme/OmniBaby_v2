@@ -10,6 +10,7 @@ import { EntryForm, EditEntryModal } from './journal/EntryForm.jsx';
 import TodayOverview from './journal/TodayOverview.jsx';
 import EntryItem from './journal/EntryItem.jsx';
 import QuickEntryBar from './journal/QuickEntryBar.jsx';
+import LiveBanner from './journal/LiveBanner.jsx';
 import WeekSummary from './journal/WeekSummary.jsx';
 
 // Ré-export : utilisé par les outils Historique et Recherche
@@ -163,13 +164,14 @@ export default function JournalTab({ intent, clearIntent }) {
         </div>
       )}
 
+      <LiveBanner />
       {period === 'today' && canEdit && <QuickEntryBar entries={childEntries} onLongPress={(prefill) => setEntryForm({ prefill })} />}
       {period === '7days' && <WeekSummary entries={periodFiltered} store={store} child={activeChild} />}
 
       {filterType !== 'tous' && (
         <div className="chip-row">
           <button className="chip active" onClick={() => setFilterType('tous')}>
-            Filtre : {ENTRY_TYPES[filterType]?.short} ✕
+            Filtre : {ENTRY_TYPES[filterType]?.short} <Icon name="x" size={14} />
           </button>
         </div>
       )}

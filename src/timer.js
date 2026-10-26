@@ -26,13 +26,29 @@ export function loadTimerState() {
   }
 }
 
-export function saveTimerState(state) {
+// Faut-il afficher la notification pour cet état ? (réglé par App :
+// tétée lancée par l'autre parent + réglage « chronos partagés » coupé → non)
+let showNotifFor = () => true;
+export function setTimerNotifPolicy(fn) { showNotifFor = fn; }
+
+// source : 'local' (ce téléphone) | 'remote' (autre parent) | 'native'
+// (bouton de la notification) — liveTimer.js ne renvoie pas un état reçu
+export function saveTimerState(state, source = 'local') {
   try {
     if (state === null) localStorage.removeItem(STORAGE_KEY);
     else localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) { /* stockage indisponible */ }
-  window.dispatchEvent(new CustomEvent('omnibaby-timer', { detail: { active: state !== null } }));
-  syncTimerNotif(state);
+  window.dispatchEvent(new CustomEvent('omnibaby-timer', { detail: { active: state !== null, state, source } }));
+  syncTimerNotif(state && showNotifFor(state) ? state : null);
+}
+
+// Marque l'état comme partagé avec l'autre parent (sans relancer les
+// écouteurs ni la notification)
+export function markTimerShared() {
+  try {
+    const st = loadTimerState();
+    if (st && !st.shared) localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...st, shared: true }));
+  } catch (e) { /* ignore */ }
 }
 
 // Ajoute le segment en cours au cumul du côté courant
@@ -96,10 +112,19 @@ export function suggestedSide(lastCote) {
   return lastCote === 'gauche' ? 'droit' : 'gauche';
 }
 
+// Qui a lancé la tétée, pour quel enfant (partage avec l'autre parent)
+export function timerMeta(child, user) {
+  return {
+    childId: child?.id ?? null,
+    startedBy: user?.uid || null,
+    startedByName: user?.displayName || user?.email?.split('@')[0] || null,
+  };
+}
+
 // Lance le chrono (si aucun ne tourne) et demande l'ouverture du Minuteur.
 // Utilisé par le Journal : même chrono que Outils → Minuteur.
-export function startTeteeTimer(side) {
-  if (!loadTimerState()) saveTimerState(startSide(null, side === 'droit' ? 'droit' : 'gauche'));
+export function startTeteeTimer(side, meta = {}) {
+  if (!loadTimerState()) saveTimerState({ ...startSide(null, side === 'droit' ? 'droit' : 'gauche'), ...meta });
   window.dispatchEvent(new CustomEvent('omnibaby-open-minuteur'));
 }
 
@@ -192,6 +217,10 @@ function reportNotifError(step, e) {
 // il est pris pour une promesse et l'await ne se termine jamais (bug des
 // v3.10.0/3.10.1 : aucune notification, aucune erreur). On l'emballe donc
 // dans un objet { LN }.
+export async function notifPlugin() { return plugin(); }
+export function ensureTimerChannel(LN) { return ensureChannel(LN); }
+export function reportNotifFailure(step, e) { reportNotifError(step, e); }
+
 async function plugin() {
   if (!window.Capacitor?.isNativePlatform?.()) return null; // navigateur : pas de notification
   try {
@@ -310,10 +339,16 @@ export async function initTimerNotifActions(onAction) {
         },
         // Avec le code Android : « Changer de côté » ajouté par Android lui-même
         { id: ACTION_TYPE_FIN, actions: [{ id: 'finish', title: 'Terminer' }] },
+        // Sommeil en cours : « Réveil » (sans le code Android : ouvre l'appli)
+        { id: 'OMNIBABY_SOMMEIL', actions: [{ id: 'wake', title: 'Réveil' }] },
+        // Avec le code Android : « Réveil » ajouté par Android lui-même
+        { id: 'OMNIBABY_NONE', actions: [] },
       ],
     });
     const handle = await LN.addListener('localNotificationActionPerformed', (ev) => {
-      if (ev?.notification?.extra?.kind !== 'tetee') return;
+      const extra = ev?.notification?.extra;
+      if (extra?.kind === 'sommeil') { onAction(ev.actionId === 'wake' ? 'wake' : 'openSleep', extra); return; }
+      if (extra?.kind !== 'tetee') return;
       onAction(ev.actionId === 'switch' || ev.actionId === 'finish' ? ev.actionId : 'open');
     });
     return () => handle.remove();
@@ -338,7 +373,8 @@ export async function adoptNativeTimerState() {
     if (!raw) return false;
     const nat = nativeToState(JSON.parse(raw));
     if (nat.updatedAt <= (local.updatedAt || 0)) return false;
-    saveTimerState(nat);
+    // Garder enfant / parent qui l'a lancée (absents de l'état Android)
+    saveTimerState({ ...local, ...nat }, 'native');
     return true;
   } catch (e) {
     console.warn('[Minuteur] reprise état Android', e);

@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild, ageInMonths } from '../store.jsx';
 import { toISODateTime, formatDateFR, formatTimeFR, groupByDay, dayLabel, daysAgo, SwipeToDelete, useToast, toTime } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
-import { Icon } from '../icons.jsx';
+import { Icon, UiIcon } from '../icons.jsx';
+import { scheduleRappelNotif } from './Rappels.jsx';
 
 const NORMAL_MAX = 37.5;
 
@@ -33,7 +34,7 @@ function statusFor(valeur, threshold = 38.5) {
 // Add temperature form
 // ----------------------------------------------------------------------
 function TemperatureForm({ open, onClose, child }) {
-  const { update, nextId } = useStore();
+  const { store, update, nextId } = useStore();
   const showToast = useToast();
   const [date, setDate] = useState(toISODateTime());
   const [valeur, setValeur] = useState('');
@@ -58,23 +59,24 @@ function TemperatureForm({ open, onClose, child }) {
       return;
     }
     const id = nextId();
+    const rappel = v >= threshold ? {
+      id: nextId(),
+      titre: `Reprendre la température — ${child.nom}`,
+      // 1 h après la prise (et au moins dans 1 h si la prise est ancienne)
+      date: new Date(Math.max(new Date(date).getTime(), Date.now()) + 60 * 60 * 1000).toISOString(),
+      recurrence: null,
+      fait: false,
+      auto: true,
+      kind: 'fievre',
+      childId: child.id,
+    } : null;
     update((draft) => {
       draft.temperatures.push({ id, childId: child.id, date, valeur: v, notes, methode });
-
-      if (v >= threshold) {
-        const rappelDate = new Date(new Date(date).getTime() + 60 * 60 * 1000);
-        draft.rappels.push({
-          id: nextId(),
-          titre: `Reprendre la température — ${child.nom}`,
-          date: rappelDate.toISOString(),
-          recurrence: null,
-          fait: false,
-          auto: true,
-          childId: child.id,
-        });
-      }
+      if (rappel) draft.rappels.push(rappel);
       return draft;
     });
+    // Notification du rappel (avant : rappel créé mais jamais notifié)
+    if (rappel) scheduleRappelNotif(rappel, store.settings?.notifs?.rappels !== false);
 
     if (v >= threshold) {
       showToast('Température enregistrée — rappel créé dans 1 h', '🌡️');
@@ -227,7 +229,7 @@ export default function FievreTool() {
   if (!activeChild) {
     return (
       <div className="empty-state">
-        <div className="emoji">👶</div>
+        <div className="emoji"><UiIcon value="👶" size={40} /></div>
         <div className="title">Aucun profil enfant</div>
         <div className="desc">Ajoute un profil enfant dans Réglages pour suivre sa température.</div>
       </div>
@@ -252,21 +254,21 @@ export default function FievreTool() {
 
       {childTemps.length > 0 && (
         <div className="card appear">
-          <div className="section-title" style={{ marginBottom: 10 }}>📈 7 derniers jours</div>
+          <div className="section-title" style={{ marginBottom: 10 }}>7 derniers jours</div>
           <TemperatureChart temperatures={childTemps} threshold={threshold} />
         </div>
       )}
 
       <div className="flex-between mt-16">
-        <div className="section-title" style={{ marginBottom: 0 }}>🗂️ Historique</div>
+        <div className="section-title" style={{ marginBottom: 0 }}>Historique</div>
         {canEdit && (
-          <button className="btn btn-secondary btn-sm" onClick={() => setFormOpen(true)}>＋ Ajouter</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setFormOpen(true)}><Icon name="plus" size={16} /> Ajouter</button>
         )}
       </div>
 
       {grouped.length === 0 ? (
         <div className="empty-state">
-          <div className="emoji">🌡️</div>
+          <div className="emoji"><UiIcon value="🌡️" size={40} /></div>
           <div className="title">Aucune mesure</div>
           <div className="desc">Ajoute une première température pour commencer le suivi. Alerte à partir de {fmt1(threshold)} °C{threshold < 38.5 ? ' (moins de 3 mois)' : ''}.</div>
         </div>
@@ -279,7 +281,7 @@ export default function FievreTool() {
                 const status = statusFor(t.valeur, threshold);
                 return (
                   <SwipeToDelete key={t.id} onDelete={() => canEdit && handleDelete(t.id)} disabled={!canEdit}>
-                    <div className="entry-icon" style={{ background: status.bg, color: status.color }}>🌡️</div>
+                    <div className="entry-icon" style={{ background: status.bg, color: status.color }}><UiIcon value="🌡️" size={20} /></div>
                     <div className="entry-body">
                       <div className="entry-title">{fmt1(t.valeur)} °C <span style={{ color: status.color, fontWeight: 600, fontSize: '0.78rem' }}>· {status.label}</span></div>
                       {t.notes && <div className="entry-sub">{t.notes}</div>}

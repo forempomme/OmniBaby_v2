@@ -11,6 +11,7 @@ import {
   scheduleNotif,
   requestNotifPermission,
   toTime,
+  parseLocalDate,
 } from './utils.jsx';
 import { Modal } from './Modal.jsx';
 import NoChildState from './NoChildState.jsx';
@@ -178,7 +179,7 @@ function MesureForm({ open, onClose, type, child }) {
           placeholder={type === 'poids' ? '5.4' : type === 'taille' ? '58.5' : '40.2'}
         />
       </div>
-      <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>Enregistrer ✓</button>
+      <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>Enregistrer</button>
     </Modal>
   );
 }
@@ -320,7 +321,7 @@ function MesureSection({ type, child, mesures, canEdit }) {
           <span className="muted" style={{ fontSize: '.8rem' }}>
             {typeMesures[0] ? `Dernière : ${typeMesures[0].valeur} ${def.unit} le ${formatDateFR(typeMesures[0].date)}` : ''}
           </span>
-          <button className="btn btn-secondary btn-sm" onClick={() => setFormOpen(true)}>＋ Ajouter</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setFormOpen(true)}><Icon name="plus" size={16} /> Ajouter</button>
         </div>
       )}
 
@@ -380,11 +381,13 @@ function VaccinSection({ child, vaccins, canEdit }) {
       .sort((a, b) => a.ageMonths - b.ageMonths)[0];
     if (!next) return;
     // Calculer la date du prochain vaccin
-    const birthDate = new Date(child.birthdate);
-    const notifDate = new Date(birthDate);
+    // Date de naissance en heure locale, notification à 9 h (avant :
+    // minuit UTC = 1 h ou 2 h du matin)
+    const notifDate = parseLocalDate(child.birthdate);
     notifDate.setMonth(notifDate.getMonth() + next.ageMonths);
     // Notifier 7 jours avant
     notifDate.setDate(notifDate.getDate() - 7);
+    notifDate.setHours(9, 0, 0, 0);
     if (notifDate > new Date()) {
       await scheduleNotif({
         id: `vaccin_next_${child.id}`,

@@ -15,6 +15,7 @@ const TABLE_LABELS = {
   aliments: ['aliment', 'aliments'],
   journal: ['souvenir', 'souvenirs'],
   rappels: ['rappel', 'rappels'],
+  lait: ['pot de lait', 'pots de lait'],
 };
 
 export function tableLabel(table, n) {
@@ -46,6 +47,7 @@ export function removeChildData(draft, childId) {
     if (!removed.length) continue;
     if (t === 'rappels') removed.forEach((i) => notifIds.push(i.id));
     if (t === 'medicaments') removed.forEach((i) => notifIds.push(`medoc_${i.id}`));
+    if (t === 'lait') removed.forEach((i) => notifIds.push(`lait_${i.id}`));
     draft[t] = draft[t].filter((i) => i.childId !== childId);
   }
   if (draft.settings) delete draft.settings[`dev_${childId}`];

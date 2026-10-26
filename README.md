@@ -29,6 +29,7 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 - PDF pédiatre (voir Réglages)
 
 ### 🌙 Dodo
+- « Endormi » en 1 tap : chrono de sommeil (nuit entre 19 h et 7 h) + notification « Sieste en cours » avec bouton « Réveil » utilisable écran verrouillé
 - Même présentation que le Journal : tampons (dort / éveillé avec bouton Réveil, total du jour, repère pour l'âge comparé à la moyenne 7 jours), lignes et glisser-supprimer communs
 - Graphique 7 jours (jour en cours en pointillés, moyenne des jours terminés)
 - Repères de sommeil selon l'âge
@@ -36,8 +37,9 @@ Application Android de suivi bébé multi-parents, synchronisée en temps réel 
 ### 🛠️ Outils
 | Module | Description |
 |---|---|
+| 🍶 Stock de lait | Tire-lait (côté, quantité, durée) rangé au frigo ou au congélateur ; dates limites (frigo 48 h, congélateur 4 mois, décongelé 24 h — DGS / AP-HP), « Utiliser → biberon », notification 6 h avant |
 | ⏱️ Minuteur | Chrono de tétée par sein ; notification « Tétée en cours » avec grand chrono en direct ; « Changer de côté » utilisable écran verrouillé, « Terminer » ouvre l'appli |
-| 💊 Médicaments | Traitements + notification à l'heure de la prochaine dose (reprogrammée à chaque « Dose donnée ») |
+| 💊 Médicaments | Traitements + notification à l'heure de la prochaine dose (date et heure, reprogrammée à chaque « Dose donnée ») |
 | 🌡️ Fièvre | Courbe de température ; alerte dès 38 °C avant 3 mois (38,5 °C ensuite), méthode de prise, appel médecin / 15 |
 | 🥦 Alimentation | Diversification 0-3 ans avec dates, grille aliments testés |
 | 📊 Statistiques | Graphiques 7j / 30j / 3 mois ; carte « Lait au biberon » (ml/jour, ml/kg/jour, repère d'Appert < 6 mois) |
@@ -81,6 +83,8 @@ Les tables volumineuses (journal : repas, changes, sommeil ; températures) ne s
 2. Le code est vérifié via `familyCodes/{code}` ; sans le bon code, impossible de rejoindre (règles Firestore)
 
 ### Règles Firestore
+> **v3.14.0** : `firestore.rules` ajoute `lait` (stock de lait) et `live` (tétée partagée). Copie tout le fichier dans la console Firebase → Firestore → Règles → Publier **avant** d'installer l'APK, sinon la synchro du stock et le partage de la tétée sont refusés.
+
 `firestore.rules` doit être publié dans la console Firebase (Firestore → Règles). Depuis la v3.8.0 :
 - un éditeur peut modifier les enfants et réglages partagés (pas les membres ni le code) ;
 - rejoindre une famille exige le code d'invitation ;
@@ -194,6 +198,8 @@ omnibaby/
 | 3.12.0 | Grand chrono dans la notification « Tétée en cours » : durée totale + côté en cours en direct, autre côté figé (code Android ajouté au plugin pendant le build) |
 | 3.13.0 | « Changer de côté » depuis l'écran de verrouillage (traité par Android, sans ouvrir l'appli) ; bouton Tétée du Journal et « + » → Tétée lancent le chrono du Minuteur (chrono en direct sur le bouton) |
 | 3.13.1 | Appui long sur les boutons rapides du Journal = formulaire pré-rempli (au lieu de sélectionner le texte) ; plus de sélection de texte sur les boutons |
+| 3.13.2 | Corrections : prochaine dose de médicament datée (plus de « Dose due » juste après une prise du soir), rappels répétés et automatiques notifiés (fièvre, visites 7 jours avant), Réglages → Notifications réduits aux 3 interrupteurs actifs, identifiants uniques (aliments, visites) + doublons d'aliments nettoyés, dates de naissance en heure locale (âge, notifications à 9 h au lieu de 1-2 h du matin), modification d'un rappel sans décalage d'1 h |
+| **3.14.0** | Icônes de l'appli partout (fin des emoji d'interface), Minuteur redessiné (anneau), sommeil chronométré avec notification « Réveil » utilisable écran verrouillé, tétée en cours partagée entre les parents, tire-lait et stock de lait (frigo / congélateur / dates limites). **Nouvelles règles Firestore à publier** (lait, live) |
 
 ---
 

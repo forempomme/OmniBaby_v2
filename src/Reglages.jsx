@@ -1,14 +1,17 @@
 import React, { useState, useRef } from 'react';
 import { useStore, formatAge, HISTORY_WINDOW_DAYS } from './store.jsx';
 import { readsToday } from './readCounter.js';
-import { toISODate, useToast, exportPDF, shareJSON, shareText, formatElapsed, Accordion } from './utils.jsx';
+import { toISODate, useToast, exportPDF, shareJSON, shareText, formatElapsed, Accordion, cancelNotif } from './utils.jsx';
 import { APP_VERSION } from './version.js';
 import { auth, deleteUser } from './firebase.js';
 import { isBiometricAvailable, AuthOverlay, initials } from './Auth.jsx';
 import ChildForm from './ChildForm.jsx';
-import { Icon } from './icons.jsx';
+import { Icon, UiIcon } from './icons.jsx';
 import { TestChildForm, DeleteChildModal, OrphanSection } from './ChildManager.jsx';
 import { childDataCounts, totalCount } from './children.js';
+import { scheduleRappelNotif } from './tools/Rappels.jsx';
+import { scheduleDoseNotif } from './tools/Medicaments.jsx';
+import { scheduleLaitNotif } from './tools/StockLait.jsx';
 
 // ----------------------------------------------------------------------
 // Bébé : profils enfants
@@ -71,8 +74,8 @@ function ChildrenSection({ canEdit }) {
       })}
       {canEdit && (
         <div className="kid-add">
-          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}>＋ Ajouter un enfant</button>
-          {!hasTest && <button className="btn btn-sm dashed-btn-sm" onClick={() => setTestFormOpen(true)}>＋ Profil test</button>}
+          <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}><Icon name="plus" size={16} /> Ajouter un enfant</button>
+          {!hasTest && <button className="btn btn-sm dashed-btn-sm" onClick={() => setTestFormOpen(true)}><Icon name="plus" size={16} /> Profil test</button>}
         </div>
       )}
       <ChildForm open={formOpen} onClose={() => { setFormOpen(false); setEditing(null); }} editing={editing} />
@@ -258,7 +261,7 @@ function BiometricSection({ embedded = false }) {
 
   return (
     <div className={embedded ? '' : 'card appear'}>
-      <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>🔐 Biométrie</div>
+      <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>Biométrie</div>
       <div className="flex-between" style={{ padding:'8px 0' }}>
         <div>
           <div style={{ fontWeight:600, fontSize:'.86rem' }}>Connexion par empreinte digitale</div>
@@ -282,15 +285,15 @@ function AppearanceSection({ embedded = false }) {
 
   return (
     <div className={embedded ? '' : 'card appear'} style={{ marginTop: embedded ? 4 : 0 }}>
-      <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>🎨 Apparence</div>
+      <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>Apparence</div>
 
       {/* Thème */}
       <div className="field">
         <label>Thème</label>
         <div className="pill-group">
-          <button className={`pill-choice ${s.dark==null?'selected':''}`} onClick={() => set('dark', null)}>🌗 Auto</button>
-          <button className={`pill-choice ${s.dark===false?'selected':''}`} onClick={() => set('dark', false)}>☀️ Clair</button>
-          <button className={`pill-choice ${s.dark===true?'selected':''}`} onClick={() => set('dark', true)}>🌙 Sombre</button>
+          <button className={`pill-choice ${s.dark==null?'selected':''}`} onClick={() => set('dark', null)}><UiIcon value="🌗" size={16} className="inline-ic" /> Auto</button>
+          <button className={`pill-choice ${s.dark===false?'selected':''}`} onClick={() => set('dark', false)}><UiIcon value="☀️" size={16} className="inline-ic" /> Clair</button>
+          <button className={`pill-choice ${s.dark===true?'selected':''}`} onClick={() => set('dark', true)}><UiIcon value="🌙" size={16} className="inline-ic" /> Sombre</button>
         </div>
       </div>
 
@@ -312,7 +315,7 @@ function AppearanceSection({ embedded = false }) {
 
        {/* Mode nuit */}
        <div style={{ borderTop:'1px solid var(--border)', paddingTop:12, marginTop:8 }}>
-         <div style={{ fontWeight:700, fontSize:'.88rem', marginBottom:2 }}>🌙 Mode nuit</div>
+         <div style={{ fontWeight:700, fontSize:'.88rem', marginBottom:2 }}><UiIcon value="🌙" size={16} className="inline-ic" /> Mode nuit</div>
          <div className="muted" style={{ fontSize:'.72rem', marginBottom:10 }}>
            Fond quasi-noir et texte agrandi — idéal pour les tétées nocturnes sans allumer la lumière.
          </div>
@@ -322,9 +325,9 @@ function AppearanceSection({ embedded = false }) {
              <button className={`pill-choice ${s.nightMode===false?'selected':''}`}
                onClick={() => set('nightMode', false)}>Désactivé</button>
              <button className={`pill-choice ${(s.nightMode===null||s.nightMode===undefined)?'selected':''}`}
-               onClick={() => set('nightMode', null)}>🌗 Auto</button>
+               onClick={() => set('nightMode', null)}><UiIcon value="🌗" size={16} className="inline-ic" /> Auto</button>
              <button className={`pill-choice ${s.nightMode===true?'selected':''}`}
-               onClick={() => set('nightMode', true)}>🌙 Toujours</button>
+               onClick={() => set('nightMode', true)}><UiIcon value="🌙" size={16} className="inline-ic" /> Toujours</button>
            </div>
          </div>
          {(s.nightMode === null || s.nightMode === undefined) && (
@@ -370,7 +373,7 @@ function BehaviorSection({ embedded = false }) {
 
   return (
     <div className={embedded ? '' : 'card appear'}>
-      <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>⚙️ Saisie</div>
+      <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>Saisie</div>
       <div className="field">
         <label>Quantité par défaut biberon (ml)</label>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -425,29 +428,42 @@ function BehaviorSection({ embedded = false }) {
 // ----------------------------------------------------------------------
 // Section notifications
 // ----------------------------------------------------------------------
+// Seuls les interrupteurs qui commandent vraiment une notification
+// (v3.13.2 : Biberon, Couche, Sommeil et Activités étaient sans effet)
 const NOTIF_LABELS = {
-  biberon: { label:'Biberon / tétée', icon:'🍼' },
-  couche:  { label:'Couche', icon:'🧷' },
-  sommeil: { label:'Sommeil', icon:'🌙' },
-  vaccin:  { label:'Vaccins', icon:'💉' },
-  medoc:   { label:'Médicaments', icon:'💊' },
-  activite:{ label:'Activités / rappels', icon:'🎯' },
+  rappels: { label: 'Rappels', desc: 'Les tiens, visites médicales (7 jours avant), reprise de température', icon: '🎯' },
+  medoc:   { label: 'Médicaments', desc: 'Heure de la prochaine dose', icon: '💊' },
+  vaccin:  { label: 'Vaccins', desc: '7 jours avant le prochain vaccin', icon: '💉' },
+  lait:    { label: 'Stock de lait', desc: 'Pot du frigo à utiliser dans les 6 h', icon: 'fridge' },
+  partage: { label: "Chronos de l'autre parent", desc: 'Tétée et sommeil lancés sur l’autre téléphone : notification ici aussi', icon: 'users' },
 };
 
 function NotificationsSection({ embedded = false }) {
   const { store, update } = useStore();
-  const toggle = (key) => update(d => { d.settings.notifs[key] = !d.settings.notifs[key]; return d; });
+  const toggle = (key) => {
+    const on = store.settings.notifs?.[key] === false; // nouvel état
+    update(d => { d.settings.notifs[key] = on; return d; });
+    // Appliquer tout de suite aux notifications déjà programmées
+    if (key === 'rappels') store.rappels.forEach((r) => scheduleRappelNotif(r, on));
+    if (key === 'medoc') store.medicaments.forEach((m) => scheduleDoseNotif(m, on));
+    if (key === 'vaccin' && !on) store.children.forEach((c) => cancelNotif(`vaccin_next_${c.id}`));
+    if (key === 'lait') (store.lait || []).forEach((p) => scheduleLaitNotif(p, on));
+  };
 
   return (
     <div className={embedded ? '' : 'card appear'}>
-      <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>🔔 Notifications</div>
+      <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>Notifications</div>
       <div className="muted" style={{ fontSize:'.8rem', marginBottom:10 }}>
-        Préférences utilisées par les modules Rappels et Médicaments.
+        Sur ce téléphone uniquement. Les notifications « Tétée en cours » et « Sieste en cours » lancées ici restent toujours actives.
       </div>
       {Object.entries(NOTIF_LABELS).map(([key, def]) => (
-        <div key={key} className="flex-between" style={{ padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
-          <span style={{ display:'flex', alignItems:'center', gap:8, fontSize:'.85rem' }}>{def.icon} {def.label}</span>
-          <button className={`switch ${store.settings.notifs[key]?'on':''}`} onClick={() => toggle(key)} />
+        <div key={key} className="flex-between" style={{ padding:'8px 0', borderBottom:'1px solid var(--border)', gap: 10 }}>
+          <span style={{ display:'flex', alignItems:'center', gap:8, fontSize:'.85rem' }}>
+            <UiIcon value={def.icon} size={18} />
+            <span><span style={{ display: 'block' }}>{def.label}</span><span className="muted" style={{ fontSize: '.72rem' }}>{def.desc}</span></span>
+          </span>
+          <button className={`switch ${store.settings.notifs?.[key] !== false ? 'on' : ''}`} onClick={() => toggle(key)}
+            aria-label={`Notifications ${def.label}`} />
         </div>
       ))}
     </div>
@@ -498,11 +514,11 @@ function DataSection({ canEdit, embedded = false }) {
 
   return (
     <div className={embedded ? '' : 'card appear'}>
-      <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>💾 Données</div>
+      <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>Données</div>
 
       {needsBackup && (
         <div className="card" style={{ background:'var(--accent-sun-soft)', border:'none', marginBottom:12 }}>
-          <div style={{ fontWeight:600, fontSize:'.85rem' }}>⚠️ Pense à sauvegarder</div>
+          <div style={{ fontWeight:600, fontSize:'.85rem' }}><UiIcon value="⚠️" size={16} className="inline-ic" /> Pense à sauvegarder</div>
           <div className="muted" style={{ fontSize:'.8rem', marginTop:4 }}>
             {lastExport ? `Dernière sauvegarde : ${lastExport}` : 'Aucune sauvegarde effectuée.'}
           </div>
@@ -510,17 +526,17 @@ function DataSection({ canEdit, embedded = false }) {
       )}
 
       <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:12 }}>
-        <button className="btn btn-primary btn-sm" onClick={handleExport}>📤 Exporter JSON</button>
-        <button className="btn btn-secondary btn-sm" onClick={handleExportPDF}>📄 PDF pédiatre</button>
+        <button className="btn btn-primary btn-sm" onClick={handleExport}><UiIcon value="📤" size={16} className="inline-ic" /> Exporter JSON</button>
+        <button className="btn btn-secondary btn-sm" onClick={handleExportPDF}><UiIcon value="📄" size={16} className="inline-ic" /> PDF pédiatre</button>
         {canEdit && <>
-          <button className="btn btn-outline btn-sm" onClick={() => fileInputRef.current?.click()}>📥 Importer JSON</button>
+          <button className="btn btn-outline btn-sm" onClick={() => fileInputRef.current?.click()}><UiIcon value="📥" size={16} className="inline-ic" /> Importer JSON</button>
           <input ref={fileInputRef} type="file" accept="application/json" style={{ display:'none' }} onChange={handleImport} />
         </>}
       </div>
 
       {canEdit && <>
         <div className="divider" />
-        <div style={{ fontWeight:600, fontSize:'.85rem', marginBottom:6, color:'var(--danger)' }}>🔄 Réinitialisation complète</div>
+        <div style={{ fontWeight:600, fontSize:'.85rem', marginBottom:6, color:'var(--danger)' }}><UiIcon value="🔄" size={16} className="inline-ic" /> Réinitialisation complète</div>
         <div className="muted" style={{ fontSize:'.8rem', marginBottom:10 }}>
           Efface toutes les données locales. Irréversible.
         </div>
@@ -539,7 +555,7 @@ function DataSection({ canEdit, embedded = false }) {
             <div style={{ fontWeight:600, fontSize:'.85rem', marginBottom:8 }}>Dernière confirmation — tout effacer ?</div>
             <div className="flex-row">
               <button className="btn btn-ghost btn-sm" onClick={() => setResetStep(0)}>Annuler</button>
-              <button className="btn btn-danger btn-sm" onClick={() => { resetStore(); setResetStep(0); }}>✕ Tout effacer</button>
+              <button className="btn btn-danger btn-sm" onClick={() => { resetStore(); setResetStep(0); }}><UiIcon value="✕" size={16} className="inline-ic" /> Tout effacer</button>
             </div>
           </div>
         )}
@@ -572,7 +588,7 @@ export default function ReglagesTab({ onOpenFamille }) {
   const theme = s.dark == null ? 'Thème auto' : s.dark ? 'Thème sombre' : 'Thème clair';
   const night = s.nightMode === false ? 'nuit off' : s.nightMode === true ? 'nuit toujours' : `nuit ${s.nightHour || 22} h`;
   const prefSub = `${theme} · ${night} · ${s.defaultBiberonMl || 120} ml${s.biometrie !== false ? ' · empreinte' : ''}`;
-  const notifCount = Object.values(s.notifs || {}).filter(Boolean).length;
+  const notifCount = Object.keys(NOTIF_LABELS).filter((k) => s.notifs?.[k] !== false).length;
 
   return (
     <div>
