@@ -348,6 +348,7 @@ export async function initTimerNotifActions(onAction) {
     const handle = await LN.addListener('localNotificationActionPerformed', (ev) => {
       const extra = ev?.notification?.extra;
       if (extra?.kind === 'sommeil') { onAction(ev.actionId === 'wake' ? 'wake' : 'openSleep', extra); return; }
+      if (extra?.kind === 'change') { onAction('openChange', extra); return; }
       if (extra?.kind !== 'tetee') return;
       onAction(ev.actionId === 'switch' || ev.actionId === 'finish' ? ev.actionId : 'open');
     });

@@ -65,7 +65,7 @@ export function mergeHistory(prevItems, fetched, cutoff, authoritative) {
 // Réglages propres à chaque téléphone : jamais envoyés à l'autre parent,
 // jamais écrasés par lui (thème, mode nuit, biométrie, notifications…).
 const LOCAL_SETTING_KEYS = [
-  'dark', 'darkHour', 'nightMode', 'nightHour', 'nightSnoozeUntil',
+  'dark', 'darkHour', 'nightMode', 'nightHour', 'nightSnoozeUntil', 'darkStyle', 'changeDelay', 'changeNight',
   'journalCompact', 'biometrie', 'swipeToDelete', 'confirmDelete',
   'notifs', 'lastExportDate',
 ];
@@ -107,7 +107,7 @@ export function emptyStore() {
         // biberon/couche/sommeil/activite : anciens interrupteurs sans effet
         // (retirés des Réglages en v3.13.2), conservés pour compatibilité
         biberon: true, couche: true, sommeil: true,
-        vaccin: true, medoc: true, activite: false, rappels: true, partage: true, lait: true,
+        vaccin: true, medoc: true, activite: false, rappels: true, partage: true, lait: true, change: true,
       },
       lastExportDate: null,
     },

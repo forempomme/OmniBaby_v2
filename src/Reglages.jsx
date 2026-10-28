@@ -12,6 +12,7 @@ import { childDataCounts, totalCount } from './children.js';
 import { scheduleRappelNotif } from './tools/Rappels.jsx';
 import { scheduleDoseNotif } from './tools/Medicaments.jsx';
 import { scheduleLaitNotif } from './tools/StockLait.jsx';
+import { CHANGE_DELAYS, changeDelay } from './changeReminder.js';
 
 // ----------------------------------------------------------------------
 // Bébé : profils enfants
@@ -277,6 +278,13 @@ function BiometricSection({ embedded = false }) {
 // ----------------------------------------------------------------------
 // Section apparence
 // ----------------------------------------------------------------------
+const DARK_STYLE_OPTS = [
+  { k: 'ardoise', l: 'Ardoise' },
+  { k: 'moka', l: 'Moka' },
+  { k: 'relief', l: 'Relief' },
+  { k: 'classique', l: 'Classique' },
+];
+
 function AppearanceSection({ embedded = false }) {
   const { store, update } = useStore();
   const s = store.settings || {};
@@ -296,6 +304,20 @@ function AppearanceSection({ embedded = false }) {
           <button className={`pill-choice ${s.dark===true?'selected':''}`} onClick={() => set('dark', true)}><UiIcon value="🌙" size={16} className="inline-ic" /> Sombre</button>
         </div>
       </div>
+
+      {/* Style du thème sombre */}
+      {s.dark !== false && (
+        <div className="field">
+          <label>Style du thème sombre</label>
+          <div className="pill-group">
+            {DARK_STYLE_OPTS.map(o => (
+              <button key={o.k} className={`pill-choice ${(s.darkStyle || 'ardoise')===o.k?'selected':''}`}
+                onClick={() => set('darkStyle', o.k)}><span className={`dark-swatch ${o.k}`} /> {o.l}</button>
+            ))}
+          </div>
+          <div className="muted" style={{ fontSize:'.72rem', marginTop:4 }}>Réglé sur ce téléphone seulement</div>
+        </div>
+      )}
 
        {/* Heure bascule automatique sombre */}
        {s.dark == null && (
@@ -435,11 +457,13 @@ const NOTIF_LABELS = {
   medoc:   { label: 'Médicaments', desc: 'Heure de la prochaine dose', icon: '💊' },
   vaccin:  { label: 'Vaccins', desc: '7 jours avant le prochain vaccin', icon: '💉' },
   lait:    { label: 'Stock de lait', desc: 'Pot du frigo à utiliser dans les 6 h', icon: 'fridge' },
+  change:  { label: 'Change après un repas', desc: 'Rappel après une tétée ou un biberon, annulé si un change est noté', icon: 'baby' },
   partage: { label: "Chronos de l'autre parent", desc: 'Tétée et sommeil lancés sur l’autre téléphone : notification ici aussi', icon: 'users' },
 };
 
 function NotificationsSection({ embedded = false }) {
   const { store, update } = useStore();
+  const changeOn = store.settings.notifs?.change !== false;
   const toggle = (key) => {
     const on = store.settings.notifs?.[key] === false; // nouvel état
     update(d => { d.settings.notifs[key] = on; return d; });
@@ -457,14 +481,33 @@ function NotificationsSection({ embedded = false }) {
         Sur ce téléphone uniquement. Les notifications « Tétée en cours » et « Sieste en cours » lancées ici restent toujours actives.
       </div>
       {Object.entries(NOTIF_LABELS).map(([key, def]) => (
-        <div key={key} className="flex-between" style={{ padding:'8px 0', borderBottom:'1px solid var(--border)', gap: 10 }}>
-          <span style={{ display:'flex', alignItems:'center', gap:8, fontSize:'.85rem' }}>
-            <UiIcon value={def.icon} size={18} />
-            <span><span style={{ display: 'block' }}>{def.label}</span><span className="muted" style={{ fontSize: '.72rem' }}>{def.desc}</span></span>
-          </span>
-          <button className={`switch ${store.settings.notifs?.[key] !== false ? 'on' : ''}`} onClick={() => toggle(key)}
-            aria-label={`Notifications ${def.label}`} />
-        </div>
+        <React.Fragment key={key}>
+          <div className="flex-between" style={{ padding:'8px 0', borderBottom: key === 'change' && changeOn ? 'none' : '1px solid var(--border)', gap: 10 }}>
+            <span style={{ display:'flex', alignItems:'center', gap:8, fontSize:'.85rem' }}>
+              <UiIcon value={def.icon} size={18} />
+              <span><span style={{ display: 'block' }}>{def.label}</span><span className="muted" style={{ fontSize: '.72rem' }}>{def.desc}</span></span>
+            </span>
+            <button className={`switch ${store.settings.notifs?.[key] !== false ? 'on' : ''}`} onClick={() => toggle(key)}
+              aria-label={`Notifications ${def.label}`} />
+          </div>
+          {key === 'change' && changeOn && (
+            <div className="notif-sub">
+              <div className="muted" style={{ fontSize: '.72rem', marginBottom: 6 }}>Délai après la fin du repas</div>
+              <div className="pill-group">
+                {CHANGE_DELAYS.map((m) => (
+                  <button key={m} className={`pill-choice ${changeDelay(store.settings) === m ? 'selected' : ''}`}
+                    onClick={() => update(d => { d.settings.changeDelay = m; return d; })}>{m} min</button>
+                ))}
+              </div>
+              <div className="flex-between" style={{ marginTop: 10, gap: 10 }}>
+                <span style={{ fontSize: '.82rem' }}>Aussi la nuit<span className="muted" style={{ display: 'block', fontSize: '.72rem' }}>Entre 22 h et 7 h</span></span>
+                <button className={`switch ${store.settings.changeNight !== false ? 'on' : ''}`}
+                  onClick={() => update(d => { d.settings.changeNight = d.settings.changeNight === false; return d; })}
+                  aria-label="Rappel du change la nuit" />
+              </div>
+            </div>
+          )}
+        </React.Fragment>
       ))}
     </div>
   );

@@ -1,5 +1,5 @@
 {
-  "version": "3.14.0",
+  "version": "3.15.0",
   "note": "Généré à chaque livraison. Vérifié par scripts/check-code.mjs (CI).",
   "files": {
     ".github/workflows/build.yml": "cd3fc3c4621135991a721d9b28c8b7e93a9208582378652a9b2134addf09be1f",
@@ -14,10 +14,10 @@
     "android-res/layout/omnibaby_sleep_big.xml": "243970888b0e2c7326251780133ead6db2280dc41270b75e5230815fa105c528",
     "android-res/raw/omnibaby_silence.wav": "4e9cc5bbce2136140462d11c5fec6e6c1ed10602c2bca874dbb58e7b9be21092",
     "firestore.rules": "eaf01f02c29460b870d4b4eb35aa0d2e0e3406d96b0924e77529b5fc5cd357e2",
-    "package.json": "1bb7a766ca6269ba9dde7933f5dccec8237d70feec837ec65331dce306adf615",
+    "package.json": "ab0f0c2c2ae3daa9829558e61638a4acf8d8a6ed07c2ddf1975cbe36def42832",
     "scripts/check-code.mjs": "659848834fc390a19a5afcdad2a18177c8e5e2856cce4b3ce4e97d64620dc5e4",
     "scripts/patch-notif-chrono.mjs": "f037c6edc32f78729f31cd30dab03003c9a1009a6ac09f6ad3ed3df3f525ce6c",
-    "src/App.jsx": "1fa7faebfd05844bea7b1c991b2322804140c309d3c1e602f0210d1c4962fd35",
+    "src/App.jsx": "457aa09f110e40b9648459ddfddd40c376ad0f1412440e09c2db5e3ba7c70414",
     "src/Auth.jsx": "4753e51c179aafdee4ccc0ab4c5f9036f41f2603d5beafa9ee7fd5939757a486",
     "src/ChildForm.jsx": "116a75b32f1cb42f6927d15b39b0900985a7de3fa8f08eb7aaac00c4d15b3981",
     "src/ChildManager.jsx": "9d388471eb825b32bbc9b5e1c01cde7e888fcbcf9fd80d3a70183be32621dd2c",
@@ -27,8 +27,9 @@
     "src/Modal.jsx": "a808aafa93dea6f0160b7d8348bcfe5574f838b344daae1b9e401ddbc7b431a5",
     "src/NoChildState.jsx": "2b6a0448c50db472837c8eb00bc7c6dbc8fcec87bfd0dd27868627dc3749ee5b",
     "src/Outils.jsx": "d6451aa1fcd690e47f8d7a34d3c38d2c7658866184684b60c9ac74dfbd40fb33",
-    "src/Reglages.jsx": "91c27f746567387ffe20cc7bf73db4c746c8a85f0968c6df2716393a57963fab",
+    "src/Reglages.jsx": "3eb6eccf6dfd48c00d8ea0acabe6031928b76487aef0963c494534fac553f9b7",
     "src/Sante.jsx": "2718fa623cb1f9e043d4d3a15608eccfcaa5a3fc7cfb790bc9b9c99ba0a7ddb5",
+    "src/changeReminder.js": "2742bbf0f14ad1d7fa1e4581b9bafc0ec08b81f15d407001ad32bf3069fe6b17",
     "src/children.js": "f9c2ddeaf27c4b8d492137ab19dd6a2cdfd8b88466b73726e4a10a062778ec13",
     "src/data/developpement.js": "ac1d8f7fcb741cd4954a64113b647b0d2a80b5b42cf4a149e0629f0740cf77d3",
     "src/data/diversification.js": "ff0e236a57b57c17bc4ba9c717d55438d297b49c65ea05bf5c391efe8d6b6974",
@@ -48,9 +49,9 @@
     "src/pdf.js": "ebc12fe7a4a50606b9161b3f94dd3053a721a44a11da7d42e0b77d49d6a71131",
     "src/readCounter.js": "37ff6df04a8e8440a9be314d3400b6bf05b70ac6d77228f4abe336cc677ed07a",
     "src/sleepNotif.js": "d759fb44df92a24f7e07e2c92fa5125d9ec9138f91df9e323c64fd5e8aca7dcb",
-    "src/store.jsx": "8b8c341734394ebfcb14914316714db4515bf74ed85f8af588c406b03cf6fbc2",
-    "src/styles.css": "740275cb27ac594bcb3e5abe56c68f8588159c517667a91d5202132bc0bb3d15",
-    "src/timer.js": "328c2cbf6b86f6700c1c68b49dd76b428d1a79b5229f0d0260f89de809bc1adc",
+    "src/store.jsx": "e3a4db17b1417dcd7316a33dcf40296319b89ecc2a3864b9995c4e838beb955a",
+    "src/styles.css": "90b6120883b641322b531521d3253acf6aeefedba442354307779c3749c508e4",
+    "src/timer.js": "cdfe56161dbe1b0588754de24103be62976386c8875f1532dd399e9c0087c239",
     "src/tools/Alimentation.jsx": "ce4366cb3c2f070c082b917418df9082cf905c5935f185c39b497ab0a091ca30",
     "src/tools/Developpement.jsx": "94148cf5be1e244e36bd524d9148e2954569fb835b913f147ed0508c2484d417",
     "src/tools/Famille.jsx": "c964f3c1c391d2d36d2746aa935acd0eb9632661449164b6c38333cbd4542f14",
@@ -64,7 +65,7 @@
     "src/tools/Statistiques.jsx": "1921d42e2ad0b9e647bcf80994b0a6a030d437147401d34bbbffabf7fc8d0834",
     "src/tools/StockLait.jsx": "e2e60903db180671ef8d802da07dfb5b3f9a5778f7abb5646f52f32dd8b646f8",
     "src/tools/Urgence.jsx": "93164e73de9d52c5e72633e700e10f6c12c46bf7dbbbd8a3dda33916dccc3801",
-    "src/utils.jsx": "9cccdf42bd67d3a8e227ac09010ac9d86ec44284dbfc0f9d9016530f31d2e61e",
+    "src/utils.jsx": "1823307f1112f3f45b2f800583132d4e1a2fe061d5ab941f01ec0750fa572ebc",
     "tests/children.test.js": "d4dd40f9d0340fb141d5225e47a9150019dc2bea46b306735e73f0dda061d2e1",
     "tests/dodo.test.js": "90f45f2911541996d69d662c5abc72ecbded0aeced8541bc1ebe654e623f69ca",
     "tests/fixes.test.js": "a051f704e8bf982f5cfd29a170ca9b017d179bdc86ad4e3934b0293acf7e68f6",
@@ -74,6 +75,7 @@
     "tests/timer.test.js": "e93f45964e4c18f91bec155125dca9831c888f44ecf7146943c2202ab09735a2",
     "tests/utils.test.js": "90d9432a6185fefcc058265b2fbdf4aec110cca58ea5ed4bd5869e0642d6ff0c",
     "tests/v314.test.js": "78e074d95bc7dc3fcc8200b9e6769a5b67f839886752c8291c3e55da3b44ec72",
-    "version.properties": "c07fc3e87c96a0e51c4edb899c0de6f4972a7c7d2e5978096806eaa03bd5f5df"
+    "tests/v315.test.js": "e128fd80293d74540a49036551b7598143a5a4c93bad539770e44e4c5a385f06",
+    "version.properties": "ef10f146c5bbeef4e8ab6eb3d415d9671add3cb3f759edad6b77143c28c0722a"
   }
 }

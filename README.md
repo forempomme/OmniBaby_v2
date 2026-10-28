@@ -199,6 +199,7 @@ omnibaby/
 | 3.13.0 | « Changer de côté » depuis l'écran de verrouillage (traité par Android, sans ouvrir l'appli) ; bouton Tétée du Journal et « + » → Tétée lancent le chrono du Minuteur (chrono en direct sur le bouton) |
 | 3.13.1 | Appui long sur les boutons rapides du Journal = formulaire pré-rempli (au lieu de sélectionner le texte) ; plus de sélection de texte sur les boutons |
 | 3.13.2 | Corrections : prochaine dose de médicament datée (plus de « Dose due » juste après une prise du soir), rappels répétés et automatiques notifiés (fièvre, visites 7 jours avant), Réglages → Notifications réduits aux 3 interrupteurs actifs, identifiants uniques (aliments, visites) + doublons d'aliments nettoyés, dates de naissance en heure locale (âge, notifications à 9 h au lieu de 1-2 h du matin), modification d'un rappel sans décalage d'1 h |
+| **3.15.0** | Thème sombre : 4 styles au choix par téléphone (Ardoise par défaut, Moka, Relief, Classique), fond un peu plus clair et boutons qui ressortent. Rappel « Change ? » après une tétée ou un biberon (5 à 20 min, aussi la nuit sauf réglage contraire), annulé si un change est noté. Pas de nouvelles règles Firestore |
 | **3.14.0** | Icônes de l'appli partout (fin des emoji d'interface), Minuteur redessiné (anneau), sommeil chronométré avec notification « Réveil » utilisable écran verrouillé, tétée en cours partagée entre les parents, tire-lait et stock de lait (frigo / congélateur / dates limites). **Nouvelles règles Firestore à publier** (lait, live) |
 
 ---

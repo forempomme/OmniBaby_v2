@@ -14,6 +14,7 @@ import { ChildSwitcherSheet, TestChildForm, TestModeBanner } from './ChildManage
 import { loadTimerState, saveTimerState, switchSide, teteeFromTimer, syncTimerNotif, initTimerNotifActions, adoptNativeTimerState, onAppResume, setTimerNotifPolicy } from './timer.js';
 import { startLiveTimer, stopLiveTimer } from './liveTimer.js';
 import { syncSleepNotif, readNativeWakes, wakeFields } from './sleepNotif.js';
+import { changeReminderAt, reconcileChangeReminder, loadPendingChange, scheduleChangeReminder, cancelChangeReminder, forgetChangeReminder } from './changeReminder.js';
 
 const TABS = [
   { key: 'journal', label: 'Journal', icon: 'book' },
@@ -180,6 +181,8 @@ function nextMorning() {
 }
 
 // Thème : 'light' | 'dark' | 'night'
+const DARK_STYLES = ['ardoise', 'moka', 'relief', 'classique'];
+
 function computeTheme(settings, now = new Date()) {
   const { dark, darkHour, nightMode, nightHour, nightSnoozeUntil } = settings || {};
   const hour = now.getHours();
@@ -299,6 +302,15 @@ function AppShell() {
       return;
     }
     if (action === 'openSleep') { setActiveTab('dodo'); return; }
+    // Rappel « Change ? » touché : formulaire Change pour cet enfant
+    if (action === 'openChange') {
+      if (extra?.childId && extra.childId !== store.activeChildId && store.children.some((c) => c.id === extra.childId)) {
+        update((d) => { d.activeChildId = extra.childId; return d; });
+      }
+      if (canEdit) window.dispatchEvent(new CustomEvent('omnibaby-new-entry', { detail: { prefill: { type: 'couche' } } }));
+      else setActiveTab('journal');
+      return;
+    }
     // Un changement de côté a pu être fait depuis la notification
     await adoptNativeTimerState();
     const state = loadTimerState();
@@ -334,6 +346,43 @@ function AppShell() {
     onAppResume(() => { adoptNativeTimerState(); wakesRef.current?.(); }).then((fn) => { if (alive) offResume = fn; else fn(); });
     return () => { alive = false; off(); offResume(); };
   }, []);
+
+  // Rappel « Change ? » : programmé pour les repas enregistrés sur ce
+  // téléphone, annulé dès qu'un change est noté (voir changeReminder.js)
+  const seenEntries = useRef(null);
+  const checkChangeReminder = () => {
+    const pending = loadPendingChange();
+    const verdict = reconcileChangeReminder(pending, store.entries, loadTimerState());
+    if (verdict === 'cancel') cancelChangeReminder();
+    else if (verdict === 'drop') forgetChangeReminder();
+  };
+  useEffect(() => {
+    const entries = store.entries || [];
+    if (seenEntries.current === null) { seenEntries.current = new Set(entries.map((e) => e.id)); checkChangeReminder(); return; }
+    const seen = seenEntries.current;
+    const mine = (e) => (firebaseUser?.uid ? e.createdBy === firebaseUser.uid : !e.createdBy);
+    let latest = null;
+    for (const e of entries) {
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      if (e.type === 'biberon' && mine(e) && (!latest || new Date(e.date) > new Date(latest.date))) latest = e;
+    }
+    const at = latest && changeReminderAt(latest, entries, store.settings);
+    if (at) {
+      const child = store.children.find((c) => c.id === latest.childId);
+      scheduleChangeReminder(latest, child?.nom, at);
+    } else {
+      checkChangeReminder();
+    }
+  }, [store.entries]);
+  useEffect(() => {
+    const h = () => checkChangeReminder();
+    window.addEventListener('omnibaby-timer', h);
+    return () => window.removeEventListener('omnibaby-timer', h);
+  });
+  useEffect(() => {
+    if (store.settings?.notifs?.change === false) cancelChangeReminder();
+  }, [store.settings?.notifs?.change]);
 
   // Minuteur ouvert depuis le Journal : sa fermeture ramène au Journal
   const [toolReturnTab, setToolReturnTab] = useState(null);
@@ -392,7 +441,9 @@ function AppShell() {
   useEffect(() => {
     const apply = () => {
       const t = computeTheme(store.settings);
-      document.documentElement.setAttribute('data-theme', t);
+      const root = document.documentElement;
+      root.setAttribute('data-theme', t);
+      root.setAttribute('data-dark', DARK_STYLES.includes(store.settings?.darkStyle) ? store.settings.darkStyle : 'ardoise');
       setTheme(t);
     };
     apply();

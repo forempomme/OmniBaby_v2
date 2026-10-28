@@ -381,7 +381,9 @@ export async function requestNotifPermission() {
   } catch (e) { return false; }
 }
 
-export async function scheduleNotif({ id, title, body, at }) {
+// extra : données rendues au toucher (localNotificationActionPerformed)
+// allowWhileIdle : rappel proche (quelques minutes) à tenir même écran éteint
+export async function scheduleNotif({ id, title, body, at, extra, allowWhileIdle = false }) {
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
     await LocalNotifications.schedule({
@@ -389,7 +391,8 @@ export async function scheduleNotif({ id, title, body, at }) {
         id: notifNumericId(id),
         title,
         body,
-        schedule: { at: new Date(at) },
+        schedule: { at: new Date(at), ...(allowWhileIdle ? { allowWhileIdle: true } : {}) },
+        ...(extra ? { extra } : {}),
         sound: null,
         smallIcon: 'ic_stat_omnibaby', // android-res/drawable (pieds + cœur, blanc)
         iconColor: '#C96F4A',
