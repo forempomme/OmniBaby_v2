@@ -12,6 +12,8 @@
 // state : { startedAt, currentSide: 'gauche'|'droit', currentSideStartedAt,
 //           running, elapsedGauche (s), elapsedDroit (s), updatedAt (ms) }
 // ----------------------------------------------------------------------
+import { formatTimeFR } from './utils.jsx';
+
 const STORAGE_KEY = 'omnibaby_minuteur_v1';
 const TIMER_NOTIF_ID = 424242;
 const ACTION_TYPE = 'OMNIBABY_TETEE';          // Changer de côté + Terminer (via l'appli)
@@ -141,10 +143,6 @@ export function teteeFromTimer(state, now = new Date()) {
   return { type: 'biberon', mode: 'sein', date: new Date(s.startedAt || now).toISOString(), cote, duree };
 }
 
-const hm = (iso) => {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-};
 const mins = (s) => `${Math.max(0, Math.round(s / 60))} min`;
 
 // Format des chronos Android (Chronometer) : MM:SS, puis H:MM:SS
@@ -190,12 +188,12 @@ export function timerNotifContent(state) {
   if (state.running) {
     return {
       title: `Tétée en cours — côté ${droit ? 'droit' : 'gauche'}`,
-      body: `${droit ? 'Droit' : 'Gauche'} depuis ${hm(state.currentSideStartedAt)} · début de la tétée ${hm(state.startedAt)}`,
+      body: `${droit ? 'Droit' : 'Gauche'} depuis ${formatTimeFR(state.currentSideStartedAt)} · début de la tétée ${formatTimeFR(state.startedAt)}`,
     };
   }
   return {
     title: 'Tétée en pause',
-    body: `Gauche ${mins(state.elapsedGauche)} · Droit ${mins(state.elapsedDroit)} · début ${hm(state.startedAt)}`,
+    body: `Gauche ${mins(state.elapsedGauche)} · Droit ${mins(state.elapsedDroit)} · début ${formatTimeFR(state.startedAt)}`,
   };
 }
 

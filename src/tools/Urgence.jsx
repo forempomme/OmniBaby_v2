@@ -23,7 +23,7 @@ function InfoRow({ icon, label, value, tel }) {
     <div className="flex-between" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
       <div>
         <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-          {icon} {label}
+          <UiIcon value={icon} size={13} className="inline-ic" /> {label}
         </div>
         <div style={{ fontWeight: 600, marginTop: 2 }}>{value || '—'}</div>
       </div>
@@ -135,7 +135,7 @@ export default function UrgenceTool() {
   return (
     <div>
       {/* Bouton partage en haut */}
-      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
+      <div className="row-end">
         <button className="btn btn-secondary btn-sm" onClick={handleSharePDF}>
           <Icon name="share" size={16} /> Partager la fiche
         </button>
@@ -178,7 +178,7 @@ export default function UrgenceTool() {
         {activeChild.notesMedicales ? (
           <div style={{ fontSize: '0.88rem', whiteSpace: 'pre-wrap' }}>{activeChild.notesMedicales}</div>
         ) : (
-          <div className="muted" style={{ fontSize: '0.85rem' }}>Aucune note particulière.</div>
+          <div className="muted fs-85">Aucune note particulière.</div>
         )}
       </div>
 

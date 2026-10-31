@@ -84,7 +84,7 @@ function BabySitterContent({ store }) {
   );
   return (
     <div>
-      <div style={{ background: 'var(--primary)', color: '#fff', borderRadius: 'var(--radius-lg)', padding: '14px', textAlign: 'center', marginBottom: 12 }}>
+      <div style={{ background: 'var(--primary)', color: 'var(--on-primary)', borderRadius: 'var(--radius-lg)', padding: '14px', textAlign: 'center', marginBottom: 12 }}>
         <div style={{ fontSize: '2rem' }}>{child.emoji || '👶'}</div>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.2rem', marginTop: 4 }}>{child.nom}</div>
       </div>
@@ -104,7 +104,7 @@ function BabySitterContent({ store }) {
             <div style={{ fontSize: '.65rem', color: 'var(--text-soft)', fontWeight: 700, textTransform: 'uppercase' }}>{r.label}</div>
             <div style={{ fontWeight: 600, fontSize: '.86rem', marginTop: 1 }}>{r.val}</div>
           </div>
-          {r.tel && <a href={`tel:${r.tel}`} style={{ background: 'var(--primary)', color: '#fff', borderRadius: 'var(--radius-pill)', padding: '5px 12px', fontSize: '.75rem', fontWeight: 600, textDecoration: 'none' }}>Appeler</a>}
+          {r.tel && <a href={`tel:${r.tel}`} style={{ background: 'var(--primary)', color: 'var(--on-primary)', borderRadius: 'var(--radius-pill)', padding: '5px 12px', fontSize: '.75rem', fontWeight: 600, textDecoration: 'none' }}>Appeler</a>}
         </div>
       ))}
       <a href="tel:15" style={{ display: 'block', textAlign: 'center', marginTop: 14, background: 'var(--danger)', color: '#fff', borderRadius: 'var(--radius-pill)', padding: '10px', fontWeight: 700, fontSize: '.88rem', textDecoration: 'none' }}>
@@ -456,7 +456,7 @@ function FirebaseLoginScreen({ onDone, onCancel, initialMode = 'login', setupSte
         </div>
       )}
       {joinWithCurrent && (
-        <p className="setup-desc" style={{ fontSize: '.8rem' }}>
+        <p className="setup-desc fs-80">
           Tu rejoins avec ton compte actuel ({firebaseUser.email}).
         </p>
       )}

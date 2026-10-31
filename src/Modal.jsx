@@ -98,7 +98,7 @@ export function Modal({ open, onClose, title, icon, children, full = false, dirt
                 <div style={{ fontSize: '.82rem', color: 'var(--text-soft)', marginBottom: 16 }}>
                   Les données saisies seront perdues.
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="row-8">
                   <button onClick={handleCancelAbandon} style={{
                     flex: 1, padding: '8px', borderRadius: 'var(--radius-pill)',
                     background: 'var(--surface-2)', border: '1px solid var(--border)',

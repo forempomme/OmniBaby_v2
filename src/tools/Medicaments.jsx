@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStore, filterByActiveChild, getActiveChild } from '../store.jsx';
-import { formatDateFR, ConfirmInline, useToast, pad2, scheduleNotif, cancelNotif, requestNotifPermission } from '../utils.jsx';
+import { formatDateFR, ConfirmInline, useToast, pad2, formatTimeFR, scheduleNotif, cancelNotif, requestNotifPermission } from '../utils.jsx';
 import { Modal } from '../Modal.jsx';
 
 import { Icon, UiIcon } from '../icons.jsx';
@@ -13,7 +13,6 @@ function nowHM() {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-const hm = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
 // ----------------------------------------------------------------------
 // Prochaine dose = instant complet (prochaineDoseAt, ISO). Jusqu'à la
@@ -60,10 +59,10 @@ export function doseWhen(at, now = new Date()) {
   if (!at) return '';
   const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const diff = Math.round((day(at) - day(now)) / 86400000);
-  if (diff === 0) return `à ${hm(at)}`;
-  if (diff === 1) return `demain à ${hm(at)}`;
-  if (diff === -1) return `hier à ${hm(at)}`;
-  return `le ${pad2(at.getDate())}/${pad2(at.getMonth() + 1)} à ${hm(at)}`;
+  if (diff === 0) return `à ${formatTimeFR(at)}`;
+  if (diff === 1) return `demain à ${formatTimeFR(at)}`;
+  if (diff === -1) return `hier à ${formatTimeFR(at)}`;
+  return `le ${pad2(at.getDate())}/${pad2(at.getMonth() + 1)} à ${formatTimeFR(at)}`;
 }
 
 function medocNotifId(id) {
@@ -197,7 +196,7 @@ function MedocCard({ medoc, onEdit, onDelete, canEdit, now }) {
     e.stopPropagation();
     const given = new Date();
     const next = new Date(given.getTime() + medoc.frequenceHeures * 3600000);
-    const fields = { lastDoseDate: given.toISOString(), prochaineDose: hm(next), prochaineDoseAt: next.toISOString() };
+    const fields = { lastDoseDate: given.toISOString(), prochaineDose: formatTimeFR(next), prochaineDoseAt: next.toISOString() };
     update((draft) => {
       const idx = draft.medicaments.findIndex((m) => m.id === medoc.id);
       if (idx !== -1) Object.assign(draft.medicaments[idx], fields);
@@ -229,7 +228,7 @@ function MedocCard({ medoc, onEdit, onDelete, canEdit, now }) {
           {due ? (
             <span style={{ color: 'var(--danger)', fontWeight: 700, fontSize: '0.85rem' }}><UiIcon value="⏰" size={16} className="inline-ic" /> Dose due ({doseWhen(at, now)})</span>
           ) : (
-            <span className="muted" style={{ fontSize: '0.85rem' }}>Prochaine dose {doseWhen(at, now)}</span>
+            <span className="muted fs-85">Prochaine dose {doseWhen(at, now)}</span>
           )}
           {medoc.lastDoseDate && (
             <div className="muted" style={{ fontSize: '0.75rem', marginTop: 2 }}>
@@ -242,7 +241,7 @@ function MedocCard({ medoc, onEdit, onDelete, canEdit, now }) {
         )}
       </div>
 
-      {medoc.notes && <div className="muted mt-8" style={{ fontSize: '0.8rem' }}>{medoc.notes}</div>}
+      {medoc.notes && <div className="muted mt-8 fs-80">{medoc.notes}</div>}
     </div>
   );
 }
@@ -300,7 +299,7 @@ export default function MedicamentsTool() {
   return (
     <div>
       <div className="flex-between">
-        <div className="muted" style={{ fontSize: '0.85rem' }}>
+        <div className="muted fs-85">
           {dueCount > 0
             ? <><Icon name="alert" size={14} /> {dueCount} dose{dueCount > 1 ? 's' : ''} due{dueCount > 1 ? 's' : ''}</>
             : 'Traitements en cours pour ' + activeChild.nom}

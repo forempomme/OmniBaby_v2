@@ -244,14 +244,18 @@ export function SwipeToDelete({ onDelete, children, disabled = false }) {
 // Confettis
 // ----------------------------------------------------------------------
 export function fireConfetti() {
-  const emojis = ['🎉', '✨', '🎊', '⭐', '💫'];
-  for (let i = 0; i < 18; i++) {
+  // Confettis aux couleurs du thème (plus d'emoji : rendu identique partout)
+  const colors = ['var(--primary)', 'var(--accent-sun)', 'var(--accent-sage)', 'var(--accent-sky)', 'var(--primary-soft)'];
+  for (let i = 0; i < 24; i++) {
     const el = document.createElement('div');
     el.className = 'confetti-piece';
-    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    const size = 6 + Math.random() * 6;
+    el.style.width = `${size}px`;
+    el.style.height = `${size * (Math.random() < 0.5 ? 1 : 0.45)}px`;
+    el.style.borderRadius = Math.random() < 0.4 ? '50%' : '2px';
+    el.style.background = colors[i % colors.length];
     el.style.left = `${Math.random() * 100}%`;
     el.style.animationDuration = `${1.2 + Math.random() * 1.2}s`;
-    el.style.fontSize = `${0.9 + Math.random() * 1}rem`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 2600);
   }
@@ -382,8 +386,10 @@ export async function requestNotifPermission() {
 }
 
 // extra : données rendues au toucher (localNotificationActionPerformed)
-// allowWhileIdle : rappel proche (quelques minutes) à tenir même écran éteint
-export async function scheduleNotif({ id, title, body, at, extra, allowWhileIdle = false }) {
+// allowWhileIdle (v3.15.1 : toujours) : alarme qui réveille le téléphone.
+// Sans elle, Android programme une alarme « RTC » qui attend que l'écran
+// se rallume : une dose prévue à 3 h ne s'affichait qu'au réveil.
+export async function scheduleNotif({ id, title, body, at, extra, allowWhileIdle = true }) {
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
     await LocalNotifications.schedule({
@@ -400,6 +406,34 @@ export async function scheduleNotif({ id, title, body, at, extra, allowWhileIdle
     });
     return true;
   } catch (e) { console.error('[Notif]', e); return false; }
+}
+
+// v3.15.1 : notifications programmées avant ce correctif → reprogrammées
+// une fois avec allowWhileIdle (même identifiant, elles se remplacent)
+const WAKE_UPGRADE_KEY = 'omnibaby_notif_wake_v1';
+export async function upgradePendingNotifs() {
+  try {
+    if (localStorage.getItem(WAKE_UPGRADE_KEY)) return 0;
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const { notifications = [] } = await LocalNotifications.getPending();
+    const now = Date.now();
+    const todo = notifications.filter((n) => {
+      const at = n.schedule?.at ? new Date(n.schedule.at).getTime() : NaN;
+      return at > now + 5000 && !n.schedule?.allowWhileIdle;
+    });
+    if (todo.length) {
+      await LocalNotifications.schedule({
+        notifications: todo.map((n) => ({
+          id: n.id, title: n.title, body: n.body,
+          schedule: { at: new Date(n.schedule.at), allowWhileIdle: true },
+          ...(n.extra ? { extra: n.extra } : {}),
+          sound: null, smallIcon: 'ic_stat_omnibaby', iconColor: '#C96F4A',
+        })),
+      });
+    }
+    localStorage.setItem(WAKE_UPGRADE_KEY, '1');
+    return todo.length;
+  } catch (e) { return 0; }
 }
 
 export async function cancelNotif(id) {

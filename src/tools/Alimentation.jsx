@@ -79,7 +79,7 @@ function FeedingAdvice({ child, embedded = false }) {
   return (
     <div className={embedded ? '' : 'card appear'}>
       <div className="section-title" style={{ marginBottom: 6, display: embedded ? 'none' : 'flex' }}>Conseils selon l'âge</div>
-      <div className="muted" style={{ fontSize: '0.85rem' }}>{milkAdvice}</div>
+      <div className="muted fs-85">{milkAdvice}</div>
     </div>
   );
 }
@@ -138,7 +138,7 @@ function DiversificationSection({ child, etapesDiv, canEdit, embedded = false })
           <div key={stage.key} className="mt-16">
             <div className="flex-between" style={{ marginBottom: 8 }}>
               <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{stage.label}</span>
-              <span className="muted" style={{ fontSize: '0.78rem' }}>{done}/{total}</span>
+              <span className="muted fs-78">{done}/{total}</span>
             </div>
             <div className="entry-list">
               {stage.steps.map((step) => {
@@ -154,7 +154,7 @@ function DiversificationSection({ child, etapesDiv, canEdit, embedded = false })
                       background: checked ? 'var(--accent-sage-soft)' : 'var(--surface-2)',
                       color: checked ? 'var(--accent-sage)' : 'var(--text-faint)',
                     }}>
-                      {checked ? '✅' : step.icon}
+                      {checked ? <Icon name="check" size={18} /> : step.icon}
                     </div>
                     <div className="entry-body">
                       <div className="entry-title" style={{ fontSize: '0.82rem', textDecoration: checked ? 'line-through' : 'none' }}>
@@ -162,7 +162,7 @@ function DiversificationSection({ child, etapesDiv, canEdit, embedded = false })
                       </div>
                       {checked && typeof etapesDiv[step.id] === 'string' && etapesDiv[step.id].length === 10 && (
                         <div style={{ fontSize:'.65rem', color:'var(--text-faint)', marginTop:1 }}>
-                          ✅ {new Date(etapesDiv[step.id]).toLocaleDateString('fr-FR')}
+                          <Icon name="check" size={11} /> {new Date(etapesDiv[step.id]).toLocaleDateString('fr-FR')}
                         </div>
                       )}
                     </div>
@@ -309,7 +309,7 @@ function AlimentsGrid({ child, aliments, canEdit, embedded = false }) {
   return (
     <div className={embedded ? '' : 'card appear'}>
       <div className="flex-between">
-        <div className="section-title" style={{ marginBottom: 0 }}>Aliments testés</div>
+        <div className="section-title mb-0">Aliments testés</div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <button
             onClick={() => setGridCols(c => c === 3 ? 4 : 3)}

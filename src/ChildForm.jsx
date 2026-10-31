@@ -112,7 +112,7 @@ export default function ChildForm({ open, onClose, editing }) {
           <input type="text" value={form.contactUrgenceNom} onChange={(e) => set('contactUrgenceNom', e.target.value)} placeholder="Mamie Jeanne" /></div>
         <div className="field"><label>Contact d'urgence — téléphone</label>
           <input type="tel" value={form.contactUrgenceTel} onChange={(e) => set('contactUrgenceTel', e.target.value)} placeholder="06 00 00 00 00" /></div>
-        <div className="muted" style={{ fontSize: '0.8rem' }}>Ces informations apparaissent dans la fiche de garde pour une baby-sitter.</div>
+        <div className="muted fs-80">Ces informations apparaissent dans la fiche de garde pour une baby-sitter.</div>
       </>}
 
       <button className="btn btn-primary btn-block mt-16" onClick={handleSubmit}>

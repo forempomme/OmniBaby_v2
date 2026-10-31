@@ -31,10 +31,10 @@ function getRecoForAge(ageM) {
 }
 
 const QUALITES = [
-  { key: 'excellent', label: 'Excellent', icon: '😴' },
-  { key: 'bon',       label: 'Bon',       icon: '🙂' },
-  { key: 'agite',     label: 'Agité',     icon: '😣' },
-  { key: 'difficile', label: 'Difficile', icon: '😢' },
+  { key: 'excellent', label: 'Excellent' },
+  { key: 'bon',       label: 'Bon' },
+  { key: 'agite',     label: 'Agité' },
+  { key: 'difficile', label: 'Difficile' },
 ];
 
 const HUMEURS = ['Calme', 'Souriant', 'Grognon', 'Pleurs'];
@@ -162,8 +162,8 @@ export function SommeilForm({ open, onClose, child, editing, onSaved }) {
       {/* Sommeil en cours toggle */}
       <div className="flex-between" style={{ padding:'10px 0', borderTop:'1px solid var(--border)', borderBottom:'1px solid var(--border)', marginBottom:12 }}>
         <div>
-          <div style={{ fontWeight:600, fontSize:'.86rem' }}>Sommeil en cours</div>
-          <div className="muted" style={{ fontSize:'.72rem', marginTop:2 }}>
+          <div className="set-label">Sommeil en cours</div>
+          <div className="muted set-desc">
             L'enfant dort encore — la fin sera saisie au réveil
           </div>
         </div>
@@ -264,7 +264,7 @@ function SleepOverview({ entries, child, onWake, onNew, onStart, canEdit, weekAv
 
   return (
     <div className="card appear today-card">
-      <div className="section-title" style={{ marginBottom: 0 }}>Aujourd'hui</div>
+      <div className="section-title mb-0">Aujourd'hui</div>
       <div className="stamp-row mt-8">
         {sleeping ? (
           <Stamp
@@ -304,7 +304,7 @@ function SleepOverview({ entries, child, onWake, onNew, onStart, canEdit, weekAv
           ariaLabel={`Repère pour l'âge : ${recoMin} à ${recoMax} heures par jour, ${reco.naps}.${status ? ` Moyenne sur 7 jours ${status}.` : ''}`}
         />
       </div>
-      <div className="muted" style={{ fontSize: '0.78rem' }}>
+      <div className="muted fs-78">
         Repère indicatif {reco.label} : {reco.naps}.{status ? ` Moyenne des 7 derniers jours ${status === 'dans le repère' ? 'dans le repère' : `${status} du repère`}.` : ''} Chaque bébé est différent.
       </div>
     </div>
@@ -337,8 +337,8 @@ function WeeklyChart({ week }) {
   return (
     <div className="card appear">
       <div className="flex-between" style={{ alignItems: 'baseline', marginBottom: 10 }}>
-        <div className="section-title" style={{ marginBottom: 0 }}>7 derniers jours</div>
-        {avg != null && <span className="muted" style={{ fontSize: '.78rem' }}>moyenne {formatMinutes(avg)}</span>}
+        <div className="section-title mb-0">7 derniers jours</div>
+        {avg != null && <span className="muted fs-78">moyenne {formatMinutes(avg)}</span>}
       </div>
       <div className="sleep-bars">
         {days.map((d) => (

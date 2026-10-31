@@ -337,9 +337,9 @@ export function OrphanSection() {
               Supprimer ces {total} données
             </button>
           ) : (
-            <div className="mt-8" style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => setConfirm(false)}>Annuler</button>
-              <button className="btn btn-danger-solid btn-sm" style={{ flex: 1 }} onClick={purge}>Confirmer</button>
+            <div className="mt-8 row-8">
+              <button className="btn btn-outline btn-sm flex-1" onClick={() => setConfirm(false)}>Annuler</button>
+              <button className="btn btn-danger-solid btn-sm flex-1" onClick={purge}>Confirmer</button>
             </div>
           )}
         </div>

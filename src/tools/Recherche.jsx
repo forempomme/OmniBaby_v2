@@ -27,7 +27,12 @@ const SOURCE_DEFS = {
   medicament: { label: 'Médicaments', icon: '💊' },
   rappel: { label: 'Rappels', icon: '🎯' },
   journalbord: { label: 'Journal de bord', icon: '📸' },
+  mesure: { label: 'Mesures', icon: '📏' },
+  lait: { label: 'Stock de lait', icon: 'fridge' },
 };
+
+const MESURE_LABELS = { poids: ['Poids', 'kg'], taille: ['Taille', 'cm'], perimetre: ['Périmètre crânien', 'cm'] };
+const LAIT_LIEUX = { frigo: 'au frigo', congel: 'au congélateur', decongele: 'décongelé', utilise: 'utilisé', jete: 'jeté' };
 
 // ----------------------------------------------------------------------
 // Result item
@@ -49,12 +54,14 @@ function ResultItem({ source, title, subtitle, time, query }) {
     aliment: 'var(--accent-sage-soft)', vaccin: 'var(--accent-sun-soft)',
     temperature: 'var(--danger-soft)', medicament: 'var(--primary-soft)',
     rappel: 'var(--accent-sky-soft)', journalbord: 'var(--accent-sage-soft)',
+    mesure: 'var(--accent-sage-soft)', lait: 'var(--accent-sky-soft)',
   };
   const ICON_COLORS = {
     journal: 'var(--primary-deep)', sommeil: 'var(--accent-sky)',
     aliment: 'var(--accent-sage)', vaccin: 'var(--accent-sun)',
     temperature: 'var(--danger)', medicament: 'var(--primary-deep)',
     rappel: 'var(--accent-sky)', journalbord: 'var(--accent-sage)',
+    mesure: 'var(--accent-sage)', lait: 'var(--accent-sky)',
   };
   return (
     <div className="swipe-content" style={{ cursor: 'default' }}>
@@ -193,6 +200,24 @@ export default function RechercheTool() {
             time: t.date ? formatDateTimeFR(t.date) : undefined,
             date: t.date,
           });
+        }
+      }
+    }
+
+    if (activeSources.includes('mesure')) {
+      for (const m of filterByActiveChild(store.mesures || [], store.activeChildId)) {
+        const [label, unit] = MESURE_LABELS[m.type] || [m.type, ''];
+        if (matches(query, label, String(m.valeur), m.notes)) {
+          out.push({ source: 'mesure', title: `${label} : ${String(m.valeur).replace('.', ',')} ${unit}`, subtitle: m.notes || undefined, time: m.date ? formatDateFR(m.date) : undefined, date: m.date });
+        }
+      }
+    }
+
+    if (activeSources.includes('lait')) {
+      for (const p of filterByActiveChild(store.lait || [], store.activeChildId)) {
+        const lieu = LAIT_LIEUX[p.lieu] || p.lieu;
+        if (matches(query, 'lait', 'tire-lait', lieu, String(p.quantite))) {
+          out.push({ source: 'lait', title: `${p.quantite} ml ${lieu}`, subtitle: 'Tire-lait', time: formatDateTimeFR(p.date), date: p.date });
         }
       }
     }

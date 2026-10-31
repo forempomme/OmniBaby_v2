@@ -314,7 +314,7 @@ export default function RappelsTool() {
       {activeChild && <MedicalVisitsBanner child={activeChild} rappels={store.rappels} />}
 
       <div className="flex-between mt-16">
-        <div className="section-title" style={{ marginBottom: 0 }}>Rappels</div>
+        <div className="section-title mb-0">Rappels</div>
         {canEdit && (
           <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}><Icon name="plus" size={16} /> Ajouter</button>
         )}

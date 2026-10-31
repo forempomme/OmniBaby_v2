@@ -10,6 +10,7 @@
 // (readNativeWakes) et termine l'entrée.
 // ----------------------------------------------------------------------
 import { notifPlugin, ensureTimerChannel, reportNotifFailure } from './timer.js';
+import { formatTimeFR } from './utils.jsx';
 
 export const SLEEP_NOTIF_ID = 424243;
 const WAKE_FILE = 'omnibaby_wake.json';
@@ -20,15 +21,13 @@ export function sleepKindAt(date = new Date()) {
   return h >= 19 || h < 7 ? 'nuit' : 'sieste';
 }
 
-const hm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-
 // Contenu de la notification (aussi utilisé sans le code Android)
 export function sleepNotifContent(entry, childName) {
   const start = new Date(entry.debut || entry.date);
   const kind = entry.sousType === 'nuit' ? 'Nuit' : 'Sieste';
   return {
     title: `${kind} en cours${childName ? ` — ${childName}` : ''}`,
-    body: `Endormi à ${hm(start)}`,
+    body: `Endormi à ${formatTimeFR(start)}`,
     obSleep: JSON.stringify({
       entryId: entry.id,
       startedAt: start.getTime(),

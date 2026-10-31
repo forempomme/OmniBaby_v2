@@ -83,6 +83,9 @@ describe('migrateStore', () => {
   });
 });
 
+// Date locale AAAA-MM-JJ (toISOString donne la date UTC : la veille entre minuit et 1-2 h)
+const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 // ----------------------------------------------------------------------
 // formatAge
 // ----------------------------------------------------------------------
@@ -90,13 +93,13 @@ describe('formatAge', () => {
   it('affiche les jours pour < 1 mois', () => {
     const d = new Date();
     d.setDate(d.getDate() - 10);
-    expect(formatAge(d.toISOString().slice(0,10))).toBe('10 jours');
+    expect(formatAge(localISO(d))).toBe('10 jours');
   });
 
   it('affiche les mois entre 1 et 24 mois', () => {
     const d = new Date();
     d.setMonth(d.getMonth() - 8);
-    const result = formatAge(d.toISOString().slice(0,10));
+    const result = formatAge(localISO(d));
     expect(result).toMatch(/mois/);
   });
 
@@ -115,10 +118,12 @@ describe('ageInMonths', () => {
     expect(ageInMonths('')).toBeNull();
   });
 
+  // Date fixe : avant v3.15.1 le test dépendait du jour (le 31, « il y a
+  // 6 mois » tombait sur le 1er du mois suivant → 5 mois)
   it('calcule correctement l\'âge en mois', () => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 6);
-    expect(ageInMonths(d.toISOString().slice(0,10))).toBe(6);
+    expect(ageInMonths('2026-04-15', new Date(2026, 9, 31))).toBe(6);
+    expect(ageInMonths('2026-04-30', new Date(2026, 9, 29))).toBe(5);
+    expect(ageInMonths('2026-04-30', new Date(2026, 9, 30))).toBe(6);
   });
 });
 
@@ -128,13 +133,13 @@ describe('ageInDays', () => {
   });
 
   it('retourne 0 pour aujourd\'hui', () => {
-    const today = new Date().toISOString().slice(0,10);
+    const today = localISO(new Date());
     expect(ageInDays(today)).toBe(0);
   });
 
   it('retourne 7 pour il y a une semaine', () => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
-    expect(ageInDays(d.toISOString().slice(0,10))).toBe(7);
+    expect(ageInDays(localISO(d))).toBe(7);
   });
 });

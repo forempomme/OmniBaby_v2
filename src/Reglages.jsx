@@ -110,7 +110,7 @@ function ReadsCounter() {
   return (
     <div className="reads-box">
       <div className="flex-between">
-        <span style={{ fontWeight: 600, fontSize: '.86rem' }}>Lectures Firebase aujourd'hui</span>
+        <span className="set-label">Lectures Firebase aujourd'hui</span>
         <span className="reads-value">≈ {reads.toLocaleString('fr-FR')}</span>
       </div>
       <div className="reads-bar"><span style={{ width: `${Math.max(pct, reads > 0 ? 1 : 0)}%` }} /></div>
@@ -213,7 +213,7 @@ function FamilySection({ onOpenFamille }) {
               <div style={{ fontWeight: 600, fontSize: '.82rem', marginBottom: 8 }}>
                 Supprimer définitivement ton compte ? Les données de la famille restent accessibles aux autres membres.
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="row-8">
                 <button className="btn btn-ghost btn-sm" onClick={() => setDeleteConfirm(false)}>Annuler</button>
                 <button className="btn btn-danger btn-sm" onClick={handleDeleteAccount}>Confirmer</button>
               </div>
@@ -224,7 +224,7 @@ function FamilySection({ onOpenFamille }) {
 
       <div className="flex-between" style={{ borderTop: '1px solid var(--border)', marginTop: 14, paddingTop: 12 }}>
         <div>
-          <div style={{ fontWeight: 600, fontSize: '.86rem' }}>Profils de ce téléphone</div>
+          <div className="set-label">Profils de ce téléphone</div>
           <div className="muted" style={{ fontSize: '.75rem', marginTop: 2 }}>Code PIN, couleur, rôle ({store.users.length})</div>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={onOpenFamille}>Gérer</button>
@@ -265,8 +265,8 @@ function BiometricSection({ embedded = false }) {
       <div className="section-title" style={{ display:embedded?'none':'flex', marginBottom:6 }}>Biométrie</div>
       <div className="flex-between" style={{ padding:'8px 0' }}>
         <div>
-          <div style={{ fontWeight:600, fontSize:'.86rem' }}>Connexion par empreinte digitale</div>
-          <div className="muted" style={{ fontSize:'.72rem', marginTop:2 }}>Déverrouille l'app sans saisir le code PIN</div>
+          <div className="set-label">Connexion par empreinte digitale</div>
+          <div className="muted set-desc">Déverrouille l'app sans saisir le code PIN</div>
         </div>
         <button className={`switch ${enabled?'on':'off'}`}
           onClick={() => update(d => { d.settings.biometrie = !enabled; return d; })} />
@@ -315,7 +315,7 @@ function AppearanceSection({ embedded = false }) {
                 onClick={() => set('darkStyle', o.k)}><span className={`dark-swatch ${o.k}`} /> {o.l}</button>
             ))}
           </div>
-          <div className="muted" style={{ fontSize:'.72rem', marginTop:4 }}>Réglé sur ce téléphone seulement</div>
+          <div className="muted set-hint">Réglé sur ce téléphone seulement</div>
         </div>
       )}
 
@@ -329,7 +329,7 @@ function AppearanceSection({ embedded = false }) {
                  onClick={() => set('darkHour', o.h)}>{o.l}</button>
              ))}
            </div>
-           <div className="muted" style={{ fontSize:'.72rem', marginTop:4 }}>
+           <div className="muted set-hint">
              Retour en mode clair à 7h
            </div>
          </div>
@@ -361,7 +361,7 @@ function AppearanceSection({ embedded = false }) {
                    onClick={() => set('nightHour', o.h)}>{o.l}</button>
                ))}
              </div>
-             <div className="muted" style={{ fontSize:'.72rem', marginTop:4 }}>
+             <div className="muted set-hint">
                Retour au thème habituel à 7 h · touche le badge « Nuit » en haut de l'écran pour l'arrêter jusqu'au matin
              </div>
            </div>
@@ -372,8 +372,8 @@ function AppearanceSection({ embedded = false }) {
       {/* Vue compacte */}
       <div className="flex-between" style={{ padding:'10px 0', borderTop:'1px solid var(--border)', marginTop:4 }}>
         <div>
-          <div style={{ fontWeight:600, fontSize:'.86rem' }}>Vue compacte du Journal</div>
-          <div className="muted" style={{ fontSize:'.72rem', marginTop:2 }}>Entrées condensées sur une ligne</div>
+          <div className="set-label">Vue compacte du Journal</div>
+          <div className="muted set-desc">Entrées condensées sur une ligne</div>
         </div>
         <button className={`switch ${s.journalCompact?'on':'off'}`}
           onClick={() => set('journalCompact', !s.journalCompact)} />
@@ -417,15 +417,15 @@ function BehaviorSection({ embedded = false }) {
           />
           <span style={{ fontSize:'.82rem', color:'var(--text-soft)' }}>ml</span>
         </div>
-        <div className="muted" style={{ fontSize:'.72rem', marginTop:4 }}>
+        <div className="muted set-hint">
           Pré-remplit le champ quantité lors d'un nouveau biberon (10–500 ml)
         </div>
       </div>
 
       <div className="flex-between" style={{ padding:'10px 0', borderTop:'1px solid var(--border)' }}>
         <div>
-          <div style={{ fontWeight:600, fontSize:'.86rem' }}>Confirmer les suppressions</div>
-          <div className="muted" style={{ fontSize:'.72rem', marginTop:2 }}>
+          <div className="set-label">Confirmer les suppressions</div>
+          <div className="muted set-desc">
             Demander confirmation avant tout effacement dans le journal
           </div>
         </div>
@@ -435,8 +435,8 @@ function BehaviorSection({ embedded = false }) {
 
       <div className="flex-between" style={{ padding:'10px 0', borderTop:'1px solid var(--border)' }}>
         <div>
-          <div style={{ fontWeight:600, fontSize:'.86rem' }}>Glisser pour supprimer</div>
-          <div className="muted" style={{ fontSize:'.72rem', marginTop:2 }}>
+          <div className="set-label">Glisser pour supprimer</div>
+          <div className="muted set-desc">
             Swipe gauche sur une entrée pour faire apparaître la corbeille
           </div>
         </div>

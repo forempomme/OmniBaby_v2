@@ -42,7 +42,7 @@ function JalonCard({ jalon, done, doneDate, onToggle, ageM }) {
         {done ? <Icon name="check" size={20} /> : jalon.emoji}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="flex-1 min-w-0">
         <div style={{
           fontWeight: 600, fontSize: '.84rem',
           color: done ? 'var(--accent-sage)' : isLate ? 'var(--danger)' : 'var(--text)',

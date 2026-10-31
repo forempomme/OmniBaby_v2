@@ -119,7 +119,7 @@ export default function TodayOverview({ entries, child, filterType, setFilterTyp
   return (
     <div className="card appear today-card">
       <div className="flex-between">
-        <div className="section-title" style={{ marginBottom: 0 }}>Aujourd'hui</div>
+        <div className="section-title mb-0">Aujourd'hui</div>
         <button className="btn btn-ghost btn-sm" onClick={handleShare}>
           <Icon name="share" size={16} /> Partager
         </button>

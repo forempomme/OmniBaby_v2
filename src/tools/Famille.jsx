@@ -131,7 +131,7 @@ export default function FamilleTool() {
       </div>
 
       <div className="flex-between mt-16">
-        <div className="section-title" style={{ marginBottom: 0 }}>Membres</div>
+        <div className="section-title mb-0">Membres</div>
         {isAdmin && (
           <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(null); setFormOpen(true); }}><Icon name="plus" size={16} /> Ajouter</button>
         )}
@@ -166,7 +166,7 @@ export default function FamilleTool() {
       </div>
 
       {!isAdmin && (
-        <div className="muted mt-16" style={{ fontSize: '0.8rem' }}>
+        <div className="muted mt-16 fs-80">
           Seul un administrateur peut ajouter, modifier ou supprimer des membres.
         </div>
       )}
@@ -178,7 +178,7 @@ export default function FamilleTool() {
         isLastUser={editing ? store.users.length === 1 : false}
       />
 
-      <div className="muted mt-16" style={{ fontSize: '0.8rem' }}>
+      <div className="muted mt-16 fs-80">
         Ces profils protègent l'accès à ce téléphone (code PIN). Les comptes synchronisés et le code
         d'invitation de l'autre parent sont dans Réglages → Famille &amp; synchro.
       </div>

@@ -55,7 +55,7 @@ function VitaminDCard({ child, canEdit }) {
     statusText = 'Aucune prise enregistrée';
     statusColor = 'var(--text-soft)';
   } else if (givenToday) {
-    statusText = "Donnée aujourd'hui ✓";
+    statusText = <><Icon name="check" size={15} className="inline-ic" /> Donnée aujourd'hui</>;
     statusColor = 'var(--accent-sage)';
   } else {
     const days = Math.floor((new Date(today) - new Date(lastDate)) / (1000 * 60 * 60 * 24));
@@ -123,7 +123,7 @@ function FeedingAdviceCard({ child }) {
           <span className="chip" style={{ cursor: 'default' }}>{typeLaitLabels[child.typeLait] || child.typeLait}</span>
         )}
       </div>
-      <div className="muted mt-8" style={{ fontSize: '0.85rem' }}>{advice}</div>
+      <div className="muted mt-8 fs-85">{advice}</div>
     </div>
   );
 }
@@ -281,7 +281,7 @@ function GrowthChart({ type, child, mesures }) {
           <circle key={i} cx={xScale(p.ageM)} cy={yScale(p.valeur)} r="3" fill="var(--primary)" />
         ))}
       </svg>
-      <div className="flex-between mt-8" style={{ fontSize: '0.78rem' }}>
+      <div className="flex-between mt-8 fs-78">
         <span className="muted">Courbes OMS — percentiles 3/15/50/85/97</span>
         {percentile != null && (
           <span style={{ fontWeight: 700, color: 'var(--primary-deep)' }}>≈ {percentile}e percentile</span>
@@ -318,7 +318,7 @@ function MesureSection({ type, child, mesures, canEdit }) {
     <div>
       {canEdit && (
         <div className="flex-between">
-          <span className="muted" style={{ fontSize: '.8rem' }}>
+          <span className="muted fs-80">
             {typeMesures[0] ? `Dernière : ${typeMesures[0].valeur} ${def.unit} le ${formatDateFR(typeMesures[0].date)}` : ''}
           </span>
           <button className="btn btn-secondary btn-sm" onClick={() => setFormOpen(true)}><Icon name="plus" size={16} /> Ajouter</button>
@@ -443,7 +443,7 @@ function VaccinSection({ child, vaccins, canEdit }) {
                 <Icon name={done ? 'check' : 'plus'} size={done ? 20 : 18} />
               </div>
               <div className="entry-body">
-                <div className="entry-title" style={{ fontSize: '0.85rem' }}>{v.nom}</div>
+                <div className="entry-title fs-85">{v.nom}</div>
                 <div className="entry-sub">{v.age}{done ? ` · fait le ${formatDateFR(done.date)}` : ''}</div>
               </div>
             </div>
@@ -485,7 +485,7 @@ export default function SanteTab() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+      <div className="row-end">
         <button className="btn btn-secondary btn-sm" onClick={handlePDF}>Résumé PDF pour le pédiatre</button>
       </div>
       <Accordion icon="💊" title={ageM != null && ageM >= 24 ? 'Alimentation' : 'Vitamine D & alimentation'} defaultOpen stateKey="sante.vitd">

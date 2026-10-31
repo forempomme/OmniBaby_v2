@@ -260,7 +260,7 @@ export default function FievreTool() {
       )}
 
       <div className="flex-between mt-16">
-        <div className="section-title" style={{ marginBottom: 0 }}>Historique</div>
+        <div className="section-title mb-0">Historique</div>
         {canEdit && (
           <button className="btn btn-secondary btn-sm" onClick={() => setFormOpen(true)}><Icon name="plus" size={16} /> Ajouter</button>
         )}

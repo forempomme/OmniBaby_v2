@@ -8,7 +8,7 @@
 // si le repas est supprimé ou si une nouvelle tétée commence.
 // Toucher la notification ouvre le formulaire Change (App.jsx).
 // ----------------------------------------------------------------------
-import { scheduleNotif, cancelNotif, requestNotifPermission } from './utils.jsx';
+import { scheduleNotif, cancelNotif, requestNotifPermission, formatTimeFR } from './utils.jsx';
 
 export const CHANGE_NOTIF_ID = 'change_reminder';
 export const CHANGE_DELAYS = [5, 10, 15, 20];
@@ -55,8 +55,6 @@ export function reconcileChangeReminder(pending, entries, timerState, now = Date
   return 'keep';
 }
 
-const hm = (ms) => { const d = new Date(ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-
 export function changeNotifText(feed, childName) {
   const what = feed.mode === 'sein' ? 'Tétée finie' : 'Biberon fini';
   const detail = feed.mode === 'sein'
@@ -64,7 +62,7 @@ export function changeNotifText(feed, childName) {
     : (Number(feed.quantite) > 0 ? ` · ${feed.quantite} ml` : '');
   return {
     title: `Change pour ${childName || 'bébé'} ?`,
-    body: `${what} à ${hm(feedEnd(feed))}${detail}`,
+    body: `${what} à ${formatTimeFR(feedEnd(feed))}${detail}`,
   };
 }
 
@@ -80,7 +78,7 @@ export async function scheduleChangeReminder(feed, childName, at) {
   await cancelNotif(CHANGE_NOTIF_ID);
   if (!(await requestNotifPermission())) return false;
   const t = changeNotifText(feed, childName);
-  return scheduleNotif({ id: CHANGE_NOTIF_ID, ...t, at, allowWhileIdle: true, extra: { kind: 'change', childId: feed.childId } });
+  return scheduleNotif({ id: CHANGE_NOTIF_ID, ...t, at, extra: { kind: 'change', childId: feed.childId } });
 }
 
 export async function cancelChangeReminder() {

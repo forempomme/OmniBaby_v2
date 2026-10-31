@@ -278,11 +278,11 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
             <Pills options={COTES} value={f.cote} onChange={(v) => set('cote', v)} />
           </div>
           <div className="field-row">
-            <div className="field" style={{ flex: 1 }}>
+            <div className="field flex-1">
               <label>Quantité (ml)</label>
               <input type="number" inputMode="numeric" value={f.quantite} onChange={(e) => set('quantite', e.target.value)} placeholder="150" />
             </div>
-            <div className="field" style={{ flex: 1 }}>
+            <div className="field flex-1">
               <label>Durée (min)</label>
               <input type="number" inputMode="numeric" value={f.duree} onChange={(e) => set('duree', e.target.value)} placeholder="20" />
             </div>
@@ -370,11 +370,11 @@ export function EditEntryModal({ entry, onClose }) {
             <Pills options={COTES} value={f.cote} onChange={(v) => set('cote', v)} />
           </div>
           <div className="field-row">
-            <div className="field" style={{ flex: 1 }}>
+            <div className="field flex-1">
               <label>Quantité (ml)</label>
               <input type="number" inputMode="numeric" value={f.quantite} onChange={(e) => set('quantite', e.target.value)} placeholder="150" />
             </div>
-            <div className="field" style={{ flex: 1 }}>
+            <div className="field flex-1">
               <label>Durée (min)</label>
               <input type="number" inputMode="numeric" value={f.duree} onChange={(e) => set('duree', e.target.value)} placeholder="20" />
             </div>

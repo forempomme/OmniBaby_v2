@@ -48,7 +48,7 @@ export function HistoryNotice({ compact = false, variant = 'bar' }) {
   return (
     <div className={`history-notice ${historyStatus === 'error' ? 'warn' : ''}`}>
       <Icon name="history" size={18} />
-      <span style={{ flex: 1 }}>
+      <span className="flex-1">
         {historyStatus === 'error'
           ? 'Historique ancien indisponible (hors connexion ?).'
           : compact

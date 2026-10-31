@@ -77,7 +77,7 @@ function StatCard({ title, iconName, series, color, unit, formatValue }) {
   return (
     <div className="card appear">
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-        <div className="section-title" style={{ margin:0 }}><Icon name={iconName} size={18} style={{ color }} /> {title}</div>
+        <div className="section-title m-0"><Icon name={iconName} size={18} style={{ color }} /> {title}</div>
         {trendLabel && (
           <span style={{ fontSize:'.72rem', fontWeight:700, color:trendColor,
             background: trend > 0 ? 'var(--accent-sage-soft)' : 'var(--danger-soft)',
@@ -87,7 +87,7 @@ function StatCard({ title, iconName, series, color, unit, formatValue }) {
         )}
       </div>
       <BarChart series={series} color={color} unit={unit} formatValue={formatValue} />
-      <div className="flex-between mt-8" style={{ fontSize:'.8rem' }}>
+      <div className="flex-between mt-8 fs-80">
         <span className="muted">
           Moy. : <strong style={{ color:'var(--text)' }}>{formatValue ? formatValue(avg) : avg.toFixed(1)}</strong>{unit||''}/j
         </span>
@@ -149,7 +149,7 @@ function GrowthCurve({ mesures, type, sexe, label, unit, lmsTable }) {
   return (
     <div className="card appear">
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-        <div className="section-title" style={{ margin:0 }}>{label}</div>
+        <div className="section-title m-0">{label}</div>
         {lastPct != null && (
           <span style={{ fontSize:'.72rem', fontWeight:700, color:pctColor,
             padding:'2px 8px', borderRadius:'var(--radius-pill)',
@@ -238,7 +238,7 @@ function MilkCard({ child, entries, mesures, days }) {
   return (
     <div className="card appear">
       <div className="flex-between" style={{ marginBottom: 10 }}>
-        <div className="section-title" style={{ margin: 0 }}><Icon name="bottle" size={18} style={{ color: 'var(--primary)' }} /> Lait au biberon</div>
+        <div className="section-title m-0"><Icon name="bottle" size={18} style={{ color: 'var(--primary)' }} /> Lait au biberon</div>
         {st.kg && <span className="muted" style={{ fontSize: '.74rem' }}>poids {String(st.kg).replace('.', ',')} kg · {formatDateFR(st.poidsDate)}</span>}
       </div>
       <div className="milk-kpis">
@@ -259,8 +259,8 @@ function MilkCard({ child, entries, mesures, days }) {
           ))}
         </div>
       )}
-      {!st.kg && <div className="muted mt-8" style={{ fontSize: '.78rem' }}>Ajoute une pesée (Santé → Poids) pour le calcul par kilo.</div>}
-      <div className="info-box warn mt-8" style={{ marginBottom: 0 }}>
+      {!st.kg && <div className="muted mt-8 fs-78">Ajoute une pesée (Santé → Poids) pour le calcul par kilo.</div>}
+      <div className="info-box warn mt-8 mb-0">
         <Icon name="info" size={18} />
         <span>
           {child.alimentation === 'mixte' && <><strong>Allaitement mixte :</strong> les tétées ne sont pas comptées, ce total est partiel. </>}
@@ -370,7 +370,7 @@ export default function StatistiquesTool() {
           </div>
 
           {/* Bouton export CSV */}
-          <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
+          <div className="row-end">
             <button className="btn btn-secondary btn-sm" onClick={async () => {
               // Le CSV contient tout l'historique : on le charge d'abord
               const complete = await loadHistory();

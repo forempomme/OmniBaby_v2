@@ -104,10 +104,7 @@ export function emptyStore() {
       journalCompact: false,
       biometrie: true,
       notifs: {
-        // biberon/couche/sommeil/activite : anciens interrupteurs sans effet
-        // (retirés des Réglages en v3.13.2), conservés pour compatibilité
-        biberon: true, couche: true, sommeil: true,
-        vaccin: true, medoc: true, activite: false, rappels: true, partage: true, lait: true, change: true,
+        vaccin: true, medoc: true, rappels: true, partage: true, lait: true, change: true,
       },
       lastExportDate: null,
     },
@@ -189,6 +186,8 @@ export function migrateStore(raw) {
       ...((store.settings && store.settings.notifs) || {}),
     },
   };
+  // Anciens interrupteurs sans effet (retirés des Réglages en v3.13.2)
+  for (const k of ['biberon', 'couche', 'sommeil', 'activite']) delete store.settings.notifs[k];
 
   store.children = store.children.map((c) => ({
     id: c.id, nom: c.nom || 'Bébé', emoji: c.emoji || '👶',

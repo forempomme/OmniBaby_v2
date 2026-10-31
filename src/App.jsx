@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StoreProvider, useStore, getActiveChild, formatAge, genId, authorFields } from './store.jsx';
-import { ToastProvider, useToast, toTime, daysAgo } from './utils.jsx';
+import { ToastProvider, useToast, toTime, daysAgo, upgradePendingNotifs } from './utils.jsx';
 import { ModalStackProvider, useAndroidBack, Modal } from './Modal.jsx';
 import AuthGate, { initials } from './Auth.jsx';
 import { Icon } from './icons.jsx';
@@ -14,6 +14,7 @@ import { ChildSwitcherSheet, TestChildForm, TestModeBanner } from './ChildManage
 import { loadTimerState, saveTimerState, switchSide, teteeFromTimer, syncTimerNotif, initTimerNotifActions, adoptNativeTimerState, onAppResume, setTimerNotifPolicy } from './timer.js';
 import { startLiveTimer, stopLiveTimer } from './liveTimer.js';
 import { syncSleepNotif, readNativeWakes, wakeFields } from './sleepNotif.js';
+import { computeTheme, applyTheme, scheduleStatusBarSync } from './theme.js';
 import { changeReminderAt, reconcileChangeReminder, loadPendingChange, scheduleChangeReminder, cancelChangeReminder, forgetChangeReminder } from './changeReminder.js';
 
 const TABS = [
@@ -140,7 +141,7 @@ function ActivityReport({ open, onClose, firebaseUser, store }) {
       ) : shown.map((item, i) => (
         <div key={i} className="activity-row">
           <span className={`activity-dot ${item.isMe ? 'me' : 'other'}`}>{initials(item.author)}</span>
-          <span style={{ flex: 1, minWidth: 0 }}>
+          <span className="flex-1 min-w-0">
             <span className="activity-label">{item.label}{item.child && store.children.length > 1 ? ` · ${item.child}` : ''}</span>
             <span className="activity-meta">{item.action === 'added' ? 'Ajouté' : 'Modifié'} par {item.author}</span>
           </span>
@@ -180,25 +181,6 @@ function nextMorning() {
   return d.getTime();
 }
 
-// Thème : 'light' | 'dark' | 'night'
-const DARK_STYLES = ['ardoise', 'moka', 'relief', 'classique'];
-
-function computeTheme(settings, now = new Date()) {
-  const { dark, darkHour, nightMode, nightHour, nightSnoozeUntil } = settings || {};
-  const hour = now.getHours();
-  if (nightMode === true) return 'night';
-  if (nightMode == null) {
-    const nh = nightHour ?? 22;
-    const snoozed = nightSnoozeUntil && now.getTime() < nightSnoozeUntil;
-    if ((hour >= nh || hour < 7) && !snoozed) return 'night';
-  }
-  if (dark == null) {
-    const dh = darkHour ?? 21;
-    return hour >= dh || hour < 7 ? 'dark' : 'light';
-  }
-  return dark ? 'dark' : 'light';
-}
-
 const SYNC_TEXT = { synced: 'Synchronisé', syncing: 'Synchro…', error: 'Erreur', offline: 'Hors-ligne' };
 
 function AppShell() {
@@ -222,6 +204,7 @@ function AppShell() {
   const role = store.users.find((u) => u.id === session?.userId)?.role || 'lecture';
   const canEdit = role !== 'lecture';
   const testMode = !!activeChild?.isTest;
+  useEffect(() => { scheduleStatusBarSync(); }, [testMode]);
   const { showExitHint } = useAndroidBack({ activeTab, setActiveTab, defaultTab: 'journal' });
 
   // Squelette pendant la première synchro (4 s maximum, même en cas d'erreur)
@@ -341,6 +324,7 @@ function AppShell() {
     // notification, sinon remettre la notification en place (ex. après
     // redémarrage du téléphone)
     adoptNativeTimerState().then((adopted) => { if (!adopted) syncTimerNotif(loadTimerState()); });
+    upgradePendingNotifs();
     wakesRef.current?.();
     let offResume = () => {};
     onAppResume(() => { adoptNativeTimerState(); wakesRef.current?.(); }).then((fn) => { if (alive) offResume = fn; else fn(); });
@@ -439,13 +423,7 @@ function AppShell() {
 
   // Thème appliqué au document, recalculé chaque minute
   useEffect(() => {
-    const apply = () => {
-      const t = computeTheme(store.settings);
-      const root = document.documentElement;
-      root.setAttribute('data-theme', t);
-      root.setAttribute('data-dark', DARK_STYLES.includes(store.settings?.darkStyle) ? store.settings.darkStyle : 'ardoise');
-      setTheme(t);
-    };
+    const apply = () => setTheme(applyTheme(store.settings));
     apply();
     const interval = setInterval(apply, 60 * 1000);
     return () => clearInterval(interval);

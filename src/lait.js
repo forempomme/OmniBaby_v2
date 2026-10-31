@@ -13,6 +13,8 @@
 //   lieu : 'frigo' | 'congel' | 'decongele' | 'utilise' | 'jete'
 //   depuis : instant d'entrée dans le lieu actuel (congélation, décongélation…)
 // ----------------------------------------------------------------------
+import { pad2, formatTimeFR } from './utils.jsx';
+
 export const FRIGO_H = 48;
 export const CONGEL_MOIS = 4;
 export const DECONGELE_H = 24;
@@ -77,9 +79,7 @@ export function biberonFromPot(pot, now = new Date()) {
   return { type: 'biberon', mode: 'biberon', quantite: Number(pot.quantite) || 0, laitMaternel: true, date: now.toISOString(), potId: pot.id };
 }
 
-const pad = (n) => String(n).padStart(2, '0');
-const hm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-const dm = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+const dm = (d) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
 
 // « avant demain 08:10 », « avant le 02/02/2027 », « périmé depuis 10:10 »
 export function expiryText(pot, now = new Date()) {
@@ -87,16 +87,16 @@ export function expiryText(pot, now = new Date()) {
   if (!exp) return '';
   const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const diff = Math.round((day(exp) - day(now)) / 86400000);
-  if (exp <= now) return diff === 0 ? `périmé depuis ${hm(exp)}` : `périmé depuis le ${dm(exp)}`;
+  if (exp <= now) return diff === 0 ? `périmé depuis ${formatTimeFR(exp)}` : `périmé depuis le ${dm(exp)}`;
   if (pot.lieu === 'congel') return `avant le ${dm(exp)}/${exp.getFullYear()}`;
-  if (diff === 0) return `avant ${hm(exp)}`;
-  if (diff === 1) return `avant demain ${hm(exp)}`;
-  return `avant le ${dm(exp)} ${hm(exp)}`;
+  if (diff === 0) return `avant ${formatTimeFR(exp)}`;
+  if (diff === 1) return `avant demain ${formatTimeFR(exp)}`;
+  return `avant le ${dm(exp)} ${formatTimeFR(exp)}`;
 }
 
 // « tiré aujourd'hui 22:10 », « tiré le 24/10 à 08:10 »
 export function pumpedText(pot, now = new Date()) {
   const d = new Date(pot.date);
   const same = d.toDateString() === now.toDateString();
-  return same ? `tiré aujourd'hui ${hm(d)}` : `tiré le ${dm(d)} à ${hm(d)}`;
+  return same ? `tiré aujourd'hui ${formatTimeFR(d)}` : `tiré le ${dm(d)} à ${formatTimeFR(d)}`;
 }

@@ -93,7 +93,7 @@ function JournalCard({ entry, onEdit, onDelete, canEdit }) {
   return (
     <div className="card appear" style={{ cursor: canEdit ? 'pointer' : 'default' }} onClick={() => canEdit && onEdit()}>
       <div className="flex-between">
-        <div className="flex-row" style={{ flex: 1, minWidth: 0 }}>
+        <div className="flex-row flex-1 min-w-0">
           <span style={{ flexShrink: 0, color: tagDef.color }}><UiIcon value={tagDef.icon} size={22} /></span>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {entry.titre || '(sans titre)'}
@@ -171,7 +171,7 @@ export default function JournalBordTool() {
   return (
     <div>
       <div className="flex-between">
-        <div className="muted" style={{ fontSize: '0.85rem' }}>
+        <div className="muted fs-85">
           {childJournal.length > 0
             ? `${childJournal.length} souvenir${childJournal.length > 1 ? 's' : ''} de ${activeChild.nom}`
             : `Journal de bord de ${activeChild.nom}`}
