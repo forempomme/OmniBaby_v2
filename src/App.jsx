@@ -15,6 +15,8 @@ import { loadTimerState, saveTimerState, switchSide, teteeFromTimer, syncTimerNo
 import { startLiveTimer, stopLiveTimer } from './liveTimer.js';
 import { syncSleepNotif, readNativeWakes, wakeFields } from './sleepNotif.js';
 import { computeTheme, applyTheme, scheduleStatusBarSync } from './theme.js';
+import { readLastSeen, writeLastSeen } from './recap.js';
+import { scheduleVitKNotif } from './vitaminK.js';
 import { changeReminderAt, reconcileChangeReminder, loadPendingChange, scheduleChangeReminder, cancelChangeReminder, forgetChangeReminder } from './changeReminder.js';
 
 const TABS = [
@@ -368,6 +370,27 @@ function AppShell() {
     if (store.settings?.notifs?.change === false) cancelChangeReminder();
   }, [store.settings?.notifs?.change]);
 
+  // « Pendant ton absence » : dernier passage sur ce téléphone, relu à
+  // l'ouverture et au retour au premier plan, mis à jour chaque minute
+  const [absenceSince, setAbsenceSince] = useState(() => readLastSeen());
+  useEffect(() => {
+    writeLastSeen();
+    const tick = setInterval(() => { if (document.visibilityState === 'visible') writeLastSeen(); }, 60000);
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') { writeLastSeen(); return; }
+      setAbsenceSince(readLastSeen());
+      writeLastSeen();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(tick); document.removeEventListener('visibilitychange', onVis); };
+  }, []);
+
+  // Rappel de la 3e dose de vitamine K (allaitement), tenu à jour
+  const vitKKey = JSON.stringify(store.children.map((c) => [c.id, c.birthdate, c.alimentation, c.vitK?.d3 || null]));
+  useEffect(() => {
+    for (const c of store.children) if (!c.isTest) scheduleVitKNotif(c, store.settings?.notifs?.vaccin !== false);
+  }, [vitKKey, store.settings?.notifs?.vaccin]);
+
   // Minuteur ouvert depuis le Journal : sa fermeture ramène au Journal
   const [toolReturnTab, setToolReturnTab] = useState(null);
   const openMinuteur = (returnTab) => {
@@ -445,7 +468,7 @@ function AppShell() {
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'journal': return <JournalTab intent={journalIntent} clearIntent={() => setJournalIntent(null)} />;
+      case 'journal': return <JournalTab intent={journalIntent} clearIntent={() => setJournalIntent(null)} absenceSince={absenceSince} onDismissAbsence={() => setAbsenceSince(null)} />;
       case 'sante': return <SanteTab />;
       case 'dodo': return <DodoTab openFormExternal={openDodoForm} setOpenFormExternal={setOpenDodoForm} />;
       case 'outils':

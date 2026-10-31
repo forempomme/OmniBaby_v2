@@ -12,6 +12,8 @@ import EntryItem from './journal/EntryItem.jsx';
 import QuickEntryBar from './journal/QuickEntryBar.jsx';
 import LiveBanner from './journal/LiveBanner.jsx';
 import WeekSummary from './journal/WeekSummary.jsx';
+import { AbsenceCard, NightRecapCard } from './journal/RecapCards.jsx';
+import { absenceSummary, nightRecap, showNightRecapAt } from './recap.js';
 
 // Ré-export : utilisé par les outils Historique et Recherche
 export { ENTRY_TYPES };
@@ -27,8 +29,8 @@ const PERIOD_OPTIONS = [
 // Onglet Journal
 // intent (depuis App) : { kind: 'new', prefill } | { kind: 'edit', entryId }
 // ----------------------------------------------------------------------
-export default function JournalTab({ intent, clearIntent }) {
-  const { store, update, session } = useStore();
+export default function JournalTab({ intent, clearIntent, absenceSince = null, onDismissAbsence }) {
+  const { store, update, session, firebaseUser } = useStore();
   const showToast = useToast();
   const activeChild = getActiveChild(store);
   const [period, setPeriod] = useState('today');
@@ -122,8 +124,13 @@ export default function JournalTab({ intent, clearIntent }) {
 
   if (!activeChild) return <NoChildState />;
 
+  const absence = absenceSummary(childEntries, activeChild.id, absenceSince, firebaseUser?.uid);
+  const night = showNightRecapAt() ? nightRecap(childEntries, activeChild.id) : null;
+
   return (
     <div>
+      <AbsenceCard summary={absence} onDismiss={onDismissAbsence} />
+      <NightRecapCard recap={night} />
       <TodayOverview
         entries={childEntries}
         child={activeChild}

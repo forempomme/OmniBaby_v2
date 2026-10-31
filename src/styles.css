@@ -2097,3 +2097,104 @@ button, .quick-btn, .tool-card, .chip, .pill-choice, .tab-btn {
 .set-label { font-weight: 600 !important; font-size: .86rem !important; }
 .set-desc { font-size: .72rem !important; margin-top: 2px !important; }
 .set-hint { font-size: .72rem !important; margin-top: 4px !important; }
+
+/* ── v3.16 : Statistiques des tétées ── */
+.feed-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.feed-kpis div { background: var(--surface-2); border-radius: 12px; padding: 8px; text-align: center; }
+.feed-kpis b { display: block; font-family: var(--font-mono); font-size: 1rem; color: var(--text); }
+.feed-kpis span { font-size: .7rem; color: var(--text-soft); }
+.side-split { display: flex; height: 10px; border-radius: 999px; overflow: hidden; margin-top: 12px; gap: 2px; }
+.side-split i { display: block; }
+.side-split .g { background: var(--primary); }
+.side-split .d { background: var(--accent-sky); }
+.side-split .b { background: var(--accent-sun); }
+.alert-box.warn { background: var(--accent-sun-soft); border: 1.5px solid var(--accent-sun); color: var(--text); }
+.alert-box.warn svg { color: var(--accent-sun); }
+
+/* ── v3.16 : Premiers jours, vitamine K ── */
+.first-days .fd-day { font-family: var(--font-mono); font-weight: 700; color: var(--primary-deep); background: var(--primary-soft); border-radius: 999px; padding: 2px 10px; font-size: .85rem; }
+.fd-block { margin-top: 14px; }
+.fd-h { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: .85rem; margin-bottom: 8px; color: var(--text); }
+.fd-birth { display: flex; gap: 8px; }
+.fd-birth input { flex: 1; min-width: 0; }
+.fd-weights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+.fd-weights div { background: var(--surface-2); border-radius: 12px; padding: 8px; }
+.fd-weights span { display: block; font-size: .68rem; color: var(--text-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fd-weights b { font-family: var(--font-mono); font-size: .95rem; }
+.fd-pct.ok b { color: var(--accent-sage); }
+.fd-pct.watch { background: var(--accent-sun-soft) !important; }
+.fd-pct.alert { background: var(--danger-soft) !important; }
+.fd-pct.alert b { color: var(--danger); }
+.fd-msg { display: flex; gap: 6px; align-items: flex-start; font-size: .8rem; line-height: 1.4; }
+.fd-msg svg { flex-shrink: 0; margin-top: 1px; }
+.fd-msg.ok { color: var(--accent-sage); font-weight: 600; }
+.fd-msg.watch svg { color: var(--accent-sun); }
+.fd-msg.alert { color: var(--danger); font-weight: 600; }
+.fd-table { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.fd-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr; padding: 7px 10px; font-size: .82rem; border-top: 1px solid var(--border); }
+.fd-row:first-child { border-top: none; }
+.fd-row.head { background: var(--surface-2); font-size: .7rem; font-weight: 700; color: var(--text-soft); text-transform: uppercase; letter-spacing: .03em; }
+.fd-row.today { background: var(--primary-soft); }
+.fd-row span:not(:first-child) { font-family: var(--font-mono); }
+.fd-row em { font-style: normal; color: var(--text-faint); }
+.fd-row .low { color: var(--danger); font-weight: 700; }
+.vitk { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+.vitk-list { display: flex; flex-direction: column; gap: 6px; }
+.vitk-dose { display: flex; gap: 10px; align-items: center; text-align: left; background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 12px; padding: 8px 10px; color: var(--text); width: 100%; }
+.vitk-dose.done { border-color: var(--accent-sage); }
+.vitk-box { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.vitk-dose.done .vitk-box { background: var(--accent-sage); border-color: var(--accent-sage); color: #fff; }
+.vitk-txt b { display: block; font-size: .85rem; }
+.vitk-txt span { font-size: .74rem; color: var(--text-soft); }
+
+/* ── v3.16 : résumés du Journal ── */
+.recap-card { border-radius: var(--radius-md); padding: 12px; margin-bottom: 12px; border: 1.5px solid var(--border); background: var(--surface); box-shadow: var(--shadow-sm); }
+.recap-card.absence { border-color: var(--accent-sage); background: var(--accent-sage-soft); }
+.recap-card.night { border-color: var(--accent-sky); background: var(--accent-sky-soft); }
+.recap-head { display: flex; gap: 10px; align-items: flex-start; }
+.recap-head b { display: block; font-size: .92rem; }
+.recap-head span { display: block; font-size: .76rem; color: var(--text-soft); margin-top: 1px; }
+.recap-ic { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--surface); }
+.absence .recap-ic { color: var(--accent-sage); }
+.night .recap-ic { color: var(--accent-sky); }
+.recap-x { width: 36px; height: 36px; margin: -6px -6px 0 0; display: flex; align-items: center; justify-content: center; color: var(--text-soft); flex-shrink: 0; }
+.recap-lines { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.recap-lines li { display: flex; align-items: center; gap: 7px; font-size: .84rem; font-weight: 600; }
+.recap-lines svg { color: var(--text-soft); flex-shrink: 0; }
+.recap-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.recap-kpis div { background: var(--surface); border-radius: 12px; padding: 7px 8px; text-align: center; }
+.recap-kpis b { display: block; font-family: var(--font-mono); font-size: .95rem; }
+.recap-kpis span { font-size: .68rem; color: var(--text-soft); }
+.recap-foot { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 9px; font-size: .8rem; font-weight: 600; }
+.recap-foot span { display: flex; align-items: center; gap: 5px; }
+.lait-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.lait-flow div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
+.lait-flow span { display: block; font-size: .68rem; color: var(--text-soft); line-height: 1.2; }
+.lait-flow b { font-family: var(--font-mono); font-size: .95rem; }
+
+/* ── v3.16 : médicaments (pipette en kg, garde-fous) ── */
+.medoc-pipette-info { display: flex; gap: 8px; align-items: flex-start; background: var(--accent-sky-soft); border-radius: 12px; padding: 10px; font-size: .8rem; line-height: 1.45; margin-bottom: 14px; }
+.medoc-pipette-info svg { color: var(--accent-sky); flex-shrink: 0; margin-top: 2px; }
+.medoc-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; font-size: .75rem; color: var(--text-soft); }
+.medoc-meta .stop { color: var(--danger); font-weight: 700; }
+.medoc-meta .warn { color: var(--accent-sun); font-weight: 600; }
+.medoc-confirm { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.medoc-confirm .alert-box { font-size: .8rem; }
+.medoc-confirm-btns { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ── v3.16 : Démarches ── */
+.dem-item { display: flex; gap: 10px; width: 100%; text-align: left; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 11px 12px; margin-bottom: 8px; color: var(--text); }
+.dem-item.done { opacity: .62; }
+.dem-item.late { border-color: var(--danger); }
+.dem-item.soon { border-color: var(--accent-sun); }
+.dem-box { width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.dem-item.done .dem-box { background: var(--accent-sage); border-color: var(--accent-sage); color: #fff; }
+.dem-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dem-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dem-top b { font-size: .9rem; }
+.dem-tag { font-style: normal; font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; padding: 2px 7px; border-radius: 999px; flex-shrink: 0; }
+.dem-tag.late { background: var(--danger-soft); color: var(--danger); }
+.dem-tag.soon { background: var(--accent-sun-soft); color: var(--text); }
+.dem-tag.done { background: var(--accent-sage-soft); color: var(--accent-sage); }
+.dem-when { font-size: .78rem; font-weight: 600; color: var(--primary-deep); }
+.dem-detail { font-size: .76rem; color: var(--text-soft); line-height: 1.4; }

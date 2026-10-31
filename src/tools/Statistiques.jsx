@@ -60,6 +60,58 @@ function BarChart({ series, color, unit, formatValue }) {
 }
 
 // ----------------------------------------------------------------------
+// Tétées au sein (v3.16) : durée moyenne, intervalle entre repas, côtés
+// ----------------------------------------------------------------------
+export function feedStats(entries, days, now = new Date()) {
+  const since = new Date(now); since.setHours(0, 0, 0, 0); since.setDate(since.getDate() - (days - 1));
+  const feeds = (entries || []).filter((e) => e.type === 'biberon' && new Date(e.date) >= since && new Date(e.date) <= now)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const seins = feeds.filter((e) => e.mode === 'sein');
+  const timed = seins.filter((e) => Number(e.duree) > 0);
+  const avgDuree = timed.length ? timed.reduce((s, e) => s + Number(e.duree), 0) / timed.length : null;
+  // Intervalle médian entre deux repas (tétées et biberons) : moins
+  // sensible qu'une moyenne aux nuits longues
+  const gaps = [];
+  for (let i = 1; i < feeds.length; i++) gaps.push((new Date(feeds[i].date) - new Date(feeds[i - 1].date)) / 60000);
+  gaps.sort((a, b) => a - b);
+  const medianGap = gaps.length ? (gaps.length % 2 ? gaps[(gaps.length - 1) / 2] : (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2) : null;
+  const sides = { gauche: 0, droit: 0, deux: 0 };
+  for (const e of seins) if (sides[e.cote] !== undefined) sides[e.cote]++;
+  return { count: seins.length, perDay: seins.length / days, avgDuree, medianGap, sides };
+}
+
+const hm = (min) => (min == null ? '—' : min < 60 ? `${Math.round(min)} min` : `${Math.floor(min / 60)} h ${String(Math.round(min % 60)).padStart(2, '0')}`);
+
+function FeedCard({ entries, days, series }) {
+  const st = feedStats(entries, days);
+  if (!st.count) return null;
+  const total = st.sides.gauche + st.sides.droit + st.sides.deux || 1;
+  const pct = (n) => Math.round((n / total) * 100);
+  return (
+    <div className="card appear">
+      <div className="section-title"><Icon name="baby" size={18} style={{ color: 'var(--primary)' }} /> Tétées au sein</div>
+      <BarChart series={series} color="var(--primary)" formatValue={(v) => v} />
+      <div className="feed-kpis">
+        <div><b>{st.perDay.toFixed(1)}</b><span>par jour</span></div>
+        <div><b>{hm(st.avgDuree)}</b><span>durée moyenne</span></div>
+        <div><b>{hm(st.medianGap)}</b><span>entre 2 repas</span></div>
+      </div>
+      <div className="side-split" aria-label="Répartition des côtés">
+        {st.sides.gauche > 0 && <i className="g" style={{ flex: st.sides.gauche }} />}
+        {st.sides.deux > 0 && <i className="b" style={{ flex: st.sides.deux }} />}
+        {st.sides.droit > 0 && <i className="d" style={{ flex: st.sides.droit }} />}
+      </div>
+      <div className="flex-between muted fs-78 mt-8">
+        <span>Gauche {pct(st.sides.gauche)} %</span>
+        {st.sides.deux > 0 && <span>Les deux {pct(st.sides.deux)} %</span>}
+        <span>Droit {pct(st.sides.droit)} %</span>
+      </div>
+      <div className="muted fs-78 mt-8">Durée moyenne calculée sur les tétées chronométrées ou dont la durée est notée. Intervalle : médiane entre deux repas (tétées et biberons).</div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
 // Stat card avec tendance
 // ----------------------------------------------------------------------
 function StatCard({ title, iconName, series, color, unit, formatValue }) {
@@ -280,8 +332,12 @@ function MilkCard({ child, entries, mesures, days }) {
 function exportCSV(entries, childName) {
   const rows = [['Date','Type','Valeur','Unité','Note']];
   for (const e of entries) {
-    if (e.type === 'biberon') {
+    if (e.type === 'biberon' && e.mode === 'sein') {
+      rows.push([e.date, 'Tétée ' + (e.cote||''), e.duree||'', 'min', e.note||'']);
+    } else if (e.type === 'biberon') {
       rows.push([e.date, 'Biberon', e.quantite||'', 'ml', e.note||'']);
+    } else if (e.type === 'tirelait') {
+      rows.push([e.date, 'Tire-lait', e.quantite||'', 'ml', e.note||'']);
     } else if (e.type === 'couche') {
       rows.push([e.date, 'Couche', e.contenu||'', '', e.note||'']);
     } else if (e.type === 'sommeil') {
@@ -339,6 +395,9 @@ export default function StatistiquesTool() {
   const biberonMlSeries = useMemo(() => buildDailySeries(childEntries.filter(e=>e.type==='biberon'&&e.mode!=='sein'),'date',days,(e)=>Number(e.quantite)||0), [childEntries,days]);
   const coucheSeries    = useMemo(() => buildDailySeries(childEntries.filter(e=>e.type==='couche'),'date',days), [childEntries,days]);
   const sommeilSeries   = useMemo(() => buildDailySeries(childSommeils,'date',days,(s)=>(s.duree||0)/60), [childSommeils,days]);
+  const teteeSeries     = useMemo(() => buildDailySeries(childEntries.filter(e=>e.type==='biberon'&&e.mode==='sein'),'date',days), [childEntries,days]);
+  const tirelait        = useMemo(() => childEntries.filter(e=>e.type==='tirelait'), [childEntries]);
+  const tirelaitSeries  = useMemo(() => buildDailySeries(tirelait,'date',days,(e)=>Number(e.quantite)||0), [tirelait,days]);
 
   if (!activeChild) {
     return (
@@ -394,9 +453,11 @@ export default function StatistiquesTool() {
             <>
               <MilkCard child={activeChild} entries={childEntries} mesures={childMesures} days={days} />
               <StatCard title="Biberons / tétées" iconName="bottle" series={biberonSeries} color="var(--primary)" formatValue={v=>v.toFixed(1)} />
+              <FeedCard entries={childEntries} days={days} series={teteeSeries} />
               <StatCard title="Lait biberon" iconName="bottle" series={biberonMlSeries} color="var(--accent-sun)" unit=" ml" formatValue={v=>Math.round(v)} />
               <StatCard title="Couches" iconName="droplet" series={coucheSeries} color="var(--accent-sage)" formatValue={v=>v.toFixed(1)} />
               <StatCard title="Sommeil" iconName="moon" series={sommeilSeries} color="var(--accent-sky)" unit=" h" formatValue={v=>v.toFixed(1)} />
+              {tirelait.length > 0 && <StatCard title="Tire-lait" iconName="pump" series={tirelaitSeries} color="var(--accent-sky)" unit=" ml" formatValue={v=>Math.round(v)} />}
             </>
           )}
         </>

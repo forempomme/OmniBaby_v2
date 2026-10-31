@@ -100,3 +100,28 @@ export function pumpedText(pot, now = new Date()) {
   const same = d.toDateString() === now.toDateString();
   return same ? `tiré aujourd'hui ${formatTimeFR(d)}` : `tiré le ${dm(d)} à ${formatTimeFR(d)}`;
 }
+
+// ----------------------------------------------------------------------
+// v3.16 : production et autonomie du stock
+// Production = tire-lait notés ; consommation = biberons de lait maternel
+// (« Utiliser → biberon » ou case « Lait maternel tiré » du formulaire),
+// moyennes sur les N derniers jours complets + aujourd'hui.
+// ----------------------------------------------------------------------
+export function milkFlows(entries, childId, now = new Date(), days = 7) {
+  const since = new Date(now); since.setHours(0, 0, 0, 0); since.setDate(since.getDate() - (days - 1));
+  const inWin = (e) => e.childId === childId && new Date(e.date) >= since && new Date(e.date) <= now;
+  const list = (entries || []).filter(inWin);
+  const pumped = list.filter((e) => e.type === 'tirelait').reduce((s, e) => s + (Number(e.quantite) || 0), 0);
+  const drunk = list.filter((e) => e.type === 'biberon' && e.mode !== 'sein' && (e.laitMaternel || e.potId)).reduce((s, e) => s + (Number(e.quantite) || 0), 0);
+  return { days, pumpedPerDay: Math.round(pumped / days), drunkPerDay: Math.round(drunk / days) };
+}
+
+// Jours d'autonomie du stock au rythme de consommation actuel (null : pas
+// de consommation notée)
+export function stockAutonomy(pots, entries, childId, now = new Date()) {
+  const s = stockSummary(pots, now);
+  const stock = s.frigo.ml + s.congel.ml;
+  const { drunkPerDay } = milkFlows(entries, childId, now);
+  if (!(drunkPerDay > 0)) return { stock, days: null };
+  return { stock, days: Math.round((stock / drunkPerDay) * 10) / 10 };
+}

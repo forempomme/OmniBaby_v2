@@ -55,6 +55,8 @@ export default function QuickEntryBar({ entries, onLongPress }) {
     const last = entries.find((e) => e.type === 'biberon' && e.mode !== 'sein' && Number(e.quantite) > 0);
     return Number(last?.quantite) || Number(store.settings?.defaultBiberonMl) || 120;
   }, [entries, store.settings?.defaultBiberonMl]);
+  // Biberon 1 tap : même lait que le dernier biberon (maternel ou non)
+  const lastMilk = useMemo(() => !!entries.find((e) => e.type === 'biberon' && e.mode !== 'sein' && Number(e.quantite) > 0)?.laitMaternel, [entries]);
 
   const nextSide = useMemo(() => {
     const last = entries.find((e) => e.type === 'biberon' && e.mode === 'sein');
@@ -88,7 +90,7 @@ export default function QuickEntryBar({ entries, onLongPress }) {
   };
 
   const actions = [
-    { key: 'biberon', label: 'Biberon', sub: `${lastQty} ml`, prefill: { type: 'biberon', mode: 'biberon', quantite: lastQty }, run: () => quickSave('biberon', 'biberon', { mode: 'biberon', quantite: lastQty }) },
+    { key: 'biberon', label: 'Biberon', sub: `${lastQty} ml`, prefill: { type: 'biberon', mode: 'biberon', quantite: lastQty, laitMaternel: lastMilk }, run: () => quickSave('biberon', 'biberon', { mode: 'biberon', quantite: lastQty, ...(lastMilk ? { laitMaternel: true } : {}) }) },
     timer
       ? { key: 'tetee', label: 'Tétée', sub: `${timer.running ? '●' : 'pause'} ${timer.text}`, live: true, run: () => startTeteeTimer(nextSide, timerMeta(activeChild, firebaseUser)) }
       : { key: 'tetee', label: 'Tétée', sub: `▶ ${nextSide}`, prefill: { type: 'biberon', mode: 'sein', cote: nextSide }, run: () => startTeteeTimer(nextSide, timerMeta(activeChild, firebaseUser)) },

@@ -5,6 +5,7 @@ import { Icon } from '../icons.jsx';
 import {
   LIEUX, SOON_H, FRIGO_H, CONGEL_MOIS, DECONGELE_H,
   potExpiry, potStatus, stockSummary, sortPots, moveTo, biberonFromPot, expiryText, pumpedText,
+  milkFlows, stockAutonomy,
 } from '../lait.js';
 
 // ----------------------------------------------------------------------
@@ -48,6 +49,8 @@ export default function StockLaitTool() {
     [store.lait, activeChild?.id]
   );
   const sum = stockSummary(pots, now);
+  const flows = milkFlows(store.entries, activeChild?.id, now);
+  const auto = stockAutonomy(pots, store.entries, activeChild?.id, now);
 
   const patchPot = (pot, fields, toast) => {
     let after = null;
@@ -101,6 +104,17 @@ export default function StockLaitTool() {
       <div className="lait-kpis">
         <div><b className="mono">{sum.frigo.ml} ml</b><span><Icon name="fridge" size={13} /> frigo · {sum.frigo.n} pot{sum.frigo.n > 1 ? 's' : ''}</span></div>
         <div><b className="mono">{sum.congel.ml} ml</b><span><Icon name="snow" size={13} /> congélateur · {sum.congel.n} sachet{sum.congel.n > 1 ? 's' : ''}</span></div>
+      </div>
+
+      <div className="lait-flow">
+        <div><span>Autonomie du stock</span><b>{auto.days == null ? '—' : `≈ ${String(auto.days).replace('.', ',')} j`}</b></div>
+        <div><span>Tiré / jour (7 j)</span><b>{flows.pumpedPerDay} ml</b></div>
+        <div><span>Bu au biberon / jour</span><b>{flows.drunkPerDay} ml</b></div>
+      </div>
+      <div className="muted fs-78" style={{ margin: '-4px 0 12px' }}>
+        {auto.days == null
+          ? 'Autonomie : coche « Lait maternel tiré » sur les biberons (ou utilise un pot ci-dessous) pour la calculer.'
+          : `Stock de ${auto.stock} ml au rythme des biberons de lait maternel des 7 derniers jours.`}
       </div>
 
       {canEdit && (

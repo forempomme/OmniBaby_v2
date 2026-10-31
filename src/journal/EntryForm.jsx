@@ -44,8 +44,11 @@ function Pills({ options, value, onChange }) {
   );
 }
 
+// Case « Lait maternel tiré » : enfants allaités (ou en mixte)
+const breastMilk = (child) => child?.alimentation === 'allaitement' || child?.alimentation === 'mixte';
+
 // afterSide : bloc inséré après le choix du côté (bouton chrono de tétée)
-function FeedingFields({ f, set, showVitD, idSuffix, afterSide = null }) {
+function FeedingFields({ f, set, showVitD, showMilk = false, idSuffix, afterSide = null }) {
   return (
     <>
       <div className="field">
@@ -64,6 +67,12 @@ function FeedingFields({ f, set, showVitD, idSuffix, afterSide = null }) {
         </div>
       )}
       {f.mode === 'sein' && afterSide}
+      {f.mode === 'biberon' && showMilk && (
+        <label className="check-row" htmlFor={`milk-${idSuffix}`}>
+          <input type="checkbox" id={`milk-${idSuffix}`} checked={!!f.laitMaternel} onChange={(e) => set('laitMaternel', e.target.checked)} />
+          Lait maternel tiré
+        </label>
+      )}
       <div className="field">
         <label>Durée (minutes, optionnel)</label>
         <input type="number" inputMode="numeric" value={f.duree} onChange={(e) => set('duree', e.target.value)} placeholder="15" />
@@ -119,8 +128,8 @@ function applyFields(base, type, f) {
   const out = { ...base };
   if (type === 'biberon') {
     out.mode = f.mode;
-    if (f.mode === 'biberon') { out.quantite = Number(f.quantite) || 0; delete out.cote; }
-    else { out.cote = f.cote; delete out.quantite; }
+    if (f.mode === 'biberon') { out.quantite = Number(f.quantite) || 0; delete out.cote; out.laitMaternel = !!f.laitMaternel; }
+    else { out.cote = f.cote; delete out.quantite; delete out.laitMaternel; }
     if (f.duree) out.duree = Number(f.duree); else delete out.duree;
     out.vitamineD = !!f.vitamineD;
   } else if (type === 'couche') {
@@ -164,6 +173,7 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
     cote: prefill?.cote || suggestedSide(lastCote),
     duree: prefill?.duree ?? '',
     vitamineD: !!prefill?.vitamineD,
+    laitMaternel: !!prefill?.laitMaternel,
     contenu: prefill?.contenu || 'pipi',
     couleur: '',
     note: '',
@@ -261,7 +271,7 @@ export function EntryForm({ open, onClose, prefill, onPickSommeil }) {
 
       {!chronoMode && dateField}
 
-      {f.type === 'biberon' && <FeedingFields f={f} set={set} showVitD={showVitD} idSuffix="new" afterSide={chronoBlock} />}
+      {f.type === 'biberon' && <FeedingFields f={f} set={set} showVitD={showVitD} showMilk={breastMilk(activeChild)} idSuffix="new" afterSide={chronoBlock} />}
 
       {f.type === 'couche' && (
         <div className="field">
@@ -324,6 +334,7 @@ export function EditEntryModal({ entry, onClose }) {
     cote: entry.cote || 'gauche',
     duree: entry.duree ?? '',
     vitamineD: !!entry.vitamineD,
+    laitMaternel: !!entry.laitMaternel,
     contenu: entry.contenu || 'pipi',
     couleur: entry.couleur || '',
     rangement: entry.rangement || 'frigo',
@@ -353,7 +364,7 @@ export function EditEntryModal({ entry, onClose }) {
         <input type="datetime-local" value={f.datetime} onChange={(e) => set('datetime', e.target.value)} />
       </div>
 
-      {entry.type === 'biberon' && <FeedingFields f={f} set={set} showVitD idSuffix="edit" />}
+      {entry.type === 'biberon' && <FeedingFields f={f} set={set} showVitD showMilk={breastMilk(child) || !!entry.laitMaternel} idSuffix="edit" />}
 
       {entry.type === 'couche' && (
         <div className="field">

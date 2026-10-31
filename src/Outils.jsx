@@ -14,6 +14,7 @@ import DeveloppementTool from './tools/Developpement.jsx';
 import HistoriqueTool from './tools/Historique.jsx';
 import JournalBordTool from './tools/JournalBord.jsx';
 import StockLaitTool from './tools/StockLait.jsx';
+import DemarchesTool from './tools/Demarches.jsx';
 
 // ----------------------------------------------------------------------
 // Tool definitions
@@ -29,6 +30,7 @@ const TOOLS = [
   { key: 'journalbord', icon: 'camera', tone: 'sun', name: 'Journal de bord', desc: 'Souvenirs, premières fois, moments drôles' },
   { key: 'developpement', icon: 'puzzle', tone: 'sky', name: 'Développement', desc: 'Repères moteurs, langage et éveil par âge' },
   { key: 'rappels', icon: 'bell', tone: 'sun', name: 'Rappels', desc: 'RDV, courses, visites médicales' },
+  { key: 'demarches', icon: 'calendar', tone: 'primary', name: 'Démarches', desc: 'Déclaration, congés, CAF, Sécu : les dates limites' },
   { key: 'historique', icon: 'history', tone: 'primary', name: 'Historique', desc: 'Toutes les entrées, chronologique' },
   { key: 'famille', icon: 'users', tone: 'sage', name: 'Famille', desc: 'Utilisateurs et rôles' },
   { key: 'urgence', icon: 'alert', tone: 'danger', name: 'Urgence', desc: 'Fiche allergies, médecin, contacts' },
@@ -90,6 +92,8 @@ export default function OutilsTab({ openToolKey, setOpenToolKey, onTimerFinish }
         return <JournalBordTool />;
       case 'stocklait':
         return <StockLaitTool />;
+      case 'demarches':
+        return <DemarchesTool />;
       default:
         return null;
     }

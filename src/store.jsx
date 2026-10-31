@@ -202,6 +202,8 @@ export function migrateStore(raw) {
     contactUrgenceTel: c.contactUrgenceTel || '',
     notesMedicales: c.notesMedicales || '',
     lastVitDDate: c.lastVitDDate || null,
+    // v3.16 : vitamine K (dates des doses)
+    ...(c.vitK ? { vitK: c.vitK } : {}),
     ...(c.isTest ? { isTest: true } : {}),
   }));
 

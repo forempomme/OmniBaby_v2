@@ -16,6 +16,11 @@ import {
 import { Modal } from './Modal.jsx';
 import NoChildState from './NoChildState.jsx';
 import { Icon } from './icons.jsx';
+import FirstDaysCard from './sante/FirstDaysCard.jsx';
+import VitaminKCard from './sante/VitaminKCard.jsx';
+import { showFirstDays } from './firstDays.js';
+import { showVitK } from './vitaminK.js';
+import { weightDrop } from './growthAlert.js';
 import {
   WEIGHT_LMS,
   HEIGHT_LMS,
@@ -325,6 +330,8 @@ function MesureSection({ type, child, mesures, canEdit }) {
         </div>
       )}
 
+      {type === 'poids' && <WeightDropAlert child={child} mesures={mesures} />}
+
       {typeMesures.length === 0 ? (
         <div className="empty-state" style={{ padding: '24px 12px' }}>
           <div className="desc">Aucune mesure enregistrée. Ajoute la première pour voir la courbe.</div>
@@ -353,6 +360,22 @@ function MesureSection({ type, child, mesures, canEdit }) {
       )}
 
       <MesureForm open={formOpen} onClose={() => setFormOpen(false)} type={type} child={child} />
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------
+// Changement de couloir (poids) : 2 lignes de percentile ou plus
+// ----------------------------------------------------------------------
+function WeightDropAlert({ child, mesures }) {
+  const drop = useMemo(() => weightDrop(mesures, child), [mesures, child]);
+  if (!drop) return null;
+  return (
+    <div className="alert-box warn mt-8">
+      <Icon name="trendDown" size={20} />
+      <span>
+        <strong>Le poids a changé de couloir</strong> : {drop.from.band} le {formatDateFR(drop.from.date)}, {drop.to.band} le {formatDateFR(drop.to.date)} ({drop.lines} lignes de percentile franchies). À montrer au pédiatre, avec la courbe.
+      </span>
     </div>
   );
 }
@@ -468,6 +491,10 @@ export default function SanteTab() {
     () => filterByActiveChild(store.mesures, store.activeChildId),
     [store.mesures, store.activeChildId]
   );
+  const childEntries = useMemo(
+    () => filterByActiveChild(store.entries, store.activeChildId),
+    [store.entries, store.activeChildId]
+  );
   const childVaccins = useMemo(
     () => filterByActiveChild(store.vaccins, store.activeChildId),
     [store.vaccins, store.activeChildId]
@@ -488,8 +515,12 @@ export default function SanteTab() {
       <div className="row-end">
         <button className="btn btn-secondary btn-sm" onClick={handlePDF}>Résumé PDF pour le pédiatre</button>
       </div>
-      <Accordion icon="💊" title={ageM != null && ageM >= 24 ? 'Alimentation' : 'Vitamine D & alimentation'} defaultOpen stateKey="sante.vitd">
+      {showFirstDays(activeChild) && (
+        <FirstDaysCard child={activeChild} mesures={childMesures} entries={childEntries} canEdit={canEdit} />
+      )}
+      <Accordion icon="💊" title={ageM != null && ageM >= 24 ? 'Alimentation' : showVitK(activeChild) ? 'Vitamines D & K, alimentation' : 'Vitamine D & alimentation'} defaultOpen stateKey="sante.vitd">
         <VitaminDCard child={activeChild} canEdit={canEdit} />
+        {showVitK(activeChild) && <VitaminKCard child={activeChild} canEdit={canEdit} />}
         <FeedingAdviceCard child={activeChild} />
       </Accordion>
       <Accordion icon="⚖️" title="Poids" badge={count('poids')} defaultOpen stateKey="sante.poids">

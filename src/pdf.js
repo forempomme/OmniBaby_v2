@@ -14,6 +14,7 @@ import {
 } from './data/who-growth.js';
 import { shareFileNative, toISODate, parseLocalDate } from './utils.jsx';
 import { stoolColor } from './journal/entryTypes.js';
+import { weightDrop } from './growthAlert.js';
 
 // ── Couleurs (maquette validée) ─────────────────────────────────────
 const C = {
@@ -132,6 +133,7 @@ export function computeWeek(store, child, now = new Date()) {
   const paleStools = entries.filter((e) => e.type === 'couche' && stoolColor(e.couleur)?.pale).length;
   const sleepMin = entries.filter((e) => e.type === 'sommeil' && !e.enCours)
     .reduce((s, e) => s + (Number(e.duree) || 0), 0);
+  const pumped = entries.filter((e) => e.type === 'tirelait').reduce((s, e) => s + (Number(e.quantite) || 0), 0);
   const temps = forChild(store.temperatures, child).filter((t) => inPeriod(t.date));
   const maxTemp = temps.length ? Math.max(...temps.map((t) => Number(t.valeur) || 0)) : null;
 
@@ -139,6 +141,7 @@ export function computeWeek(store, child, now = new Date()) {
   if (feeds.length) rows.push(['Biberons et tétées', fmt(feeds.length), fmt(feeds.length / 7, 1)]);
   if (milk) rows.push(['Lait au biberon', `${fmt(milk)} ml`, `${fmt(milk / 7)} ml`]);
   if (breastMin) rows.push(['Tétées (durée saisie)', fmtHours(breastMin), fmtHours(breastMin / 7)]);
+  if (pumped) rows.push(['Lait tiré (tire-lait)', `${fmt(pumped)} ml`, `${fmt(pumped / 7)} ml`]);
   if (diapers) rows.push(['Changes', fmt(diapers), fmt(diapers / 7, 1)]);
   if (paleStools) rows.push(['Selles décolorées signalées', fmt(paleStools), 'à vérifier']);
   if (sleepMin) rows.push(['Sommeil (nuits + siestes saisies)', fmtHours(sleepMin), fmtHours(sleepMin / 7)]);
@@ -405,6 +408,15 @@ export async function exportPediatricPDF(store, child) {
   }
 
   // ── Vaccinations ──
+  // Changement de couloir sur la courbe de poids (v3.16)
+  const drop = weightDrop(store.mesures, child, now);
+  if (drop) {
+    font('bold', 8.5, C.ink);
+    const txt = `Poids : changement de couloir, ${drop.from.band} (${fmtDate(drop.from.date)}), puis ${drop.to.band} (${fmtDate(drop.to.date)}), ${drop.lines} lignes de percentile franchies.`;
+    doc.text(doc.splitTextToSize(txt, RIGHT - M), M, y);
+    y += 9;
+  }
+
   section('Vaccinations', 24);
   const done = forChild(store.vaccins, child).filter((v) => v.status !== 'todo')
     .sort((a, b) => new Date(a.date) - new Date(b.date));
